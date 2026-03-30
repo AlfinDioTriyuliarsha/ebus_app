@@ -1,12 +1,11 @@
-// db.js
 const { Pool } = require('pg');
 
+// Gunakan DATABASE_URL dari Railway Environment Variables
 const pool = new Pool({
-    user: 'postgres', 
-    host: 'localhost',
-    database: 'ebusdb', 
-    password: '1234', 
-    port: 5432,
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // WAJIB untuk Neon agar tidak Error
+    }
 });
 
 // ===================================================================
@@ -15,12 +14,12 @@ const pool = new Pool({
 pool.upsertSocialUser = async (email, name, provider, social_id) => {
     try {
         // Cek apakah user sudah ada berdasarkan email
-        let result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+        let result = await pool.query("SELECT * FROM public.users WHERE email = $1", [email]);
         
         if (result.rows.length === 0) {
-            // Jika belum ada, insert sesuai kolom yang ada di pgAdmin Anda
+            // Jika belum ada, insert (Gunakan skema public agar lebih aman)
             result = await pool.query(
-                "INSERT INTO users (email, name, role, provider, social_id, created_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *",
+                "INSERT INTO public.users (email, name, role, provider, social_id, created_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *",
                 [email, name, 'penumpang', provider, social_id]
             );
         }

@@ -9,7 +9,6 @@ const companyRoutes = require("./routes/companyRoutes");
 const busRoutes = require("./routes/busRoutes");
 
 const app = express();
-const PORT = 3000;
 
 // ================= MIDDLEWARE =================
 app.use(helmet());
@@ -46,6 +45,9 @@ app.use((err, req, res, next) => {
 });
 
 // ================= SERVER LISTEN =================
+// Railway memberikan port melalui process.env.PORT
+const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
