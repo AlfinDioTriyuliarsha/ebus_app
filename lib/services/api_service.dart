@@ -1,40 +1,20 @@
 // lib/services/api_service.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'dart:io' show Platform;
 
 class ApiService {
-  static String? baseUrl;
+  // Ganti dengan domain Railway Anda
+  static const String baseUrl = "https://ebusapp-production.up.railway.app";
 
   /// Header default
   static Map<String, String> get _headers => {
     "Content-Type": "application/json",
   };
 
-  /// Inisialisasi baseUrl otomatis
+  /// Fungsi init sekarang hanya untuk log, karena baseUrl sudah konstan
   static Future<void> init() async {
-    if (kIsWeb) {
-      final host = Uri.base.host;
-      baseUrl = "http://$host:3000";
-    }
-    // ANDROID (HP ASLI & EMULATOR)
-    else if (Platform.isAndroid) {
-      baseUrl = "http://10.80.149.226:3000";
-    }
-    // IOS
-    else if (Platform.isIOS) {
-      baseUrl = "http://10.80.149.226:3000";
-    }
-    // DESKTOP
-    else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      baseUrl = "http://localhost:3000";
-    } else {
-      baseUrl = "http://10.80.149.226:3000";
-    }
-
-    print("✅ Base URL terdeteksi: $baseUrl");
+    print("✅ Base URL Terhubung ke Cloud: $baseUrl");
   }
 
   // ==========================================================
@@ -43,14 +23,8 @@ class ApiService {
   static Future<Map<String, dynamic>> login(
     String email,
     String password, {
-    required String device, // 🔥 TAMBAHAN WAJIB
+    required String device,
   }) async {
-    if (baseUrl == null) {
-      throw Exception(
-        "API belum diinisialisasi. Panggil ApiService.init() dulu.",
-      );
-    }
-
     final url = Uri.parse("$baseUrl/api/users/login");
 
     try {
@@ -60,15 +34,11 @@ class ApiService {
         body: jsonEncode({
           "email": email,
           "password": password,
-          "device": device, // 🔥 DIKIRIM KE BACKEND
+          "device": device,
         }),
       );
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        return jsonDecode(response.body);
-      }
+      return jsonDecode(response.body);
     } catch (e) {
       throw Exception("Tidak bisa terhubung ke server: $e");
     }
@@ -80,12 +50,6 @@ class ApiService {
     String password, {
     String? name,
   }) async {
-    if (baseUrl == null) {
-      throw Exception(
-        "API belum diinisialisasi. Panggil ApiService.init() dulu.",
-      );
-    }
-
     final url = Uri.parse("$baseUrl/api/users");
 
     final body = {
@@ -168,14 +132,7 @@ class ApiService {
     required String provider,
     required String socialId,
   }) async {
-    if (baseUrl == null) {
-      throw Exception(
-        "API belum diinisialisasi. Panggil ApiService.init() dulu.",
-      );
-    }
-
     final url = Uri.parse('$baseUrl/api/users/social-login');
-
     final String device = kIsWeb ? "web" : "mobile";
 
     try {

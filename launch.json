@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    { "name": "Ebus Web", "request": "launch", "type": "dart", "deviceId": "chrome" },
+    { "name": "Ebus Emulator", "request": "launch", "type": "dart", "deviceId": "android" },
+    { "name": "Ebus HP Fisik", "request": "launch", "type": "dart", "deviceId": "ID_HP_ANDA" }
+  ],
+  "compounds": [
+    {
+      "name": "All Devices",
+      "configurations": ["Ebus Web", "Ebus Emulator", "Ebus HP Fisik"]
+    }
+  ]
+}
