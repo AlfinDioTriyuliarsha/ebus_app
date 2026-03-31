@@ -14,9 +14,8 @@ const app = express();
 app.use(helmet());
 
 app.use(cors({
-    origin: "*",
+    origin: "*", // Mengizinkan semua domain (termasuk Vercel Anda)
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
