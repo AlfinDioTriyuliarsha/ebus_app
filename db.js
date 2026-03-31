@@ -3,9 +3,20 @@ const { Pool } = require('pg');
 // Gunakan DATABASE_URL dari Railway Environment Variables
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    // Tambahkan baris di bawah ini agar tidak putus di tengah jalan
+    connectionTimeoutMillis: 10000, 
     ssl: {
-        rejectUnauthorized: false // WAJIB untuk Neon agar tidak Error
+        rejectUnauthorized: false
     }
+});
+
+// Tes koneksi saat server nyala
+pool.connect((err, client, release) => {
+    if (err) {
+        return console.error('❌ GAGAL SAMBUNG DATABASE:', err.stack);
+    }
+    console.log('✅ DATABASE TERHUBUNG!');
+    release();
 });
 
 // ===================================================================
