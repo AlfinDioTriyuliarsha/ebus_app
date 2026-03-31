@@ -169,7 +169,7 @@ router.post("/login", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, email, role, profile_image FROM users"
+      "SELECT id, email, role, profile_image FROM public.users"
     );
 
     const users = result.rows.map((u) => ({

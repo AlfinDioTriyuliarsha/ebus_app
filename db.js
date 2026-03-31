@@ -3,8 +3,10 @@ const { Pool } = require('pg');
 // Gunakan DATABASE_URL dari Railway Environment Variables
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 5000, // Maksimal tunggu 5 detik
+    idleTimeoutMillis: 30000,
     ssl: {
-        rejectUnauthorized: false // WAJIB untuk Neon agar tidak Error
+        rejectUnauthorized: false
     }
 });
 
