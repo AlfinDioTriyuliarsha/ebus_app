@@ -11,11 +11,13 @@ const busRoutes = require("./routes/busRoutes");
 const app = express();
 
 // ================= MIDDLEWARE =================
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: false, // Tambahkan ini agar tidak bentrok dengan Vercel
+}));
 
 app.use(cors({
-    origin: "*", // Mengizinkan semua domain (termasuk Vercel Anda)
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: "*", 
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Tambahkan OPTIONS
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
