@@ -3,7 +3,7 @@ const { Pool } = require('pg');
 // Gunakan DATABASE_URL dari Railway Environment Variables
 const pool = new Pool({
   // Ganti URL_DATABASE_NEON_ANDA dengan link koneksi Neon Anda
-  connectionString: "URL_DATABASE_NEON_ANDA",
+  connectionString: "postgresql://neondb_owner:npg_4VCexcWsSRj1@ep-blue-mountain-a156wxkp.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
   ssl: {
     rejectUnauthorized: false, 
   },
