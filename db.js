@@ -2,19 +2,20 @@ const { Pool } = require('pg');
 
 // Gunakan DATABASE_URL dari Railway Environment Variables
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false, // Ini kunci agar koneksi lokal tidak error SSL
-  },
+    connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 10000, // Berhenti menunggu setelah 10 detik
+    ssl: {
+        rejectUnauthorized: false // Memaksa SSL agar cocok dengan Neon
+    }
 });
 
 // Tes koneksi saat server nyala
 pool.connect((err, client, release) => {
-  if (err) {
-    return console.error("❌ GAGAL SAMBUNG DATABASE:", err.stack);
-  }
-  console.log("✅ DATABASE TERHUBUNG!");
-  release();
+    if (err) {
+        return console.error('❌ GAGAL SAMBUNG DATABASE:', err.stack);
+    }
+    console.log('✅ DATABASE TERHUBUNG!');
+    release();
 });
 
 // ===================================================================
