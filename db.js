@@ -1,7 +1,7 @@
 const { Pool } = require('pg');
 
 // Gunakan DATABASE_URL dari Railway Environment Variables
-cconst pool = new Pool({
+const pool = new Pool({
   // Ganti URL_DATABASE_NEON_ANDA dengan link koneksi Neon Anda
   connectionString: "URL_DATABASE_NEON_ANDA",
   ssl: {
