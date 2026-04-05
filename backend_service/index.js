@@ -16,9 +16,10 @@ app.use(helmet({
 }));
 
 app.use(cors({
-    origin: "https://ebusapp.vercel.app", 
+    origin: ["https://ebusapp.vercel.app", "http://localhost:5000"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Tambahkan OPTIONS
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
 }));
 
 app.use(express.json({ limit: "10kb" }));
