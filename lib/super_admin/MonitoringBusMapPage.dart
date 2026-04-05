@@ -5,7 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
-import 'package:ebus_app/services/api_service.dart'; // Sesuaikan dengan nama project Anda
+import 'package:ebus_app/services/api_service.dart'; 
 
 class MonitoringBusMapPage extends StatefulWidget {
   const MonitoringBusMapPage({super.key});
@@ -15,12 +15,7 @@ class MonitoringBusMapPage extends StatefulWidget {
 }
 
 class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
-  // 🔥 Gunakan environment variable supaya fleksibel
-  // flutter run --dart-define=API_URL=http://192.168.1.10:3000/api/buses
-  static const String baseUrl = String.fromEnvironment(
-    "API_URL",
-    defaultValue: "http://localhost:3000/api/buses",
-  );
+  // ⚠️ Bagian baseUrl lama dihapus karena kita sekarang pakai ApiService.baseUrl secara konsisten
 
   List<Map<String, dynamic>> _busData = [];
   List<Marker> _busMarkers = [];
@@ -38,6 +33,7 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
   void initState() {
     super.initState();
     _fetchBuses();
+    // Refresh otomatis setiap 5 detik
     _timer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchBuses());
   }
 
@@ -49,19 +45,23 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
 
   Future<void> _fetchBuses() async {
     try {
+      // Menggunakan ApiService.baseUrl agar otomatis mengarah ke Railway
       final url = Uri.parse("${ApiService.baseUrl}/api/buses");
 
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        final List buses = decoded['data'];
+        
+        // Menangani jika data dibungkus dalam field 'data' atau tidak
+        final List buses = decoded is List ? decoded : (decoded['data'] ?? []);
 
         final List<Map<String, dynamic>> busList =
             List<Map<String, dynamic>>.from(buses);
 
         final companies = busList
             .map((b) => b['company_name'] ?? 'Unknown')
+            .where((name) => name != 'Unknown')
             .toSet()
             .toList();
 
@@ -70,19 +70,22 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
             _busData = busList;
             _companies = companies.cast<String>();
             _isLoading = false;
+            _error = null; // Reset error jika berhasil
           });
           _applyFilter();
         }
       } else {
-        setState(() {
-          _error = "Gagal ambil data bus (${response.statusCode})";
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _error = "Server Error: ${response.statusCode}";
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = "Error: $e";
+          _error = "Koneksi Gagal. Pastikan Backend aktif.";
           _isLoading = false;
         });
       }
@@ -102,32 +105,32 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
     List<Polyline> polylines = [];
 
     for (var bus in filtered) {
+      // Pastikan latitude dan longitude ada dan bukan nol
       if (bus['latitude'] != null && bus['longitude'] != null) {
-        markers.add(
-          Marker(
-            point: LatLng(
-              (bus['latitude'] as num).toDouble(),
-              (bus['longitude'] as num).toDouble(),
-            ),
-            width: 40,
-            height: 40,
-            child: const Icon(
-              Icons.directions_bus,
-              color: Colors.blue,
-              size: 32,
-            ),
-          ),
-        );
+        double lat = double.tryParse(bus['latitude'].toString()) ?? 0.0;
+        double lng = double.tryParse(bus['longitude'].toString()) ?? 0.0;
 
-        // Polyline contoh (jika ada field route di API)
+        if (lat != 0.0 && lng != 0.0) {
+          markers.add(
+            Marker(
+              point: LatLng(lat, lng),
+              width: 40,
+              height: 40,
+              child: const Icon(
+                Icons.directions_bus,
+                color: Colors.blue,
+                size: 32,
+              ),
+            ),
+          );
+        }
+
         if (bus['route'] != null && bus['route'] is List) {
           final List<LatLng> routePoints = (bus['route'] as List)
-              .map(
-                (p) => LatLng(
-                  (p['lat'] as num).toDouble(),
-                  (p['lng'] as num).toDouble(),
-                ),
-              )
+              .map((p) => LatLng(
+                    double.tryParse(p['lat'].toString()) ?? 0.0,
+                    double.tryParse(p['lng'].toString()) ?? 0.0,
+                  ))
               .toList();
 
           polylines.add(
@@ -137,85 +140,102 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
       }
     }
 
-    setState(() {
-      _busMarkers = markers;
-      _busRoutes = polylines;
-    });
+    if (mounted) {
+      setState(() {
+        _busMarkers = markers;
+        _busRoutes = polylines;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Text(_error!));
-
+    if (_isLoading && _busData.isEmpty) return const Center(child: CircularProgressIndicator());
+    
     return Scaffold(
       appBar: AppBar(
+        title: const Text("Monitoring Armada"),
         actions: [
           if (_companies.isNotEmpty)
             DropdownButton<String>(
               value: _selectedCompany ?? "Semua",
               underline: const SizedBox(),
               items: [
-                "Semua",
-                ..._companies,
-              ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                const DropdownMenuItem(value: "Semua", child: Text("Semua Perusahaan")),
+                ..._companies.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+              ],
               onChanged: (val) {
                 setState(() => _selectedCompany = val);
                 _applyFilter();
               },
             ),
+          const SizedBox(width: 15),
         ],
       ),
-      body: FlutterMap(
-        options: MapOptions(
-          initialCenter: const LatLng(-6.200000, 106.816666),
-          initialZoom: 5,
-          onTap: (_, __) => _popupController.hideAllPopups(),
-        ),
+      body: Stack(
         children: [
-          TileLayer(
-            urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            subdomains: const ['a', 'b', 'c'],
-          ),
-          PolylineLayer(polylines: _busRoutes),
-          PopupMarkerLayerWidget(
-            options: PopupMarkerLayerOptions(
-              popupController: _popupController,
-              markers: _busMarkers,
-              popupDisplayOptions: PopupDisplayOptions(
-                builder: (BuildContext context, Marker marker) {
-                  final index = _busMarkers.indexOf(marker);
-                  final bus =
-                      (_selectedCompany == null || _selectedCompany == "Semua")
-                      ? _busData[index]
-                      : _busData
-                            .where((b) => b['company_name'] == _selectedCompany)
-                            .toList()[index];
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: const LatLng(-2.5489, 118.0149), // Center ke Indonesia
+              initialZoom: 5,
+              onTap: (_, __) => _popupController.hideAllPopups(),
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                subdomains: const ['a', 'b', 'c'],
+              ),
+              PolylineLayer(polylines: _busRoutes),
+              PopupMarkerLayerWidget(
+                options: PopupMarkerLayerOptions(
+                  popupController: _popupController,
+                  markers: _busMarkers,
+                  popupDisplayOptions: PopupDisplayOptions(
+                    builder: (BuildContext context, Marker marker) {
+                      // Mencari data bus berdasarkan koordinat marker
+                      final bus = _busData.firstWhere(
+                        (b) => (double.tryParse(b['latitude'].toString()) == marker.point.latitude),
+                        orElse: () => {},
+                      );
 
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "🚍 ${bus['plate_number'] ?? 'Tanpa Nomor'}",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                      if (bus.isEmpty) return const SizedBox.shrink();
+
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "🚍 ${bus['plate_number'] ?? 'Tanpa Nomor'}",
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const Divider(),
+                              Text("Perusahaan: ${bus['company_name'] ?? '-'}"),
+                              Text("Status: ${bus['status'] ?? '-'}"),
+                              Text("Wilayah: ${bus['city'] ?? '-'}, ${bus['province'] ?? '-'}"),
+                            ],
                           ),
-                          Text("Perusahaan: ${bus['company_name'] ?? '-'}"),
-                          Text("Status: ${bus['status'] ?? '-'}"),
-                          Text(
-                            "Lokasi: ${bus['latitude']}, ${bus['longitude']}",
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_error != null)
+            Positioned(
+              bottom: 20,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                color: Colors.red.withOpacity(0.8),
+                child: Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
               ),
             ),
-          ),
         ],
       ),
     );
