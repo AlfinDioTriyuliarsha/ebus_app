@@ -51,45 +51,41 @@ router.post("/login", async (req, res) => {
 
   try {
     if (!email || !password || !device) {
-      return res.status(400).json({ success: false, message: "Email, password, dan device wajib diisi" });
+      return res.status(400).json({ success: false, message: "Data tidak lengkap" });
     }
 
-    // Mencari user dengan proteksi spasi (TRIM) dan huruf kapital (LOWER)
+    // Ambil data langsung dari tabel yang Anda kelola di pgAdmin
     const result = await pool.query(
       "SELECT * FROM public.users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))", 
       [email]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, message: "Email tidak terdaftar" });
+      return res.status(401).json({ success: false, message: "Email tidak ditemukan di pgAdmin" });
     }
 
     const user = result.rows[0];
 
-    // PENTING: Bersihkan spasi dari password yang ditarik dari database Neon
-    const passwordDariDb = user.password ? user.password.trim() : "";
+    // SOLUSI KRUSIAL: Hapus spasi kosong dari data pgAdmin
+    const dbPassword = user.password ? user.password.toString().trim() : "";
+    const inputPassword = password ? password.toString().trim() : "";
 
-    // LOGIKA PINTU GANDA: 
-    // 1. Cek apakah input sama dengan teks di database (1234 === 1234)
-    // 2. Cek apakah input cocok dengan Hash Bcrypt (jika di pgAdmin kamu pakai hash)
-    const isMatch = (password === passwordDariDb) || await bcrypt.compare(password, passwordDariDb);
+    // Bandingkan Teks Biasa (misal: '1234') ATAU Hash Bcrypt
+    const isMatch = (inputPassword === dbPassword) || await bcrypt.compare(inputPassword, dbPassword);
 
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Password salah" });
+      return res.status(401).json({ success: false, message: "Password salah (Cek di pgAdmin)" });
     }
 
     const role = (user.role || "").toLowerCase().trim();
     const deviceType = (device || "").toLowerCase().trim();
 
-    console.log(`Login Sukses: ${email} | Role: ${role} | Device: ${deviceType}`);
-
-    // Pembatasan Akses (Tetap sesuai logika Anda)
+    // Validasi Akses (Tetap sesuai punya Anda)
     if (deviceType === "mobile" && (role === "super_admin" || role === "admin_perusahaan")) {
-      return res.status(403).json({ success: false, message: "Role ini hanya untuk Web" });
+      return res.status(403).json({ success: false, message: "Role ini khusus login Web" });
     }
-
     if (deviceType === "web" && (role === "agen" || role === "penumpang" || role === "keluarga")) {
-      return res.status(403).json({ success: false, message: "Role ini hanya untuk Mobile" });
+      return res.status(403).json({ success: false, message: "Role ini khusus login Mobile" });
     }
 
     res.json({
