@@ -5,9 +5,9 @@ const path = require("path");
 const helmet = require("helmet");
 
 
-const userRoutes = require("../../routes/userRoutes");
-const companyRoutes = require("../../routes/companyRoutes");
-const busRoutes = require("../../routes/busRoutes");
+const userRoutes = require("./routes/userRoutes");
+const companyRoutes = require("./routes/companyRoutes");
+const busRoutes = require("./routes/busRoutes");
 
 const app = express();
 
