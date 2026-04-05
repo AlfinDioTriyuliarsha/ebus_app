@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:ebus_app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -15,7 +16,7 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
   String? _error;
 
   // ✅ Ganti ke IP server / 127.0.0.1 kalau backend jalan di PC sama
-  final String baseUrl = "http://127.0.0.1:3000/api/companies";
+  String get baseUrl => "${ApiService.baseUrl}/api/users";
 
   @override
   void initState() {
