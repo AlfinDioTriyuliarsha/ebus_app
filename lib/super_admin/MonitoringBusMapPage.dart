@@ -5,7 +5,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
-import 'package:ebus_app/services/api_service.dart'; 
 
 class MonitoringBusMapPage extends StatefulWidget {
   const MonitoringBusMapPage({super.key});
@@ -46,7 +45,7 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
   Future<void> _fetchBuses() async {
     try {
       // Menggunakan ApiService.baseUrl agar otomatis mengarah ke Railway
-      final url = Uri.parse("${ApiService.baseUrl}/api/buses");
+      final url = Uri.parse("https://ebusapp-production.up.railway.app/api/buses");
 
       final response = await http.get(url);
 
