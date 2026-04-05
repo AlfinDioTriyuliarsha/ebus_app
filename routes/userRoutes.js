@@ -9,7 +9,7 @@ const path = require("path");
 const saltRounds = 10;
 
 // =====================================================
-// KONFIGURASI UPLOAD FOTO
+// KONFIGURASI UPLOAD FOTO (TETAP)
 // =====================================================
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -26,7 +26,7 @@ const upload = multer({
 });
 
 // =====================================================
-// UPLOAD FOTO PROFIL
+// UPLOAD FOTO PROFIL (TETAP)
 // =====================================================
 router.post("/upload-profile/:id", upload.single("profile_picture"), async (req, res) => {
   const userId = Number(req.params.id);
@@ -44,7 +44,7 @@ router.post("/upload-profile/:id", upload.single("profile_picture"), async (req,
 });
 
 // =====================================================
-// LOGIN USER (FINAL STABLE - MODIFIKASI)
+// LOGIN USER (SYNC DENGAN PGADMIN)
 // =====================================================
 router.post("/login", async (req, res) => {
   const { email, password, device } = req.body;
@@ -54,7 +54,7 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ success: false, message: "Email, password, dan device wajib diisi" });
     }
 
-    // MODIFIKASI: Gunakan LOWER & TRIM agar pencarian email lebih akurat
+    // Menggunakan TRIM dan LOWER agar tidak sensitif terhadap spasi/huruf kapital dari pgAdmin
     const result = await pool.query(
       "SELECT * FROM public.users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))", 
       [email]
@@ -66,19 +66,17 @@ router.post("/login", async (req, res) => {
 
     const user = result.rows[0];
 
-    // MODIFIKASI: LOGIKA PINTU GANDA (Bisa Teks Biasa '1234' ATAU Hash Bcrypt)
-    // Ini memastikan login Anda tembus apa pun format password di database
+    // LOGIKA PINTU GANDA: Cek password teks biasa (dari pgAdmin) ATAU hasil Hash Bcrypt
     const isMatch = (password === user.password) || await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({ success: false, message: "Email atau password salah" });
     }
 
-    // Normalisasi role & device dengan proteksi null
     const role = (user.role || "").toLowerCase().trim();
     const deviceType = (device || "").toLowerCase().trim();
 
-    console.log(`Login Attempt: Role=${role}, Device=${deviceType}`);
+    console.log(`Login Sukses: User=${email}, Role=${role}, Device=${deviceType}`);
 
     // Pembatasan Akses Berdasarkan Device
     if (deviceType === "mobile" && (role === "super_admin" || role === "admin_perusahaan")) {
@@ -106,7 +104,7 @@ router.post("/login", async (req, res) => {
 });
 
 // =====================================================
-// GET ALL USERS
+// GET ALL USERS (TETAP)
 // =====================================================
 router.get("/", async (req, res) => {
   try {
@@ -120,7 +118,7 @@ router.get("/", async (req, res) => {
 });
 
 // =====================================================
-// REGISTER USER
+// REGISTER USER (TETAP)
 // =====================================================
 router.post("/", async (req, res) => {
   const { email, password } = req.body;
@@ -131,7 +129,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ success: false, message: "Email dan password wajib diisi" });
     }
 
-    const checkUser = await pool.query("SELECT * FROM public.users WHERE email = $1", [email]);
+    const checkUser = await pool.query("SELECT * FROM public.users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))", [email]);
     if (checkUser.rows.length > 0) {
       return res.status(400).json({ success: false, message: "Email sudah terdaftar" });
     }
@@ -150,7 +148,7 @@ router.post("/", async (req, res) => {
 });
 
 // =====================================================
-// DELETE USER
+// DELETE USER (TETAP)
 // =====================================================
 router.delete("/:id", async (req, res) => {
   try {
