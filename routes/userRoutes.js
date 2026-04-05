@@ -50,42 +50,49 @@ router.post("/login", async (req, res) => {
   const { email, password, device } = req.body;
 
   try {
-    if (!email || !password || !device) {
-      return res.status(400).json({ success: false, message: "Data tidak lengkap" });
-    }
-
-    // Ambil data langsung dari tabel yang Anda kelola di pgAdmin
+    // 1. Cari user di pgAdmin (abaikan spasi dan huruf kapital)
     const result = await pool.query(
       "SELECT * FROM public.users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))", 
       [email]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, message: "Email tidak ditemukan di pgAdmin" });
+      return res.status(401).json({ success: false, message: "Email tidak ditemukan" });
     }
 
     const user = result.rows[0];
 
-    // SOLUSI KRUSIAL: Hapus spasi kosong dari data pgAdmin
+    // 2. Bersihkan data password dari database pgAdmin
     const dbPassword = user.password ? user.password.toString().trim() : "";
     const inputPassword = password ? password.toString().trim() : "";
 
-    // Bandingkan Teks Biasa (misal: '1234') ATAU Hash Bcrypt
-    const isMatch = (inputPassword === dbPassword) || await bcrypt.compare(inputPassword, dbPassword);
+    // 3. LOGIKA VALIDASI GANDA (SANGAT PENTING):
+    let isMatch = false;
 
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Password salah (Cek di pgAdmin)" });
+    // Cek A: Apakah ini password polos? (Untuk user '1234' tadi)
+    if (inputPassword === dbPassword) {
+      isMatch = true;
+    } 
+    // Cek B: Jika tidak cocok polos, apakah ini password Hash? (Untuk user lama Anda)
+    else if (dbPassword.startsWith("$2")) { 
+      // Kita hanya panggil bcrypt jika dbPassword terlihat seperti format Hash ($2b$...)
+      isMatch = await bcrypt.compare(inputPassword, dbPassword);
     }
 
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Password salah" });
+    }
+
+    // 4. NORMALISASI ROLE & DEVICE
     const role = (user.role || "").toLowerCase().trim();
     const deviceType = (device || "").toLowerCase().trim();
 
-    // Validasi Akses (Tetap sesuai punya Anda)
+    // Pembatasan Akses (Tetap sesuai logika Anda)
     if (deviceType === "mobile" && (role === "super_admin" || role === "admin_perusahaan")) {
-      return res.status(403).json({ success: false, message: "Role ini khusus login Web" });
+      return res.status(403).json({ success: false, message: "Role ini hanya untuk Web" });
     }
     if (deviceType === "web" && (role === "agen" || role === "penumpang" || role === "keluarga")) {
-      return res.status(403).json({ success: false, message: "Role ini khusus login Mobile" });
+      return res.status(403).json({ success: false, message: "Role ini hanya untuk Mobile" });
     }
 
     res.json({
@@ -98,6 +105,7 @@ router.post("/login", async (req, res) => {
         profile_image: user.profile_image,
       },
     });
+
   } catch (err) {
     console.error("Login error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
