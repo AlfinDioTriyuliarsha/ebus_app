@@ -16,11 +16,14 @@ app.use(helmet({
 }));
 
 app.use(cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Tambahkan OPTIONS
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: '*', // Untuk sementara pakai bintang agar semua bisa masuk
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use(express.json({ limit: "10kb" }));
 
