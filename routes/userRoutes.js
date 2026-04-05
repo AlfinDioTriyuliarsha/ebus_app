@@ -36,7 +36,7 @@ router.post("/upload-profile/:id", upload.single("profile_picture"), async (req,
     }
     const imageUrl = `/uploads/profiles/${req.file.filename}`;
     await pool.query("UPDATE public.users SET profile_image = $1 WHERE id = $2", [imageUrl, userId]);
-    res.json({ success: true, message: "Foto profil berhasil diperbarui", imageUrl });
+    res.json({ success: true, message: "Foto profil berhasil diperbarui", imageUrl: imageUrl });
   } catch (err) {
     console.error("Upload error:", err.message);
     res.status(500).json({ success: false, message: "Gagal memperbarui foto" });
@@ -44,7 +44,7 @@ router.post("/upload-profile/:id", upload.single("profile_picture"), async (req,
 });
 
 // =====================================================
-// LOGIN USER (FINAL STABLE VERSION)
+// LOGIN USER (FINAL STABLE - MODIFIKASI)
 // =====================================================
 router.post("/login", async (req, res) => {
   const { email, password, device } = req.body;
@@ -54,14 +54,20 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ success: false, message: "Email, password, dan device wajib diisi" });
     }
 
-    // Menggunakan public.users untuk kepastian skema di Neon
-    const result = await pool.query("SELECT * FROM public.users WHERE email = $1", [email]);
+    // MODIFIKASI: Gunakan LOWER & TRIM agar pencarian email lebih akurat
+    const result = await pool.query(
+      "SELECT * FROM public.users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))", 
+      [email]
+    );
 
     if (result.rows.length === 0) {
       return res.status(401).json({ success: false, message: "Email atau password salah" });
     }
 
     const user = result.rows[0];
+
+    // MODIFIKASI: LOGIKA PINTU GANDA (Bisa Teks Biasa '1234' ATAU Hash Bcrypt)
+    // Ini memastikan login Anda tembus apa pun format password di database
     const isMatch = (password === user.password) || await bcrypt.compare(password, user.password);
 
     if (!isMatch) {

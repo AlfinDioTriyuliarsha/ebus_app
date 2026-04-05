@@ -2,24 +2,20 @@ const { Pool } = require('pg');
 
 // Gunakan DATABASE_URL dari Railway Environment Variables
 const pool = new Pool({
-  // Ganti URL_DATABASE_NEON_ANDA dengan link koneksi Neon Anda
+  // Ambil URL dari Neon, pastikan diakhiri dengan ?sslmode=require
   connectionString: "postgresql://neondb_owner:npg_4VCexcWsSRj1@ep-blue-mountain-a156wxkp.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
   ssl: {
-    rejectUnauthorized: false, 
+    rejectUnauthorized: false, // Solusi mutlak untuk error SSL di laptop
   },
-});
-
-// Tambahkan parameter sslmode di sini untuk memastikan laptop tidak error
-pool.on('connect', () => {
-  console.log("Memulai jabat tangan SSL...");
 });
 
 pool.connect((err, client, release) => {
   if (err) {
-    return console.error("❌ GAGAL SAMBUNG DATABASE:", err.message);
+    console.error("❌ GAGAL SAMBUNG DATABASE:", err.message);
+  } else {
+    console.log("✅ DATABASE TERHUBUNG!");
+    release();
   }
-  console.log("✅ DATABASE TERHUBUNG!");
-  release();
 });
 // ===================================================================
 // TAMBAHAN: Fungsi Helper untuk Social Login (Google & Facebook)
