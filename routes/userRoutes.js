@@ -54,37 +54,42 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ success: false, message: "Email, password, dan device wajib diisi" });
     }
 
-    // Menggunakan TRIM dan LOWER agar tidak sensitif terhadap spasi/huruf kapital dari pgAdmin
+    // Mencari user dengan proteksi spasi (TRIM) dan huruf kapital (LOWER)
     const result = await pool.query(
       "SELECT * FROM public.users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))", 
       [email]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, message: "Email atau password salah" });
+      return res.status(401).json({ success: false, message: "Email tidak terdaftar" });
     }
 
     const user = result.rows[0];
 
-    // LOGIKA PINTU GANDA: Cek password teks biasa (dari pgAdmin) ATAU hasil Hash Bcrypt
-    const isMatch = (password === user.password) || await bcrypt.compare(password, user.password);
+    // PENTING: Bersihkan spasi dari password yang ditarik dari database Neon
+    const passwordDariDb = user.password ? user.password.trim() : "";
+
+    // LOGIKA PINTU GANDA: 
+    // 1. Cek apakah input sama dengan teks di database (1234 === 1234)
+    // 2. Cek apakah input cocok dengan Hash Bcrypt (jika di pgAdmin kamu pakai hash)
+    const isMatch = (password === passwordDariDb) || await bcrypt.compare(password, passwordDariDb);
 
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Email atau password salah" });
+      return res.status(401).json({ success: false, message: "Password salah" });
     }
 
     const role = (user.role || "").toLowerCase().trim();
     const deviceType = (device || "").toLowerCase().trim();
 
-    console.log(`Login Sukses: User=${email}, Role=${role}, Device=${deviceType}`);
+    console.log(`Login Sukses: ${email} | Role: ${role} | Device: ${deviceType}`);
 
-    // Pembatasan Akses Berdasarkan Device
+    // Pembatasan Akses (Tetap sesuai logika Anda)
     if (deviceType === "mobile" && (role === "super_admin" || role === "admin_perusahaan")) {
-      return res.status(403).json({ success: false, message: "Role ini hanya bisa login melalui Web" });
+      return res.status(403).json({ success: false, message: "Role ini hanya untuk Web" });
     }
 
     if (deviceType === "web" && (role === "agen" || role === "penumpang" || role === "keluarga")) {
-      return res.status(403).json({ success: false, message: "Role ini hanya bisa login melalui Mobile" });
+      return res.status(403).json({ success: false, message: "Role ini hanya untuk Mobile" });
     }
 
     res.json({
