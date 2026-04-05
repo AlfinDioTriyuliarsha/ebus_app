@@ -117,12 +117,18 @@ router.post("/login", async (req, res) => {
 // =====================================================
 router.get("/", async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, email, role, profile_image FROM public.users");
+    // Menambahkan ORDER BY agar urutan rapi sesuai ID di pgAdmin
+    const result = await pool.query("SELECT id, email, role, profile_image FROM public.users ORDER BY id ASC");
+    
     const users = result.rows.map((u) => ({ ...u, id: Number(u.id) }));
+    
+    // LOG INI SANGAT PENTING: Cek di Railway Logs nanti
+    console.log(`[DATABASE CHECK] Berhasil menarik ${users.length} user dari pgAdmin.`);
+    
     res.json({ success: true, data: users });
   } catch (err) {
     console.error("Fetch users error:", err.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: "Gagal memuat data dari pgAdmin" });
   }
 });
 
