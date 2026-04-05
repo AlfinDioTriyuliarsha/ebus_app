@@ -16,7 +16,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-    origin: "*", 
+    origin: "https://ebusapp.vercel.app", 
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Tambahkan OPTIONS
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
