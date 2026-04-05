@@ -16,7 +16,8 @@ app.use(helmet({
 }));
 
 app.use(cors({
-    origin: "*", 
+    origin: "https://ebusapp.vercel.app", 
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Tambahkan OPTIONS
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -51,4 +52,4 @@ const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server is running on port ${PORT}`);
-});
+})
