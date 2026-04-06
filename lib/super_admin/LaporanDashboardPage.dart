@@ -27,25 +27,37 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
   Future<void> _fetchStats() async {
     try {
       final users = await ApiService.getUsers();
+
       final resComp = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/perusahaan"),
+        Uri.parse("${ApiService.baseUrl}/api/companies"),
       );
-      final resBus = await http.get(Uri.parse("${ApiService.baseUrl}/api/bus"));
+
+      final resBus = await http.get(
+        Uri.parse("${ApiService.baseUrl}/api/buses"),
+      );
 
       if (mounted) {
         setState(() {
           totalUser = users.length;
           totalAkunAktif = users.length;
+          
           if (resComp.statusCode == 200) {
-            totalPerusahaan = (jsonDecode(resComp.body)['data'] as List).length;
+            // Pastikan struktur JSON-nya adalah { "data": [...] }
+            var dataComp = jsonDecode(resComp.body);
+            totalPerusahaan = (dataComp['data'] as List).length;
           }
+          
           if (resBus.statusCode == 200) {
-            totalBus = (jsonDecode(resBus.body)['data'] as List).length;
+            // Pastikan struktur JSON-nya adalah { "data": [...] }
+            var dataBus = jsonDecode(resBus.body);
+            totalBus = (dataBus['data'] as List).length;
           }
+          
           isLoading = false;
         });
       }
     } catch (e) {
+      print("Error Fetch Stats: $e");
       if (mounted) setState(() => isLoading = false);
     }
   }
