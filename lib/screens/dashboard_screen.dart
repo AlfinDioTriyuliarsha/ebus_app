@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart'; // Tambahkan ini
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart'; // Tambahkan ini
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
-// Gunakan package import sesuai struktur project kamu
 import 'package:ebus_app/screens/super_admin_dashboard.dart';
 import 'package:ebus_app/screens/admin_perusahaan_dashboard.dart';
 import 'package:ebus_app/screens/agen_dashboard.dart';
@@ -12,25 +11,24 @@ import 'package:ebus_app/screens/keluarga_dashboard.dart';
 class DashboardScreen extends StatelessWidget {
   final String role;
   final String email;
+  final int userId;
 
-  const DashboardScreen({super.key, required this.role, required this.email});
+  const DashboardScreen({
+    super.key,
+    required this.role,
+    required this.email,
+    required this.userId,
+  });
 
-  // -------------------------------------------------------------------
-  // TAMBAHAN: Fungsi Logout Global
-  // -------------------------------------------------------------------
   static Future<void> handleLogout(BuildContext context) async {
     try {
-      // 1. Logout dari Google
       final GoogleSignIn googleSignIn = GoogleSignIn();
       if (await googleSignIn.isSignedIn()) {
         await googleSignIn.signOut();
         await googleSignIn.disconnect();
       }
-
-      // 2. Logout dari Facebook
       await FacebookAuth.instance.logOut();
 
-      // 3. Arahkan kembali ke Login dan hapus semua history navigasi
       if (!context.mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
 
@@ -44,7 +42,6 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔑 Normalisasi role biar aman
     String normalizedRole = role
         .toLowerCase()
         .replaceAll("_", "")
@@ -52,21 +49,37 @@ class DashboardScreen extends StatelessWidget {
 
     Widget dashboard;
 
+    // FIX: Tambahkan userId: userId di setiap pemanggilan dashboard
     switch (normalizedRole) {
       case "superadmin":
-        dashboard = SuperAdminDashboard(email: email);
+        dashboard = SuperAdminDashboard(
+          email: email,
+          userId: userId, // Perbaikan di sini (Baris 65)
+        );
         break;
       case "adminperusahaan":
-        dashboard = AdminPerusahaanDashboard(email: email);
+        dashboard = AdminPerusahaanDashboard(
+          email: email,
+          // userId: userId, // Buka komen ini jika dashboard admin sudah diupdate
+        );
         break;
       case "agen":
-        dashboard = AgenDashboard(email: email);
+        dashboard = AgenDashboard(
+          email: email,
+          // userId: userId,
+        );
         break;
       case "penumpang":
-        dashboard = PenumpangDashboard(email: email);
+        dashboard = PenumpangDashboard(
+          email: email,
+          // userId: userId,
+        );
         break;
       case "keluarga":
-        dashboard = KeluargaDashboard(email: email);
+        dashboard = KeluargaDashboard(
+          email: email,
+          // userId: userId,
+        );
         break;
       default:
         dashboard = Scaffold(

@@ -7,7 +7,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 class PengaturanAkunPage extends StatefulWidget {
-  const PengaturanAkunPage({super.key});
+  final int userId; // Tambahkan ini
+  const PengaturanAkunPage({super.key, required this.userId}); // Tambahkan required
 
   @override
   State<PengaturanAkunPage> createState() => _PengaturanAkunPageState();
@@ -37,16 +38,16 @@ class _PengaturanAkunPageState extends State<PengaturanAkunPage> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.getUserById(1);
+      // Gunakan widget.userId agar dinamis
+      final response = await ApiService.getUserById(widget.userId); 
       if (response != null && mounted) {
         setState(() {
           _emailController.text = response['email'] ?? "";
-          // Ambil nama file foto dari kolom profile_image di database
           _serverPhotoUrl = response['profile_image'];
         });
       }
     } catch (e) {
-      debugPrint("Gagal mengambil data user: $e");
+      debugPrint("Error Fetch: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -79,10 +80,10 @@ class _PengaturanAkunPageState extends State<PengaturanAkunPage> {
   setState(() => _isLoading = true);
 
   try {
-    // Pastikan ID User sesuai, misal 1
+    // Gunakan widget.userId di URL
     var request = http.MultipartRequest(
       'PUT',
-      Uri.parse("${ApiService.baseUrl}/api/users/1"),
+      Uri.parse("${ApiService.baseUrl}/api/users/${widget.userId}"), 
     );
 
     request.fields['email'] = _emailController.text;
@@ -108,27 +109,23 @@ class _PengaturanAkunPageState extends State<PengaturanAkunPage> {
     var streamedResponse = await request.send();
     var response = await http.Response.fromStream(streamedResponse);
 
-    // CEK MOUNTED SEBELUM PAKAI CONTEXT
-    if (!mounted) return; 
+      if (!mounted) return;
 
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profil berhasil diperbarui!")),
-      );
-      _passController.clear();
-      _fetchUserData(); 
-    } else {
-      throw "Gagal menyimpan: ${response.body}";
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Profil berhasil diperbarui!")),
+        );
+        _passController.clear();
+        _fetchUserData(); // Refresh data
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: $e")),
-    );
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
 
   @override
   Widget build(BuildContext context) {

@@ -1,13 +1,19 @@
 import 'package:ebus_app/super_admin/KelolaPerusahaanPage.dart';
 import 'package:ebus_app/super_admin/KelolaPenggunaPage.dart';
-import 'package:ebus_app/super_admin/LaporanDashboardPage.dart'; // Penambahan Import
+import 'package:ebus_app/super_admin/LaporanDashboardPage.dart';
 import 'package:ebus_app/super_admin/MonitoringBusMapPage.dart';
 import 'package:ebus_app/super_admin/PengaturanAkunPage.dart';
 import 'package:flutter/material.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   final String email;
-  const SuperAdminDashboard({super.key, required this.email});
+  final int userId;
+
+  const SuperAdminDashboard({
+    super.key,
+    required this.email,
+    required this.userId,
+  });
 
   @override
   State<SuperAdminDashboard> createState() => _SuperAdminDashboardState();
@@ -26,17 +32,11 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
 
         return Scaffold(
           backgroundColor: const Color(0xFF001F3F),
-
-          // ================= MOBILE DRAWER =================
           drawer: isMobile ? Drawer(child: _buildSidebar()) : null,
-
           body: Row(
             children: [
-              // ================= SIDEBAR (Tablet & Desktop Only) =================
               if (!isMobile)
                 SizedBox(width: isTablet ? 220 : 260, child: _buildSidebar()),
-
-              // ================= AREA KONTEN =================
               Expanded(
                 child: Container(
                   margin: EdgeInsets.all(isMobile ? 10 : 20),
@@ -62,7 +62,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     );
   }
 
-  // Bagian Sidebar Navy
   Widget _buildSidebar() {
     return Container(
       color: const Color(0xFF001F3F),
@@ -98,7 +97,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     );
   }
 
-  // Item Menu Sidebar
   Widget _sidebarItem(int index, String title, IconData icon) {
     bool isActive = _selectedIndex == index;
     return GestureDetector(
@@ -106,8 +104,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         setState(() {
           _selectedIndex = index;
         });
-
-        // Tutup drawer jika mobile
         if (Scaffold.of(context).isDrawerOpen) {
           Navigator.pop(context);
         }
@@ -136,7 +132,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     );
   }
 
-  // Header Dashboard (Judul & Info User)
   Widget _buildHeader(bool isMobile) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -206,43 +201,25 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     }
   }
 
-  // --- LOGIKA HALAMAN ---
-
   Widget _buildPage(int index) {
     switch (index) {
       case 0:
-        return _buildKelolaPengguna();
+        return const KelolaPenggunaPage();
       case 1:
-        return _buildKelolaPerusahaan();
+        return const KelolaPerusahaanPage();
       case 2:
-        return _buildMonitoringBus();
+        return const MonitoringBusMapPage();
       case 3:
-        return _buildLaporan();
+        return const LaporanDashboardPage();
       case 4:
-        return _buildPengaturanAkun();
+        return _buildPengaturanAkun(); // Memanggil fungsi di bawah
       default:
         return const Center(child: Text("Halaman tidak ditemukan"));
     }
   }
 
-  Widget _buildKelolaPengguna() {
-    return const KelolaPenggunaPage();
-  }
-
-  Widget _buildKelolaPerusahaan() {
-    return const KelolaPerusahaanPage();
-  }
-
-  Widget _buildMonitoringBus() {
-    return const MonitoringBusMapPage();
-  }
-
-  // Fungsi Laporan yang telah dihubungkan ke LaporanDashboardPage
-  Widget _buildLaporan() {
-    return const LaporanDashboardPage();
-  }
-
+  // FIXED: Sekarang mengirimkan userId yang didapat dari Login
   Widget _buildPengaturanAkun() {
-    return const PengaturanAkunPage();
+    return PengaturanAkunPage(userId: widget.userId);
   }
 }

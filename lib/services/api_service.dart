@@ -111,10 +111,14 @@ class ApiService {
 
   // UPDATE User
   static Future<bool> updateUser(int id, Map<String, dynamic> data) async {
-    final url = Uri.parse("$baseUrl/api/users/$id");
-    final res = await http.put(url, headers: _headers, body: jsonEncode(data));
-    return res.statusCode == 200;
-  }
+  final url = Uri.parse("$baseUrl/api/users/$id");
+  final res = await http.put(
+    url, 
+    headers: _headers, 
+    body: jsonEncode(data)
+  );
+  return res.statusCode == 200;
+}
 
   // DELETE User
   static Future<bool> deleteUser(int id) async {

@@ -326,7 +326,6 @@ class _LoginScreenState extends State<LoginScreen> {
       await _googleSignIn.signIn();
     } catch (e) {
       _showError("Google Sign In gagal. Pastikan popup diizinkan.");
-      // ignore: avoid_print
       print("Detail Error: $e");
     }
   }
@@ -360,13 +359,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _processResponse(Map<String, dynamic> data, String fallbackEmail) {
     if (data['success'] == true) {
+      // FIX: Mengambil ID secara dinamis dari response backend
+      final int userId = int.parse(data['data']['id'].toString());
+      final String userRole = data['data']['role']?.toString() ?? 'penumpang';
+      final String userEmail = data['data']['email']?.toString() ?? fallbackEmail;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (c) => DashboardScreen(
-            // POIN 4: Menggunakan role 'penumpang' sebagai default jika null
-            role: data['data']['role']?.toString() ?? 'penumpang',
-            email: data['data']['email']?.toString() ?? fallbackEmail,
+            role: userRole,
+            email: userEmail,
+            userId: userId, // Kirim ID ke Dashboard agar bisa diteruskan ke Pengaturan
           ),
         ),
       );
@@ -415,13 +419,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLabel(String t) => Text(
-    t,
-    style: const TextStyle(
-      color: Color(0xFF004D74),
-      fontWeight: FontWeight.bold,
-      fontSize: 15,
-    ),
-  );
+        t,
+        style: const TextStyle(
+          color: Color(0xFF004D74),
+          fontWeight: FontWeight.bold,
+          fontSize: 15,
+        ),
+      );
 
   Widget _buildInputField(TextEditingController c, {bool isPassword = false}) {
     return Container(
@@ -434,15 +438,12 @@ class _LoginScreenState extends State<LoginScreen> {
         controller: c,
         obscureText: isPassword ? _obscurePassword : false,
         textAlign: TextAlign.center,
-
-        // 🔥 INI YANG PENTING UNTUK HP ASLI
         autocorrect: false,
         enableSuggestions: false,
         textCapitalization: TextCapitalization.none,
         keyboardType: isPassword
             ? TextInputType.visiblePassword
             : TextInputType.emailAddress,
-
         decoration: InputDecoration(
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -484,7 +485,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// POIN 6 & 7: Perbaikan RegisterScreen agar berfungsi
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -501,21 +501,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     if (_emailController.text.isEmpty || _passController.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Field tidak boleh kosong")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Field tidak boleh kosong")));
       return;
     }
     if (_passController.text != _confirmPassController.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Password tidak cocok")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password tidak cocok")));
       return;
     }
 
     setState(() => _loading = true);
     try {
-      // POIN 4 & 6: Kirim registrasi ke API (Role otomatis ditangani backend)
       final res = await ApiService.register(
         _emailController.text,
         _passController.text,
@@ -659,7 +654,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // POIN 7: Field Register dengan fitur sembunyikan password
   Widget _dynamicField(
     String label,
     TextEditingController controller, {
@@ -685,15 +679,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             controller: controller,
             textAlign: TextAlign.center,
             obscureText: isPass ? _obscurePass : false,
-
-            // 🔥 PENTING UNTUK HP ASLI
             autocorrect: false,
             enableSuggestions: false,
             textCapitalization: TextCapitalization.none,
             keyboardType: isPass
                 ? TextInputType.visiblePassword
                 : TextInputType.emailAddress,
-
             decoration: InputDecoration(
               border: InputBorder.none,
               suffixIcon: isPass
