@@ -175,4 +175,62 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// =====================================================
+// GET USER BY ID
+// =====================================================
+router.get("/:id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, email, role, profile_image FROM public.users WHERE id = $1",
+      [Number(req.params.id)]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    const user = result.rows[0];
+    res.json({ ...user, id: Number(user.id) });
+  } catch (err) {
+    console.error("Fetch user by ID error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// =====================================================
+// UPDATE USER (SIMPAN PROFIL & FOTO)
+// =====================================================
+router.put("/:id", upload.single("profile_image"), async (req, res) => {
+  const userId = Number(req.params.id);
+  const { email, password } = req.body;
+
+  try {
+    let updateQuery = "UPDATE public.users SET email = $1";
+    let params = [email];
+
+    // Jika ada foto baru
+    if (req.file) {
+      const imageUrl = req.file.filename; // Simpan nama filenya saja
+      updateQuery += ", profile_image = $" + (params.length + 1);
+      params.push(imageUrl);
+    }
+
+    // Jika ada password baru
+    if (password && password.trim() !== "") {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateQuery += ", password = $" + (params.length + 1);
+      params.push(hashedPassword);
+    }
+
+    updateQuery += " WHERE id = $" + (params.length + 1);
+    params.push(userId);
+
+    await pool.query(updateQuery, params);
+
+    res.json({ success: true, message: "Profil berhasil diperbarui" });
+  } catch (err) {
+    console.error("Update user error:", err.message);
+    res.status(500).json({ success: false, message: "Gagal memperbarui profil" });
+  }
+});
 module.exports = router;
