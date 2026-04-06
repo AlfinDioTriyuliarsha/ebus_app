@@ -31,6 +31,9 @@ app.use(express.json({ limit: "10kb" }));
 // ================= STATIC FILE =================
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Di file index.js Backend
+app.use('/uploads', express.static('uploads'));
+
 // ================= ROUTES =================
 app.use("/api/users", userRoutes);
 app.use("/api/companies", companyRoutes);

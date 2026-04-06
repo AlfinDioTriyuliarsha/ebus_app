@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:ebus_app/services/api_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 
 class PengaturanAkunPage extends StatefulWidget {
   const PengaturanAkunPage({super.key});
@@ -33,27 +34,19 @@ class _PengaturanAkunPageState extends State<PengaturanAkunPage> {
 
   // --- FUNGSI BARU: MENGAMBIL DATA DARI DATABASE ---
   Future<void> _fetchUserData() async {
-    // Cek apakah widget masih ada di layar
     if (!mounted) return;
-
     setState(() => _isLoading = true);
     try {
-      // Pastikan ID yang dikirim valid (bukan 0 atau null)
       final response = await ApiService.getUserById(1);
-
-      // Cek lagi sebelum setState
-      if (!mounted) return;
-
-      if (response != null) {
+      if (response != null && mounted) {
         setState(() {
           _emailController.text = response['email'] ?? "";
+          // Ambil nama file foto dari kolom profile_image di database
           _serverPhotoUrl = response['profile_image'];
         });
       }
     } catch (e) {
-      if (mounted) {
-        debugPrint("Gagal mengambil data user: $e");
-      }
+      debugPrint("Gagal mengambil data user: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -82,31 +75,60 @@ class _PengaturanAkunPageState extends State<PengaturanAkunPage> {
   }
 
   Future<void> _handleSave() async {
-    // Cek apakah widget masih ada di layar
-    if (!mounted) return;
+  if (!mounted) return;
+  setState(() => _isLoading = true);
 
-    setState(() => _isLoading = true);
-    try {
-      // Pastikan ID yang dikirim valid (bukan 0 atau null)
-      final response = await ApiService.getUserById(1);
+  try {
+    // Pastikan ID User sesuai, misal 1
+    var request = http.MultipartRequest(
+      'PUT',
+      Uri.parse("${ApiService.baseUrl}/api/users/1"),
+    );
 
-      // Cek lagi sebelum setState
-      if (!mounted) return;
-
-      if (response != null) {
-        setState(() {
-          _emailController.text = response['email'] ?? "";
-          _serverPhotoUrl = response['profile_image'];
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        debugPrint("Gagal mengambil data user: $e");
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    request.fields['email'] = _emailController.text;
+    if (_passController.text.isNotEmpty) {
+      request.fields['password'] = _passController.text;
     }
+
+    if (_pickedFile != null) {
+      if (kIsWeb) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'profile_image',
+          _webImage!,
+          filename: _pickedFile!.name,
+        ));
+      } else {
+        request.files.add(await http.MultipartFile.fromPath(
+          'profile_image',
+          _pickedFile!.path,
+        ));
+      }
+    }
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    // CEK MOUNTED SEBELUM PAKAI CONTEXT
+    if (!mounted) return; 
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Profil berhasil diperbarui!")),
+      );
+      _passController.clear();
+      _fetchUserData(); 
+    } else {
+      throw "Gagal menyimpan: ${response.body}";
+    }
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error: $e")),
+    );
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -193,19 +215,15 @@ class _PengaturanAkunPageState extends State<PengaturanAkunPage> {
   }
 
   Widget _profileWidget() {
-    // Tentukan provider gambar berdasarkan urutan prioritas:
-    // 1. Gambar yang baru dipilih (_pickedFile)
-    // 2. Gambar yang sudah ada di server (_serverPhotoUrl)
-    // 3. Icon default (null)
     ImageProvider? imageProvider;
     if (_pickedFile != null) {
       imageProvider = kIsWeb
           ? MemoryImage(_webImage!)
           : FileImage(File(_pickedFile!.path)) as ImageProvider;
     } else if (_serverPhotoUrl != null && _serverPhotoUrl!.isNotEmpty) {
-      // Pastikan IP Address sesuai dengan server Node.js Anda
+      // GANTI localhost menjadi ApiService.baseUrl
       imageProvider = NetworkImage(
-        "http://localhost:5000/uploads/profiles/$_serverPhotoUrl",
+        "${ApiService.baseUrl}/uploads/profiles/$_serverPhotoUrl",
       );
     }
 
