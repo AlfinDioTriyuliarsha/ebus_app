@@ -16,7 +16,7 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
   String? _error;
 
   // ✅ Ganti ke IP server / 127.0.0.1 kalau backend jalan di PC sama
-  String get baseUrl => "${ApiService.baseUrl}/api/users";
+  String get baseUrl => "${ApiService.baseUrl}/api/companies";
 
   @override
   void initState() {
