@@ -190,7 +190,16 @@ router.get("/:id", async (req, res) => {
     }
 
     const user = result.rows[0];
-    res.json({ ...user, id: Number(user.id) });
+    // Pastikan mengembalikan success: true agar Flutter tidak masuk ke blok Catch/Error
+    res.json({ 
+      success: true, 
+      data: {
+        id: Number(user.id),
+        email: user.email,
+        role: user.role,
+        profile_image: user.profile_image
+      }
+    });
   } catch (err) {
     console.error("Fetch user by ID error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
@@ -227,10 +236,19 @@ router.put("/:id", upload.single("profile_image"), async (req, res) => {
 
     await pool.query(updateQuery, params);
 
-    res.json({ success: true, message: "Profil berhasil diperbarui" });
+    res.json({
+      success: true,
+      message: "Login berhasil",
+      data: {
+        id: Number(user.id),
+        email: user.email,
+        role: user.role,
+        profile_image: user.profile_image,
+      },
+    });
   } catch (err) {
     console.error("Update user error:", err.message);
-    res.status(500).json({ success: false, message: "Gagal memperbarui profil" });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 module.exports = router;
