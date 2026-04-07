@@ -359,29 +359,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _processResponse(Map<String, dynamic> data, String fallbackEmail) {
     if (data['success'] == true) {
-      // Pastikan ID diambil dari data['data']['id'] (ID 6 di kasusmu)
-      final int userId = int.parse(data['data']['id'].toString());
-      final String userRole = data['data']['role']?.toString() ?? 'penumpang';
-      final String userEmail =
-          data['data']['email']?.toString() ?? fallbackEmail;
+      try {
+        // Mengambil data user dari response backend
+        final userData = data['data'];
 
-      // Gunakan Future.microtask agar navigasi tidak tabrakan dengan proses build UI
-      Future.microtask(() {
-        if (!mounted) return;
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (c) => DashboardScreen(
-              role: userRole,
-              email: userEmail,
-              userId: userId,
+        // Konversi ID secara aman ke int (baik itu ID 1 atau ID 6)
+        final int userId = int.parse(userData['id'].toString());
+        final String userRole = userData['role']?.toString() ?? 'penumpang';
+        final String userEmail = userData['email']?.toString() ?? fallbackEmail;
+
+        print("✅ LOGIN SUKSES | ID: $userId | Role: $userRole");
+
+        // Navigasi aman menggunakan microtask untuk menghindari error context
+        Future.microtask(() {
+          if (!mounted) return;
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (c) => DashboardScreen(
+                role: userRole,
+                email: userEmail,
+                userId: userId,
+              ),
             ),
-          ),
-          (route) => false, // Hapus semua history login agar bersih
-        );
-      });
+            (route) => false, // Bersihkan stack navigasi
+          );
+        });
+      } catch (e) {
+        _showError("Error parsing data user: $e");
+      }
     } else {
-      _showError(data['message'] ?? "Login Gagal");
+      _showError(data['message'] ?? "Email atau Password Salah");
     }
   }
 

@@ -1,32 +1,30 @@
 const { Pool } = require('pg');
 
-// Gunakan DATABASE_URL dari Railway Environment Variables
+// Konfigurasi Pool Koneksi
 const pool = new Pool({
-  // Gunakan Connection String yang sama dengan yang Anda pakai di pgAdmin
-  connectionString: "postgresql://neondb_owner:npg_4VCexcWsSRj1@ep-blue-mountain-a156wxkp.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+  connectionString: "postgresql://neondb_owner:npg_4VCexcWsSRj1@ep-blue-mountain-a156wxkp.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
   ssl: {
     rejectUnauthorized: false, 
   },
 });
 
+// Cek Koneksi saat Startup
 pool.connect((err, client, release) => {
   if (err) {
-    return console.error("❌ GAGAL SAMBUNG DATABASE:", err.message);
+    return console.error("❌ GAGAL SAMBUNG DATABASE NEON:", err.message);
   }
-  console.log("✅ DATABASE TERHUBUNG KE PGADMIN!");
+  console.log("✅ DATABASE NEON TERHUBUNG!");
   release();
 });
 
-// ===================================================================
-// TAMBAHAN: Fungsi Helper untuk Social Login (Google & Facebook)
-// ===================================================================
+// Helper untuk Social Login (Google & Facebook)
 pool.upsertSocialUser = async (email, name, provider, social_id) => {
     try {
-        // Cek apakah user sudah ada berdasarkan email
+        // Gunakan skema public.users secara eksplisit
         let result = await pool.query("SELECT * FROM public.users WHERE email = $1", [email]);
         
         if (result.rows.length === 0) {
-            // Jika belum ada, insert (Gunakan skema public agar lebih aman)
+            // Jika user baru, buat akun dengan role default 'penumpang'
             result = await pool.query(
                 "INSERT INTO public.users (email, name, role, provider, social_id, created_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *",
                 [email, name, 'penumpang', provider, social_id]
