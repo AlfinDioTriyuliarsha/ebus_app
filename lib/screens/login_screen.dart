@@ -359,21 +359,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _processResponse(Map<String, dynamic> data, String fallbackEmail) {
     if (data['success'] == true) {
-      // FIX: Mengambil ID secara dinamis dari response backend
+      // Pastikan ID diambil dari data['data']['id'] (ID 6 di kasusmu)
       final int userId = int.parse(data['data']['id'].toString());
       final String userRole = data['data']['role']?.toString() ?? 'penumpang';
-      final String userEmail = data['data']['email']?.toString() ?? fallbackEmail;
+      final String userEmail =
+          data['data']['email']?.toString() ?? fallbackEmail;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (c) => DashboardScreen(
-            role: userRole,
-            email: userEmail,
-            userId: userId, // Kirim ID ke Dashboard agar bisa diteruskan ke Pengaturan
+      // Gunakan Future.microtask agar navigasi tidak tabrakan dengan proses build UI
+      Future.microtask(() {
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (c) => DashboardScreen(
+              role: userRole,
+              email: userEmail,
+              userId: userId,
+            ),
           ),
-        ),
-      );
+          (route) => false, // Hapus semua history login agar bersih
+        );
+      });
     } else {
       _showError(data['message'] ?? "Login Gagal");
     }
@@ -419,13 +425,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLabel(String t) => Text(
-        t,
-        style: const TextStyle(
-          color: Color(0xFF004D74),
-          fontWeight: FontWeight.bold,
-          fontSize: 15,
-        ),
-      );
+    t,
+    style: const TextStyle(
+      color: Color(0xFF004D74),
+      fontWeight: FontWeight.bold,
+      fontSize: 15,
+    ),
+  );
 
   Widget _buildInputField(TextEditingController c, {bool isPassword = false}) {
     return Container(
@@ -501,11 +507,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     if (_emailController.text.isEmpty || _passController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Field tidak boleh kosong")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Field tidak boleh kosong")));
       return;
     }
     if (_passController.text != _confirmPassController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password tidak cocok")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Password tidak cocok")));
       return;
     }
 
