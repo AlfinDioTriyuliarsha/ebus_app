@@ -12,18 +12,10 @@ const saltRounds = 10;
 // KONFIGURASI UPLOAD FOTO (TETAP)
 // =====================================================
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/profiles/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, "profile-" + Date.now() + path.extname(file.originalname));
-  },
+    destination: (req, file, cb) => cb(null, "uploads/profiles/"),
+    filename: (req, file, cb) => cb(null, "profile-" + Date.now() + path.extname(file.originalname)),
 });
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 2 * 1024 * 1024 },
-});
+const upload = multer({ storage: storage, limits: { fileSize: 2 * 1024 * 1024 } });
 
 // =====================================================
 // UPLOAD FOTO PROFIL (TETAP)
@@ -211,44 +203,52 @@ router.get("/:id", async (req, res) => {
 // =====================================================
 router.put("/:id", upload.single("profile_image"), async (req, res) => {
   const userId = Number(req.params.id);
-  const { email, password } = req.body;
+  const { email, role, password } = req.body; // Ambil role juga dari body
 
   try {
-    let updateQuery = "UPDATE public.users SET email = $1";
-    let params = [email];
+    let updateFields = ["email = $1", "role = $2"];
+    let params = [email, role];
 
-    // Jika ada foto baru
-    if (req.file) {
-      const imageUrl = req.file.filename; // Simpan nama filenya saja
-      updateQuery += ", profile_image = $" + (params.length + 1);
-      params.push(imageUrl);
-    }
-
-    // Jika ada password baru
+    // Jika ada password baru, tambahkan ke query
     if (password && password.trim() !== "") {
       const hashedPassword = await bcrypt.hash(password, 10);
-      updateQuery += ", password = $" + (params.length + 1);
+      updateFields.push(`password = $${params.length + 1}`);
       params.push(hashedPassword);
     }
 
-    updateQuery += " WHERE id = $" + (params.length + 1);
-    params.push(userId);
+    // Jika ada foto baru
+    if (req.file) {
+      const imageUrl = req.file.filename;
+      updateFields.push(`profile_image = $${params.length + 1}`);
+      params.push(imageUrl);
+    }
 
-    await pool.query(updateQuery, params);
+    params.push(userId);
+    // Gunakan RETURNING agar kita dapat data yang baru saja diupdate
+    const query = `UPDATE public.users SET ${updateFields.join(", ")} WHERE id = $${params.length} RETURNING *`;
+    
+    const result = await pool.query(query, params);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
+    }
+
+    const updatedUser = result.rows[0]; // Ini pengganti variabel 'user' yang bikin error kemarin
 
     res.json({
       success: true,
-      message: "Login berhasil",
+      message: "Update berhasil",
       data: {
-        id: Number(user.id),
-        email: user.email,
-        role: user.role,
-        profile_image: user.profile_image,
+        id: Number(updatedUser.id),
+        email: updatedUser.email,
+        role: updatedUser.role,
+        profile_image: updatedUser.profile_image,
       },
     });
   } catch (err) {
     console.error("Update user error:", err.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: "Server error: " + err.message });
   }
 });
+
 module.exports = router;

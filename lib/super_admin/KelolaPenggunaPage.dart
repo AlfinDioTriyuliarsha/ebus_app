@@ -89,30 +89,39 @@ class _KelolaPenggunaPageState extends State<KelolaPenggunaPage> {
     String? password,
   }) async {
     try {
-      final body = {"email": email, "role": role};
+      // Siapkan Map data
+      final Map<String, dynamic> bodyData = {
+        "email": email.trim(),
+        "role": role,
+      };
+      
+      // Tambahkan password jika diisi
       if (password != null && password.isNotEmpty) {
-        body["password"] = password;
+        bodyData["password"] = password.trim();
       }
 
       final response = await http.put(
         Uri.parse("$baseUrl/$id"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(body),
+        headers: {
+          "Content-Type": "application/json", // WAJIB ADA agar Express bisa baca req.body
+        },
+        body: jsonEncode(bodyData), // Encode ke JSON string
       );
 
-      final decoded = jsonDecode(response.body);
-
       if (response.statusCode == 200) {
-        if (mounted) Navigator.pop(context);
-        _fetchUsers();
-        _showSuccessDialog("User berhasil diperbarui");
+        final decoded = jsonDecode(response.body);
+        if (decoded["success"] == true) {
+          if (mounted) Navigator.pop(context); // Tutup dialog edit
+          _fetchUsers(); // Refresh daftar user
+          _showSuccessDialog("User berhasil diperbarui");
+        } else {
+          _showErrorSnack("Gagal: ${decoded['message']}");
+        }
       } else {
-        _showErrorSnack(
-          "Gagal update user: ${decoded['message'] ?? response.body}",
-        );
+        _showErrorSnack("Server Error: ${response.statusCode}");
       }
     } catch (e) {
-      _showErrorSnack("Error: $e");
+      _showErrorSnack("Koneksi Error: $e");
     }
   }
 
