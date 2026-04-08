@@ -13,20 +13,20 @@ class AdminPerusahaanDashboard extends StatefulWidget {
   final int userId;
 
   const AdminPerusahaanDashboard({
-    super.key, 
-    required this.email, 
-    required this.companyId, 
-    required this.userId, // Dan ini
+    super.key,
+    required this.email,
+    required this.companyId,
+    required this.userId,
   });
 
   @override
-  State<AdminPerusahaanDashboard> createState() => _AdminPerusahaanDashboardState();
+  State<AdminPerusahaanDashboard> createState() =>
+      _AdminPerusahaanDashboardState();
 }
 
 class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
   int _selectedIndex = 0;
 
-  // Daftar Judul Menu
   final List<String> _menuTitles = [
     "Manajemen Agent",
     "Manajemen Armada Bus",
@@ -37,21 +37,38 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
     "Pengaturan Akun",
   ];
 
+  // Fungsi untuk mendapatkan halaman secara langsung berdasarkan index
+  Widget _getSelectedPage() {
+    switch (_selectedIndex) {
+      case 0:
+        return ManajemenAgentPage(companyId: widget.companyId);
+      case 1:
+        return ManajemenArmadaPage(companyId: widget.companyId);
+      case 2:
+        return ManajemenRutePage(companyId: widget.companyId);
+      case 3:
+        return ManajemenDriverPage(companyId: widget.companyId);
+      case 4:
+        return MonitoringBusMapAdmin(companyId: widget.companyId);
+      case 5:
+        return const LaporanOperasionalPage();
+      case 6:
+        return PengaturanAkunPage(userId: widget.userId);
+      default:
+        return ManajemenAgentPage(companyId: widget.companyId);
+    }
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  // Fungsi untuk navigasi ke halaman detail (Full Screen)
-  void _navigateToPage(Widget page) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => page));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF001F3F), // Warna latar biru gelap sidebar
+      backgroundColor: const Color(0xFF001F3F),
       body: Row(
         children: [
           // SIDEBAR
@@ -61,11 +78,15 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                   child: Text(
                     "E - BUS",
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 _buildSidebarItem(0, Icons.people, "Manajemen Agent"),
@@ -76,7 +97,12 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
                 _buildSidebarItem(5, Icons.bar_chart, "Laporan"),
                 _buildSidebarItem(6, Icons.settings, "Pengaturan Akun"),
                 const Spacer(),
-                _buildSidebarItem(-1, Icons.logout, "Keluar", color: Colors.redAccent),
+                _buildSidebarItem(
+                  -1,
+                  Icons.logout,
+                  "Keluar",
+                  color: Colors.redAccent,
+                ),
               ],
             ),
           ),
@@ -86,7 +112,7 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
             child: Container(
               margin: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: const Color(0xFFE0E5EC), // Warna abu-abu background konten
+                color: const Color(0xFFE0E5EC),
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Column(
@@ -100,51 +126,35 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
                       children: [
                         Text(
                           _menuTitles[_selectedIndex].toUpperCase(),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1A237E),
+                          ),
                         ),
                         Row(
                           children: [
-                            Text("Admin Perusahaan", style: TextStyle(color: Colors.grey[700])),
+                            Text(
+                              "Admin Perusahaan",
+                              style: TextStyle(color: Colors.grey[700]),
+                            ),
                             const SizedBox(width: 10),
-                            const CircleAvatar(backgroundColor: Colors.grey, radius: 15),
+                            const CircleAvatar(
+                              backgroundColor: Colors.grey,
+                              radius: 15,
+                            ),
                           ],
-                        )
+                        ),
                       ],
                     ),
                   ),
-                  
-                  // Area Konten Dinamis
+
+                  // AREA KONTEN LANGSUNG (Tanpa Tombol)
                   Expanded(
-                    child: Center(
-                      child: Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.symmetric(horizontal: 30),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text("Konten Untuk: ${_menuTitles[_selectedIndex]}"),
-                            const SizedBox(height: 20),
-                            ElevatedButton(
-                              onPressed: () {
-                                // Logika Navigasi berdasarkan index
-                                if (_selectedIndex == 0) _navigateToPage(ManajemenAgentPage(companyId: widget.companyId));
-                                if (_selectedIndex == 1) _navigateToPage(ManajemenArmadaPage(companyId: widget.companyId));
-                                if (_selectedIndex == 2) _navigateToPage(ManajemenRutePage(companyId: widget.companyId));
-                                if (_selectedIndex == 3) _navigateToPage(ManajemenDriverPage(companyId: widget.companyId));
-                                if (_selectedIndex == 4) _navigateToPage(MonitoringBusMapAdmin(companyId: widget.companyId));
-                                if (_selectedIndex == 5) _navigateToPage(const LaporanOperasionalPage());
-                                if (_selectedIndex == 6) _navigateToPage(PengaturanAkunPage(userId: widget.userId));
-                              },
-                              child: const Text("Buka Manajemen"),
-                            )
-                          ],
-                        ),
-                      ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 30),
+                      child:
+                          _getSelectedPage(), // Memanggil halaman secara dinamis
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -157,19 +167,27 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
     );
   }
 
-  Widget _buildSidebarItem(int index, IconData icon, String title, {Color color = Colors.white}) {
+  Widget _buildSidebarItem(
+    int index,
+    IconData icon,
+    String title, {
+    Color color = Colors.white,
+  }) {
     bool isSelected = _selectedIndex == index;
     return ListTile(
       selected: isSelected,
-      selectedTileColor: Colors.blue.withOpacity(0.2),
+      selectedTileColor: Colors.blue.withOpacity(0.1),
       leading: Icon(icon, color: isSelected ? Colors.blue : color),
       title: Text(
         title,
-        style: TextStyle(color: isSelected ? Colors.blue : color, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
+        style: TextStyle(
+          color: isSelected ? Colors.blue : color,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
       ),
       onTap: () {
         if (index == -1) {
-          Navigator.pop(context); // Logout logic
+          Navigator.pop(context);
         } else {
           _onItemTapped(index);
         }
