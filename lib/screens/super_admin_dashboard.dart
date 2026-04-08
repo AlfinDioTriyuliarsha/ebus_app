@@ -208,7 +208,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
       case 1:
         return const KelolaPerusahaanPage();
       case 2:
-        return const MonitoringBusMapPage();
+        return const MonitoringBusMapPage(companyId: 0);
       case 3:
         return const LaporanDashboardPage();
       case 4:

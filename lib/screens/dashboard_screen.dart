@@ -60,7 +60,8 @@ class DashboardScreen extends StatelessWidget {
       case "adminperusahaan":
         dashboard = AdminPerusahaanDashboard(
           email: email,
-          // userId: userId, // Buka komen ini jika dashboard admin sudah diupdate
+          companyId: userId,
+          userId: userId, 
         );
         break;
       case "agen":

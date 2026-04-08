@@ -7,7 +7,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 
 class MonitoringBusMapPage extends StatefulWidget {
-  const MonitoringBusMapPage({super.key});
+  final int companyId; // Ini kuncinya
+  const MonitoringBusMapPage({super.key, required this.companyId});
 
   @override
   State<MonitoringBusMapPage> createState() => _MonitoringBusMapPageState();
@@ -45,13 +46,15 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
   Future<void> _fetchBuses() async {
     try {
       // Menggunakan ApiService.baseUrl agar otomatis mengarah ke Railway
-      final url = Uri.parse("https://ebusapp-production.up.railway.app/api/buses");
+      final url = Uri.parse(
+        "https://ebusapp-production.up.railway.app/api/buses",
+      );
 
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        
+
         // Menangani jika data dibungkus dalam field 'data' atau tidak
         final List buses = decoded is List ? decoded : (decoded['data'] ?? []);
 
@@ -126,10 +129,12 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
 
         if (bus['route'] != null && bus['route'] is List) {
           final List<LatLng> routePoints = (bus['route'] as List)
-              .map((p) => LatLng(
-                    double.tryParse(p['lat'].toString()) ?? 0.0,
-                    double.tryParse(p['lng'].toString()) ?? 0.0,
-                  ))
+              .map(
+                (p) => LatLng(
+                  double.tryParse(p['lat'].toString()) ?? 0.0,
+                  double.tryParse(p['lng'].toString()) ?? 0.0,
+                ),
+              )
               .toList();
 
           polylines.add(
@@ -149,8 +154,10 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _busData.isEmpty) return const Center(child: CircularProgressIndicator());
-    
+    if (_isLoading && _busData.isEmpty)
+      // ignore: curly_braces_in_flow_control_structures
+      return const Center(child: CircularProgressIndicator());
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Monitoring Armada"),
@@ -160,8 +167,13 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
               value: _selectedCompany ?? "Semua",
               underline: const SizedBox(),
               items: [
-                const DropdownMenuItem(value: "Semua", child: Text("Semua Perusahaan")),
-                ..._companies.map((c) => DropdownMenuItem(value: c, child: Text(c))),
+                const DropdownMenuItem(
+                  value: "Semua",
+                  child: Text("Semua Perusahaan"),
+                ),
+                ..._companies.map(
+                  (c) => DropdownMenuItem(value: c, child: Text(c)),
+                ),
               ],
               onChanged: (val) {
                 setState(() => _selectedCompany = val);
@@ -175,13 +187,17 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
         children: [
           FlutterMap(
             options: MapOptions(
-              initialCenter: const LatLng(-2.5489, 118.0149), // Center ke Indonesia
+              initialCenter: const LatLng(
+                -2.5489,
+                118.0149,
+              ), // Center ke Indonesia
               initialZoom: 5,
               onTap: (_, __) => _popupController.hideAllPopups(),
             ),
             children: [
               TileLayer(
-                urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                urlTemplate:
+                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 subdomains: const ['a', 'b', 'c'],
               ),
               PolylineLayer(polylines: _busRoutes),
@@ -193,7 +209,9 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
                     builder: (BuildContext context, Marker marker) {
                       // Mencari data bus berdasarkan koordinat marker
                       final bus = _busData.firstWhere(
-                        (b) => (double.tryParse(b['latitude'].toString()) == marker.point.latitude),
+                        (b) =>
+                            (double.tryParse(b['latitude'].toString()) ==
+                            marker.point.latitude),
                         orElse: () => {},
                       );
 
@@ -208,12 +226,17 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
                             children: [
                               Text(
                                 "🚍 ${bus['plate_number'] ?? 'Tanpa Nomor'}",
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                               const Divider(),
                               Text("Perusahaan: ${bus['company_name'] ?? '-'}"),
                               Text("Status: ${bus['status'] ?? '-'}"),
-                              Text("Wilayah: ${bus['city'] ?? '-'}, ${bus['province'] ?? '-'}"),
+                              Text(
+                                "Wilayah: ${bus['city'] ?? '-'}, ${bus['province'] ?? '-'}",
+                              ),
                             ],
                           ),
                         ),
@@ -232,7 +255,11 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
               child: Container(
                 padding: const EdgeInsets.all(10),
                 color: Colors.red.withOpacity(0.8),
-                child: Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
         ],
