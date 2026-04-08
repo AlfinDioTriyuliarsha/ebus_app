@@ -26,52 +26,82 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
     _fetchAgents();
   }
 
-  // ================= READ =================
+  // ================= READ DATA (GET) =================
   Future<void> _fetchAgents() async {
+    setState(() => _isLoading = true);
     try {
-      print("Memulai ambil data untuk Company ID: ${widget.companyId}");
-      
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/agents"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/company/${widget.companyId}/agents",
+        ),
       );
-
-      print("Status Code: ${res.statusCode}");
-      print("Response Body: ${res.body}");
 
       if (res.statusCode == 200) {
         final decodedData = jsonDecode(res.body);
-        
         setState(() {
-          // Cek apakah data dibungkus dalam key 'data' atau langsung List
-          if (decodedData is List) {
-            _agents = decodedData;
-          } else if (decodedData is Map && decodedData.containsKey('data')) {
+          if (decodedData is Map && decodedData.containsKey('data')) {
             _agents = decodedData['data'];
+          } else if (decodedData is List) {
+            _agents = decodedData;
           }
-          _isLoading = false; // Matikan loading
+          _isLoading = false;
         });
       } else {
-        print("Server Error: ${res.body}");
         setState(() => _isLoading = false);
+        _showSnackBar("Gagal mengambil data: Kode ${res.statusCode}");
       }
     } catch (e) {
-      print("Exception Error: $e");
-      setState(() => _isLoading = false); // Wajib matikan loading jika error
-      
-      // Tampilkan snackbar agar kamu tahu error-nya apa
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal memuat data: $e")),
-      );
+      setState(() => _isLoading = false);
+      _showSnackBar("Terjadi kesalahan jaringan: $e");
     }
   }
 
-  // ================= CREATE / UPDATE DIALOG =================
+  // ================= CREATE DATA (POST) =================
+  Future<void> _addAgent() async {
+    if (_namaController.text.isEmpty) {
+      _showSnackBar("Nama Agent tidak boleh kosong");
+      return;
+    }
+
+    try {
+      final res = await http.post(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/company/${widget.companyId}/agents",
+        ),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "agent_name": _namaController.text, // Sesuai dengan field di Node.js
+          "lokasi": _lokasiController.text,
+          "kontak": _hpController.text,
+        }),
+      );
+
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        _showSnackBar("Agent berhasil ditambahkan!");
+        _fetchAgents(); // Refresh list
+      } else {
+        _showSnackBar("Gagal menyimpan: ${res.body}");
+      }
+    } catch (e) {
+      _showSnackBar("Error saat menyimpan: $e");
+    }
+  }
+
+  // Helper untuk menampilkan pesan
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // ================= FORM DIALOG =================
   void _showForm(int? index) {
     if (index != null) {
-      _namaController.text = _agents[index]['nama_agent'];
-      _hpController.text = _agents[index]['no_hp'];
-      _lokasiController.text = _agents[index]['lokasi'];
+      // Logic Edit (jika ingin dikembangkan)
+      _namaController.text = _agents[index]['agent_name'] ?? "";
+      _hpController.text = _agents[index]['kontak'] ?? "";
+      _lokasiController.text = _agents[index]['lokasi'] ?? "";
     } else {
       _namaController.clear();
       _hpController.clear();
@@ -82,24 +112,30 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(index == null ? "Tambah Agent" : "Edit Agent"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _namaController,
-              decoration: const InputDecoration(labelText: "Nama Agent"),
-            ),
-            TextField(
-              controller: _hpController,
-              decoration: const InputDecoration(labelText: "Nomor HP"),
-            ),
-            TextField(
-              controller: _lokasiController,
-              decoration: const InputDecoration(
-                labelText: "Lokasi (Terminal, Kota, Prov)",
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _namaController,
+                decoration: const InputDecoration(labelText: "Nama Agent"),
               ),
-            ),
-          ],
+              TextField(
+                controller: _hpController,
+                decoration: const InputDecoration(
+                  labelText: "Nomor HP / Kontak",
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: _lokasiController,
+                decoration: const InputDecoration(
+                  labelText: "Lokasi (Terminal/Kota)",
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -107,12 +143,18 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
             child: const Text("Batal"),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF004D74),
+            ),
             onPressed: () {
-              // Di sini nanti panggil fungsi pendaftaran ke API
               Navigator.pop(context);
-              _fetchAgents(); // Refresh data
+              if (index == null) {
+                _addAgent();
+              } else {
+                // Fungsi update bisa ditambahkan di sini
+              }
             },
-            child: const Text("Simpan"),
+            child: const Text("Simpan", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -147,14 +189,15 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
                 : Column(
                     children: [
                       Expanded(
-                        child: ListView.builder(
-                          itemCount: _agents.length,
-                          itemBuilder: (context, index) =>
-                              _buildAgentCard(index),
-                        ),
+                        child: _agents.isEmpty
+                            ? const Center(child: Text("Belum ada data agent"))
+                            : ListView.builder(
+                                itemCount: _agents.length,
+                                itemBuilder: (context, index) =>
+                                    _buildAgentCard(index),
+                              ),
                       ),
                       const SizedBox(height: 15),
-                      // TOMBOL TAMBAH (+)
                       _buildAddButton(),
                     ],
                   ),
@@ -179,13 +222,12 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
           Expanded(
             child: Column(
               children: [
-                _buildInfoRow("Nama", agent['nama_agent'] ?? "-"),
-                _buildInfoRow("Nomor HP", agent['no_hp'] ?? "-"),
+                _buildInfoRow("Nama", agent['agent_name'] ?? "-"),
+                _buildInfoRow("Kontak", agent['kontak'] ?? "-"),
                 _buildInfoRow("Lokasi", agent['lokasi'] ?? "-"),
               ],
             ),
           ),
-          // BUTTON ACTION (EDIT & DELETE)
           Column(
             children: [
               IconButton(
@@ -194,7 +236,9 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
               ),
               IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () {},
+                onPressed: () {
+                  // Tambahkan fungsi delete di sini jika diperlukan
+                },
               ),
             ],
           ),
@@ -204,18 +248,21 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
   }
 
   Widget _buildInfoRow(String label, String value) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
-        ),
-        const Text(" :  "),
-        Expanded(child: Text(value)),
-      ],
+          const Text(" :  "),
+          Expanded(child: Text(value)),
+        ],
+      ),
     );
   }
 
