@@ -59,6 +59,7 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
       setState(() => _isLoading = false); // Wajib matikan loading jika error
       
       // Tampilkan snackbar agar kamu tahu error-nya apa
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Gagal memuat data: $e")),
       );
