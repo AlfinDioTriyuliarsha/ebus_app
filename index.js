@@ -36,7 +36,7 @@ app.use('/uploads', express.static('uploads'));
 
 // ================= ROUTES =================
 app.use("/api/users", userRoutes);
-app.use("/api/companies", companyRoutes);
+app.use("/api/company", companyRoutes);
 app.use("/api/buses", busRoutes);
 
 // ================= ROOT TEST =================
