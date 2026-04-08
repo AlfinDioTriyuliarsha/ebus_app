@@ -29,19 +29,39 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
   // ================= READ =================
   Future<void> _fetchAgents() async {
     try {
+      print("Memulai ambil data untuk Company ID: ${widget.companyId}");
+      
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/company/${widget.companyId}/agents",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/agents"),
       );
+
+      print("Status Code: ${res.statusCode}");
+      print("Response Body: ${res.body}");
+
       if (res.statusCode == 200) {
+        final decodedData = jsonDecode(res.body);
+        
         setState(() {
-          _agents = jsonDecode(res.body)['data'];
-          _isLoading = false;
+          // Cek apakah data dibungkus dalam key 'data' atau langsung List
+          if (decodedData is List) {
+            _agents = decodedData;
+          } else if (decodedData is Map && decodedData.containsKey('data')) {
+            _agents = decodedData['data'];
+          }
+          _isLoading = false; // Matikan loading
         });
+      } else {
+        print("Server Error: ${res.body}");
+        setState(() => _isLoading = false);
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      print("Exception Error: $e");
+      setState(() => _isLoading = false); // Wajib matikan loading jika error
+      
+      // Tampilkan snackbar agar kamu tahu error-nya apa
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal memuat data: $e")),
+      );
     }
   }
 
