@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
+
 // ==========================================
 // KELOLA DATA PERUSAHAAN (Untuk Super Admin)
 // ==========================================
@@ -84,14 +85,63 @@ router.delete("/:id", async (req, res) => {
 
 // 1. MANAJEMEN AGENT per Perusahaan
 router.get("/:companyId/agents", async (req, res) => {
+    const { companyId } = req.params;
     try {
-        const result = await pool.query("SELECT * FROM agents WHERE company_id = $1", [req.params.companyId]);
-        res.json({ success: true, data: result.rows });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+        const result = await pool.query(
+            "SELECT * FROM agents WHERE company_id = $1", // Ubah ke company_id
+            [companyId]
+        );
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.post("/:companyId/agents", async (req, res) => {
+    const { companyId } = req.params;
+    const { agent_name, lokasi, kontak } = req.body;
+    try {
+        const result = await pool.query(
+            "INSERT INTO agents (company_id, agent_name, lokasi, kontak) VALUES ($1, $2, $3, $4) RETURNING *", // Ubah ke company_id
+            [companyId, agent_name, lokasi, kontak]
+        );
+        res.status(201).json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// UPDATE Agent
+router.put("/:companyId/agents/:agentId", async (req, res) => {
+    const { agentId } = req.params;
+    const { agent_name, lokasi, kontak } = req.body;
+    try {
+        const result = await pool.query(
+            "UPDATE agents SET agent_name = $1, lokasi = $2, kontak = $3 WHERE id = $4 RETURNING *",
+            [agent_name, lokasi, kontak, agentId]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Agent tidak ditemukan" });
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// DELETE Agent
+router.delete("/:companyId/agents/:agentId", async (req, res) => {
+    const { agentId } = req.params;
+    try {
+        const result = await pool.query("DELETE FROM agents WHERE id = $1 RETURNING *", [agentId]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Agent tidak ditemukan" });
+        res.json({ success: true, message: "Agent berhasil dihapus" });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 // 2. MANAJEMEN ARMADA per Perusahaan
-router.get("/:companyId/buses", async (req, res) => {
+router.get("/:company_Id/buses", async (req, res) => {
+    const { companyId } = req.params;
     try {
         const result = await pool.query("SELECT * FROM buses WHERE company_id = $1", [req.params.companyId]);
         res.json({ success: true, data: result.rows });
