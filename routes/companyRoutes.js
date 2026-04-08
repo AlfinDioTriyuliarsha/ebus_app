@@ -129,12 +129,17 @@ router.put("/:companyId/agents/:agentId", async (req, res) => {
 
 // DELETE Agent
 router.delete("/:companyId/agents/:agentId", async (req, res) => {
-    const { agentId } = req.params;
+    const { agentId } = req.params; // Ambil agentId dari URL
     try {
+        // Ganti 'id' dengan nama kolom primary key yang sebenarnya di database kamu
         const result = await pool.query("DELETE FROM agents WHERE id = $1 RETURNING *", [agentId]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Agent tidak ditemukan" });
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: "Agent tidak ditemukan" });
+        }
         res.json({ success: true, message: "Agent berhasil dihapus" });
     } catch (err) {
+        console.error(err.message);
         res.status(500).json({ success: false, message: err.message });
     }
 });

@@ -87,19 +87,17 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
   }
 
   // ================= UPDATE DATA (PUT) =================
-  Future<void> _updateAgent(int agentId) async {
-    try {
-      final res = await http.put(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/company/${widget.companyId}/agents/$agentId",
-        ),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "agent_name": _namaController.text,
-          "lokasi": _lokasiController.text,
-          "kontak": _hpController.text,
-        }),
-      );
+  Future<void> _updateAgent(dynamic agentId) async { 
+  try {
+    final res = await http.put(
+      Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/agents/$agentId"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "agent_name": _namaController.text,
+        "lokasi": _lokasiController.text,
+        "kontak": _hpController.text,
+      }),
+    );
 
       if (res.statusCode == 200) {
         _showSnackBar("Agent berhasil diperbarui!");
@@ -115,11 +113,9 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
   // ================= DELETE DATA (DELETE) =================
   Future<void> _deleteAgent(int agentId) async {
     try {
-      final res = await http.delete(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/company/${widget.companyId}/agents/$agentId",
-        ),
-      );
+    final res = await http.delete(
+      Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/agents/$agentId"),
+    );
 
       if (res.statusCode == 200) {
         _showSnackBar("Agent berhasil dihapus");
