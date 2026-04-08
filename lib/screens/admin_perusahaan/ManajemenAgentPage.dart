@@ -41,7 +41,7 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
         setState(() {
           if (decodedData is Map && decodedData.containsKey('data')) {
             _agents = decodedData['data'];
-          } else if (decodedData is List) {
+          } else {
             _agents = decodedData;
           }
           _isLoading = false;
@@ -62,7 +62,6 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
       _showSnackBar("Nama Agent tidak boleh kosong");
       return;
     }
-
     try {
       final res = await http.post(
         Uri.parse(
@@ -70,7 +69,7 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
         ),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "agent_name": _namaController.text, // Sesuai dengan field di Node.js
+          "agent_name": _namaController.text,
           "lokasi": _lokasiController.text,
           "kontak": _hpController.text,
         }),
@@ -78,7 +77,7 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
 
       if (res.statusCode == 201 || res.statusCode == 200) {
         _showSnackBar("Agent berhasil ditambahkan!");
-        _fetchAgents(); // Refresh list
+        _fetchAgents();
       } else {
         _showSnackBar("Gagal menyimpan: ${res.body}");
       }
@@ -87,7 +86,52 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
     }
   }
 
-  // Helper untuk menampilkan pesan
+  // ================= UPDATE DATA (PUT) =================
+  Future<void> _updateAgent(int agentId) async {
+    try {
+      final res = await http.put(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/company/${widget.companyId}/agents/$agentId",
+        ),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "agent_name": _namaController.text,
+          "lokasi": _lokasiController.text,
+          "kontak": _hpController.text,
+        }),
+      );
+
+      if (res.statusCode == 200) {
+        _showSnackBar("Agent berhasil diperbarui!");
+        _fetchAgents();
+      } else {
+        _showSnackBar("Gagal memperbarui data");
+      }
+    } catch (e) {
+      _showSnackBar("Error: $e");
+    }
+  }
+
+  // ================= DELETE DATA (DELETE) =================
+  Future<void> _deleteAgent(int agentId) async {
+    try {
+      final res = await http.delete(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/company/${widget.companyId}/agents/$agentId",
+        ),
+      );
+
+      if (res.statusCode == 200) {
+        _showSnackBar("Agent berhasil dihapus");
+        _fetchAgents();
+      } else {
+        _showSnackBar("Gagal menghapus data");
+      }
+    } catch (e) {
+      _showSnackBar("Error: $e");
+    }
+  }
+
   void _showSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -95,10 +139,35 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  // ================= FORM DIALOG =================
+  // ================= POPUP DIALOGS =================
+  void _showKonfirmasiHapus(int agentId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Hapus Agent?"),
+        content: const Text("Data ini akan dihapus permanen."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteAgent(agentId);
+            },
+            child: const Text("Hapus", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showForm(int? index) {
+    int? currentAgentId;
     if (index != null) {
-      // Logic Edit (jika ingin dikembangkan)
+      currentAgentId = _agents[index]['id'];
       _namaController.text = _agents[index]['agent_name'] ?? "";
       _hpController.text = _agents[index]['kontak'] ?? "";
       _lokasiController.text = _agents[index]['lokasi'] ?? "";
@@ -112,7 +181,6 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(index == null ? "Tambah Agent" : "Edit Agent"),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -123,16 +191,12 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
               ),
               TextField(
                 controller: _hpController,
-                decoration: const InputDecoration(
-                  labelText: "Nomor HP / Kontak",
-                ),
+                decoration: const InputDecoration(labelText: "Kontak"),
                 keyboardType: TextInputType.phone,
               ),
               TextField(
                 controller: _lokasiController,
-                decoration: const InputDecoration(
-                  labelText: "Lokasi (Terminal/Kota)",
-                ),
+                decoration: const InputDecoration(labelText: "Lokasi"),
               ),
             ],
           ),
@@ -151,7 +215,7 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
               if (index == null) {
                 _addAgent();
               } else {
-                // Fungsi update bisa ditambahkan di sini
+                _showKonfirmasiSimpan(currentAgentId!);
               }
             },
             child: const Text("Simpan", style: TextStyle(color: Colors.white)),
@@ -161,6 +225,29 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
     );
   }
 
+  void _showKonfirmasiSimpan(int agentId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Simpan Perubahan?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _updateAgent(agentId);
+            },
+            child: const Text("Ya, Simpan"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================= UI BUILDERS =================
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -209,59 +296,28 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
 
   Widget _buildAgentCard(int index) {
     var agent = _agents[index];
-    return Container(
+    return Card(
       margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              children: [
-                _buildInfoRow("Nama", agent['agent_name'] ?? "-"),
-                _buildInfoRow("Kontak", agent['kontak'] ?? "-"),
-                _buildInfoRow("Lokasi", agent['lokasi'] ?? "-"),
-              ],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ListTile(
+        title: Text(
+          agent['agent_name'] ?? "-",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text("${agent['lokasi'] ?? "-"} (${agent['kontak'] ?? "-"})"),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: () => _showForm(index),
             ),
-          ),
-          Column(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue),
-                onPressed: () => _showForm(index),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () {
-                  // Tambahkan fungsi delete di sini jika diperlukan
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => _showKonfirmasiHapus(agent['id']),
             ),
-          ),
-          const Text(" :  "),
-          Expanded(child: Text(value)),
-        ],
+          ],
+        ),
       ),
     );
   }
