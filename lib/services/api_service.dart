@@ -93,23 +93,23 @@ class ApiService {
 
   // GET User by ID
   static Future<Map<String, dynamic>> getUserById(int id) async {
-  final url = Uri.parse("$baseUrl/api/users/$id");
-  
-  try {
-    final res = await http.get(url, headers: _headers);
-    final decodedData = jsonDecode(res.body);
+    final url = Uri.parse("$baseUrl/api/users/$id");
 
-    if (res.statusCode == 200 && decodedData['success'] == true) {
-      // Mengambil objek 'data' sesuai struktur backend yang baru
-      return decodedData['data'];
-    } else {
-      throw Exception(decodedData['message'] ?? "Gagal ambil data user");
+    try {
+      final res = await http.get(url, headers: _headers);
+      final decodedData = jsonDecode(res.body);
+
+      if (res.statusCode == 200 && decodedData['success'] == true) {
+        // Mengambil objek 'data' sesuai struktur backend yang baru
+        return decodedData['data'];
+      } else {
+        throw Exception(decodedData['message'] ?? "Gagal ambil data user");
+      }
+    } catch (e) {
+      print("❌ Error di getUserById: $e");
+      throw Exception("Tidak bisa ambil data user: $e");
     }
-  } catch (e) {
-    print("❌ Error di getUserById: $e");
-    throw Exception("Tidak bisa ambil data user: $e");
   }
-}
 
   // CREATE User
   static Future<bool> addUser(Map<String, dynamic> data) async {
@@ -120,14 +120,14 @@ class ApiService {
 
   // UPDATE User
   static Future<bool> updateUser(int id, Map<String, dynamic> data) async {
-  final url = Uri.parse("$baseUrl/api/users/$id");
+    final url = Uri.parse("$baseUrl/api/users/$id");
     try {
       final res = await http.put(
-        url, 
-        headers: _headers, 
-        body: jsonEncode(data)
+        url,
+        headers: _headers,
+        body: jsonEncode(data),
       );
-      
+
       // Web terkadang mengirim 201 atau 204, kita amankan check-nya
       return res.statusCode >= 200 && res.statusCode < 300;
     } catch (e) {
