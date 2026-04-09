@@ -4,19 +4,19 @@ require("dotenv").config();
 
 // Hanya panggil dotenv jika tidak di production
 if (process.env.NODE_ENV !== 'production') {
-  require("dotenv").config();
+    try {
+        require("dotenv").config();
+    } catch (e) {
+        console.log("Dotenv tidak terinstall, melewati...");
+    }
 }
 
 // Konfigurasi Pool Koneksi
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, // Wajib untuk Neon/Railway agar tidak kena Error Self-Signed Certificate
+    rejectUnauthorized: false,
   },
-  // Tambahkan limit koneksi agar tidak melebihi kuota Neon Free Tier
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
 });
 
 // Cek Koneksi saat Startup

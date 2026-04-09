@@ -307,4 +307,21 @@ router.get("/:id/available-drivers", async (req, res) => {
     }
 });
 
+router.post('/:company_id/buses', async (req, res) => {
+    const { company_id } = req.params;
+    const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan } = req.body;
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO buses 
+            (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan]
+        );
+        res.status(201).json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;
