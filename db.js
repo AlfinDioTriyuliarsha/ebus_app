@@ -2,6 +2,11 @@
 const { Pool } = require('pg');
 require("dotenv").config();
 
+// Hanya panggil dotenv jika tidak di production
+if (process.env.NODE_ENV !== 'production') {
+  require("dotenv").config();
+}
+
 // Konfigurasi Pool Koneksi
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
