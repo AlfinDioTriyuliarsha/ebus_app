@@ -1,10 +1,11 @@
 const { Pool } = require('pg');
+require("dotenv").config();
 
 // Konfigurasi Pool Koneksi
 const pool = new Pool({
-  connectionString: "postgresql://neondb_owner:npg_4VCexcWsSRj1@ep-blue-mountain-a156wxkp.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+  connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, 
+    rejectUnauthorized: false, // Wajib untuk Neon/Railway
   },
 });
 

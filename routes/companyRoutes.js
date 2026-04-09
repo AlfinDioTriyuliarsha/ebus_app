@@ -292,4 +292,19 @@ app.post('/api/company/:company_id/buses', async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+// Ambil Driver berdasarkan Company ID
+router.get("/:id/available-drivers", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            "SELECT id, driver_name FROM drivers WHERE company_id = $1", 
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
