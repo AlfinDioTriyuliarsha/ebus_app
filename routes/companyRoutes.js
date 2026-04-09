@@ -178,9 +178,27 @@ router.get("/:companyId/available-drivers", async (req, res) => {
 });
 
 // CRUD BUSES
-router.get("/:companyId/buses", async (req, res) => {
-    const { companyId } = req.params; // Pastikan menggunakan companyId tanpa underscore
+// 1. GET Available Drivers
+router.get("/:companyId/available-drivers", async (req, res) => {
     try {
+        const { companyId } = req.params; // Pastikan ini konsisten
+        const result = await pool.query(
+            `SELECT id, driver_name FROM drivers 
+             WHERE company_id = $1 
+             AND id NOT IN (SELECT driver_id FROM buses WHERE driver_id IS NOT NULL)`,
+            [companyId]
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error("Error Available Drivers:", err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 2. GET All Buses
+router.get("/:companyId/buses", async (req, res) => {
+    try {
+        const { companyId } = req.params;
         const result = await pool.query(
             `SELECT b.*, d.driver_name 
              FROM buses b 
@@ -190,22 +208,31 @@ router.get("/:companyId/buses", async (req, res) => {
         );
         res.json({ success: true, data: result.rows });
     } catch (err) { 
-        res.status(500).json({ success: false, message: err.message }); 
+        console.error("Error Get Buses:", err.message);
+        res.status(500).json({ success: false, error: err.message }); 
     }
 });
 
+// 3. POST Add Bus
 router.post("/:companyId/buses", async (req, res) => {
-    const { companyId } = req.params;
-    const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
     try {
+        const { companyId } = req.params;
+        const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
+        
+        // Validasi sederhana agar tidak crash jika data kosong
+        if (!nomor_bus || !plat_nomor) {
+            return res.status(400).json({ success: false, message: "Nomor Bus dan Plat wajib diisi" });
+        }
+
         const result = await pool.query(
             `INSERT INTO buses (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [companyId, driver_id || null, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status || 'Aktif']
+            [companyId, driver_id || null, nomor_bus, plat_nomor, mesin || '', rute_berangkat || '', rute_tujuan || '', status || 'Aktif']
         );
         res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err) { 
-        res.status(500).json({ success: false, message: err.message }); 
+        console.error("Error Post Bus:", err.message);
+        res.status(500).json({ success: false, error: err.message }); 
     }
 });
 
