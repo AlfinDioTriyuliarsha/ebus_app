@@ -274,4 +274,22 @@ router.delete("/:companyId/buses/:id", async (req, res) => {
     }
 })
 
+// Endpoint untuk Tambah Bus (POST)
+app.post('/api/company/:company_id/buses', async (req, res) => {
+    const { company_id } = req.params;
+    const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO buses 
+            (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status]
+        );
+        res.status(201).json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        console.error("Error Backend:", err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 module.exports = router;

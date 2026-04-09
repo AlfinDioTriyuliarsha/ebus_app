@@ -68,45 +68,48 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   // ================= CRUD OPERATIONS =================
 
   Future<void> _saveBus({int? busId}) async {
-  final url = busId == null
-      ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
-      : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
+    final url = busId == null
+        ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
+        : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
 
-  final body = jsonEncode({
-    "driver_id": _selectedDriverId,
-    "nomor_bus": _noBusController.text,
-    "plat_nomor": _platController.text,
-    "mesin": _mesinController.text,
-    "rute_berangkat": _ruteBerangkatController.text,
-    "rute_tujuan": _ruteTujuanController.text,
-    "status": _selectedStatus,
-  });
+    // Memastikan data yang dikirim sesuai dengan database
+    final body = jsonEncode({
+      "driver_id": _selectedDriverId, 
+      "nomor_bus": _noBusController.text,
+      "plat_nomor": _platController.text,
+      "mesin": _mesinController.text,
+      "rute_berangkat": _ruteBerangkatController.text,
+      "rute_tujuan": _ruteTujuanController.text,
+      "status": _selectedStatus,
+    });
 
-  try {
-    final res = busId == null
-        ? await http.post(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: body,
-          )
-        : await http.put(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: body,
-          );
+    try {
+      final res = busId == null
+          ? await http.post(
+              Uri.parse(url),
+              headers: {"Content-Type": "application/json"},
+              body: body,
+            )
+          : await http.put(
+              Uri.parse(url),
+              headers: {"Content-Type": "application/json"},
+              body: body,
+            );
 
-    if (res.statusCode == 200 || res.statusCode == 201) {
-      _showSnackBar("✅ Data Armada Berhasil Disimpan");
-      _fetchData(); // Refresh list setelah simpan
-    } else {
-      // Jika error 500, ambil pesan error dari server jika ada
-      final errorResponse = jsonDecode(res.body);
-      _showSnackBar("❌ Gagal: ${errorResponse['error'] ?? 'Terjadi kesalahan server (500)'}");
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        if (mounted) {
+          _showSnackBar("✅ Data Armada Berhasil Disimpan");
+          _fetchData(); // Refresh daftar bus
+        }
+      } else {
+        // Menangkap pesan error dari server
+        final errorData = jsonDecode(res.body);
+        _showSnackBar("❌ Gagal: ${errorData['error'] ?? 'Terjadi kesalahan server'}");
+      }
+    } catch (e) {
+      _showSnackBar("❌ Kesalahan Koneksi: $e");
     }
-  } catch (e) {
-    _showSnackBar("❌ Kesalahan Koneksi: $e");
   }
-}
 
   Future<void> _deleteBus(int id) async {
     final res = await http.delete(
