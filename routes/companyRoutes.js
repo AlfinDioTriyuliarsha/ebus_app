@@ -161,4 +161,47 @@ router.get("/:companyId/drivers", async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// Ambil Driver yang belum punya batangan bus
+router.get("/:companyId/available-drivers", async (req, res) => {
+    const { companyId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT id, driver_name FROM drivers 
+             WHERE company_id = $1 
+             AND id NOT IN (SELECT driver_id FROM buses WHERE driver_id IS NOT NULL)`,
+            [companyId]
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// CRUD BUSES
+router.get("/:companyId/buses", async (req, res) => {
+    const { companyId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT b.*, d.driver_name 
+             FROM buses b 
+             LEFT JOIN drivers d ON b.driver_id = d.id 
+             WHERE b.company_id = $1 ORDER BY b.id DESC`, [companyId]
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+router.post("/:companyId/buses", async (req, res) => {
+    const { companyId } = req.params;
+    const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
+    try {
+        const result = await pool.query(
+            `INSERT INTO buses (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [companyId, driver_id || null, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status || 'Aktif']
+        );
+        res.status(201).json({ success: true, data: result.rows[0] });
+    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 module.exports = router;
