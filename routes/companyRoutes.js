@@ -6,12 +6,13 @@ const pool = require("../db");
 // 1. KELOLA DATA PERUSAHAAN (Untuk Super Admin)
 // ==========================================
 
-// GET semua perusahaan
+// GET semua perusahaan - INI YANG DIPANGGIL HALAMAN MANAJEMEN PERUSAHAAN
 router.get("/", async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM companies ORDER BY id ASC");
         res.json({ success: true, data: result.rows });
     } catch (err) {
+        console.error("Error Get Companies:", err.message);
         res.status(500).json({ success: false, message: err.message });
     }
 });

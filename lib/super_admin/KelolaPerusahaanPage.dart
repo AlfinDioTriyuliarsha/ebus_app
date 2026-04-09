@@ -16,7 +16,7 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
   String? _error;
 
   // ✅ Ganti ke IP server / 127.0.0.1 kalau backend jalan di PC sama
-  String get baseUrl => "${ApiService.baseUrl}/api/companies";
+  String get baseUrl => "${ApiService.baseUrl}/api/company";
 
   @override
   void initState() {
@@ -67,9 +67,8 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
         }),
       );
 
-      final decoded = jsonDecode(response.body);
-
       if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = jsonDecode(response.body);
         if (decoded["success"] == true) {
           if (mounted) Navigator.pop(context);
           _fetchCompanies();
@@ -106,16 +105,17 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
         }),
       );
 
-      final decoded = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        if (mounted) Navigator.pop(context);
-        _fetchCompanies();
-        _showAlert("Perusahaan berhasil diperbarui");
-      } else {
-        _showAlert(
-          "Gagal update perusahaan: ${decoded['message'] ?? response.body}",
-        );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = jsonDecode(response.body);
+        if (decoded["success"] == true) {
+          if (mounted) Navigator.pop(context);
+          _fetchCompanies();
+          _showAlert("Perusahaan berhasil diperbarui");
+        } else {
+          _showAlert(
+            "Gagal update perusahaan: ${decoded['message'] ?? response.body}",
+          );
+        }
       }
     } catch (e) {
       _showAlert("Error: $e");
@@ -282,70 +282,72 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(child: Text(_error!));
-    }
-    if (_companies.isEmpty) {
-      return const Center(child: Text("Belum ada perusahaan"));
-    }
-
+    // Scaffold diletakkan di paling luar agar AppBar dan FloatingActionButton selalu muncul
     return Scaffold(
-      body: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _companies.length,
-        itemBuilder: (context, index) {
-          final company = _companies[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 3,
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-              leading: CircleAvatar(
-                backgroundColor: Colors.orange[100],
-                child: const Icon(Icons.business, color: Colors.orange),
-              ),
-              title: Text(
-                company['company_name'],
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Email: ${company['email']}"),
-                  Text("Alamat: ${company['alamat'] ?? '-'}"),
-                  Text("Status: ${company['status']}"),
-                ],
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () => _showEditCompanyDialog(company),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteCompany(company['id']),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+      appBar: AppBar(
+        title: const Text("Manajemen Perusahaan"),
+        backgroundColor: Colors.orange,
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Text(_error!))
+          : _companies.isEmpty
+          ? const Center(child: Text("Belum ada perusahaan"))
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: _companies.length,
+              itemBuilder: (context, index) {
+                final company = _companies[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 3,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.orange[100],
+                      child: const Icon(Icons.business, color: Colors.orange),
+                    ),
+                    title: Text(
+                      company['company_name'],
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Email: ${company['email']}"),
+                        Text("Alamat: ${company['alamat'] ?? '-'}"),
+                        Text("Status: ${company['status']}"),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showEditCompanyDialog(company),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deleteCompany(company['id']),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddCompanyDialog,
         icon: const Icon(Icons.add_business),
         label: const Text("Tambah"),
+        backgroundColor: Colors.orange,
       ),
     );
   }
