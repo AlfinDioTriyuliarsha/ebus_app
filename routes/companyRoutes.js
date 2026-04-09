@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require("../db");
 
 // ==========================================
-// KELOLA DATA PERUSAHAAN (Super Admin)
+// 1. KELOLA DATA PERUSAHAAN (Untuk Super Admin)
 // ==========================================
 
 // GET semua perusahaan
@@ -42,8 +42,39 @@ router.post("/", async (req, res) => {
     }
 });
 
+// PUT update perusahaan (Ini yang tadi hilang)
+router.put("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { company_name, alamat, email, status, user_id } = req.body;
+        const result = await pool.query(
+            `UPDATE companies 
+             SET company_name = $1, alamat = $2, email = $3, status = $4, user_id = $5 
+             WHERE id = $6 RETURNING *`, 
+            [company_name, alamat, email, status, user_id, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Data tidak ditemukan" });
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// DELETE perusahaan (Ini juga penting buat Super Admin)
+router.delete("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query("DELETE FROM companies WHERE id = $1 RETURNING *", [id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Data tidak ditemukan" });
+        res.json({ success: true, message: "Perusahaan berhasil dihapus" });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+
 // ==========================================
-// MANAJEMEN AGENT
+// 2. MANAJEMEN AGENT (Admin Perusahaan)
 // ==========================================
 
 router.get("/:companyId/agents", async (req, res) => {
@@ -69,10 +100,9 @@ router.post("/:companyId/agents", async (req, res) => {
 });
 
 // ==========================================
-// MANAJEMEN ARMADA (BUSES)
+// 3. MANAJEMEN ARMADA/BUS (Admin Perusahaan)
 // ==========================================
 
-// GET Semua Bus Perusahaan
 router.get("/:companyId/buses", async (req, res) => {
     try {
         const result = await pool.query(
@@ -88,12 +118,10 @@ router.get("/:companyId/buses", async (req, res) => {
     }
 });
 
-// POST Tambah Bus
 router.post("/:companyId/buses", async (req, res) => {
     try {
         const { companyId } = req.params;
         const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
-
         const result = await pool.query(
             `INSERT INTO buses 
             (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
@@ -106,7 +134,22 @@ router.post("/:companyId/buses", async (req, res) => {
     }
 });
 
-// DELETE Bus
+// Update Bus (Fitur Edit)
+router.put("/:companyId/buses/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
+        const result = await pool.query(
+            `UPDATE buses SET driver_id=$1, nomor_bus=$2, plat_nomor=$3, mesin=$4, rute_berangkat=$5, rute_tujuan=$6, status=$7 
+             WHERE id=$8 RETURNING *`,
+            [driver_id || null, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status, id]
+        );
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 router.delete("/:companyId/buses/:id", async (req, res) => {
     try {
         await pool.query("DELETE FROM buses WHERE id = $1", [req.params.id]);
@@ -117,10 +160,9 @@ router.delete("/:companyId/buses/:id", async (req, res) => {
 });
 
 // ==========================================
-// MANAJEMEN DRIVER
+// 4. MANAJEMEN DRIVER (Admin Perusahaan)
 // ==========================================
 
-// Ambil Driver yang tersedia (belum narik bus)
 router.get("/:companyId/available-drivers", async (req, res) => {
     try {
         const result = await pool.query(
