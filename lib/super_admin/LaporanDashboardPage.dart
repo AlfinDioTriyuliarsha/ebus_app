@@ -26,33 +26,43 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
 
   Future<void> _fetchStats() async {
     try {
+      // Mengambil data User dari ApiService yang sudah ada
       final users = await ApiService.getUsers();
 
+      // FIX URL: Sesuaikan endpoint ke /api/company (tanpa 's') dan /api/bus sesuai rute backend
       final resComp = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/companies"),
+        Uri.parse("${ApiService.baseUrl}/api/company"),
       );
 
-      final resBus = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/buses"),
-      );
+      final resBus = await http.get(Uri.parse("${ApiService.baseUrl}/api/bus"));
 
       if (mounted) {
         setState(() {
           totalUser = users.length;
-          totalAkunAktif = users.length;
-          
+          totalAkunAktif =
+              users.length; // Asumsi user yang terdaftar adalah akun aktif
+
+          // Memproses data Perusahaan
           if (resComp.statusCode == 200) {
-            // Pastikan struktur JSON-nya adalah { "data": [...] }
             var dataComp = jsonDecode(resComp.body);
-            totalPerusahaan = (dataComp['data'] as List).length;
+            // Mengambil panjang list dari dataComp['data']
+            if (dataComp['data'] != null) {
+              totalPerusahaan = (dataComp['data'] as List).length;
+            }
+          } else {
+            print("Gagal ambil data Perusahaan: ${resComp.statusCode}");
           }
-          
+
+          // Memproses data Bus
           if (resBus.statusCode == 200) {
-            // Pastikan struktur JSON-nya adalah { "data": [...] }
             var dataBus = jsonDecode(resBus.body);
-            totalBus = (dataBus['data'] as List).length;
+            if (dataBus['data'] != null) {
+              totalBus = (dataBus['data'] as List).length;
+            }
+          } else {
+            print("Gagal ambil data Bus: ${resBus.statusCode}");
           }
-          
+
           isLoading = false;
         });
       }
@@ -64,19 +74,15 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(25),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // const Text(
-          //   "Ringkasan Statistik Sistem",
-          //   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
-          // ),
-          // const SizedBox(height: 20),
-
           // Row Kartu Statistik
           Row(
             children: [
@@ -112,7 +118,9 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,6 +165,8 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
             Text(
               title,
               style: const TextStyle(color: Colors.black54, fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               value,
@@ -170,13 +180,18 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
 
   // Widget Grafik Batang (Bar Chart)
   Widget _buildBarChart() {
+    // Mencari nilai tertinggi untuk skala bar
+    double maxVal = [
+      totalUser,
+      totalPerusahaan,
+      totalBus,
+      totalAkunAktif,
+    ].reduce((curr, next) => curr > next ? curr : next).toDouble();
+
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY:
-            (totalUser > totalPerusahaan ? totalUser : totalPerusahaan)
-                .toDouble() +
-            5,
+        maxY: maxVal + 5,
         barGroups: [
           _makeGroupData(0, totalUser.toDouble(), Colors.blue),
           _makeGroupData(1, totalPerusahaan.toDouble(), Colors.orange),
@@ -191,13 +206,13 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
               getTitlesWidget: (value, meta) {
                 switch (value.toInt()) {
                   case 0:
-                    return const Text('User');
+                    return const Text('User', style: TextStyle(fontSize: 10));
                   case 1:
-                    return const Text('PT');
+                    return const Text('PT', style: TextStyle(fontSize: 10));
                   case 2:
-                    return const Text('Bus');
+                    return const Text('Bus', style: TextStyle(fontSize: 10));
                   case 3:
-                    return const Text('Aktif');
+                    return const Text('Aktif', style: TextStyle(fontSize: 10));
                   default:
                     return const Text('');
                 }
