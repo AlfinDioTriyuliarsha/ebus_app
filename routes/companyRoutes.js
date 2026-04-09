@@ -217,22 +217,51 @@ router.get("/:companyId/buses", async (req, res) => {
 router.post("/:companyId/buses", async (req, res) => {
     try {
         const { companyId } = req.params;
-        const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
-        
-        // Validasi sederhana agar tidak crash jika data kosong
-        if (!nomor_bus || !plat_nomor) {
-            return res.status(400).json({ success: false, message: "Nomor Bus dan Plat wajib diisi" });
-        }
+        // Ambil data dari req.body (Pastikan nama variabel sama dengan di Flutter)
+        const { 
+            driver_id, 
+            nomor_bus, 
+            plat_nomor, 
+            mesin, 
+            rute_berangkat, 
+            rute_tujuan, 
+            status 
+        } = req.body;
+
+        // LOGGING UNTUK DEBUGGING (Cek di Railway Logs)
+        console.log("Menerima Data Bus:", req.body);
+        console.log("Untuk Company ID:", companyId);
 
         const result = await pool.query(
-            `INSERT INTO buses (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [companyId, driver_id || null, nomor_bus, plat_nomor, mesin || '', rute_berangkat || '', rute_tujuan || '', status || 'Aktif']
+            `INSERT INTO buses 
+            (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [
+                parseInt(companyId), 
+                driver_id ? parseInt(driver_id) : null, // Jika driver tidak dipilih, set NULL
+                nomor_bus, 
+                plat_nomor, 
+                mesin || '', 
+                rute_berangkat || '', 
+                rute_tujuan || '', 
+                status || 'Aktif'
+            ]
         );
-        res.status(201).json({ success: true, data: result.rows[0] });
-    } catch (err) { 
-        console.error("Error Post Bus:", err.message);
-        res.status(500).json({ success: false, error: err.message }); 
+
+        res.status(201).json({ 
+            success: true, 
+            message: "Bus berhasil ditambahkan", 
+            data: result.rows[0] 
+        });
+
+    } catch (err) {
+        // Ini akan mencetak error spesifik di log Railway
+        console.error("CRASH PADA POST BUS:", err.message);
+        res.status(500).json({ 
+            success: false, 
+            message: "Internal Server Error", 
+            error: err.message 
+        });
     }
 });
 

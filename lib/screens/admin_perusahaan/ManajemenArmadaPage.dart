@@ -68,20 +68,21 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   // ================= CRUD OPERATIONS =================
 
   Future<void> _saveBus({int? busId}) async {
-    final url = busId == null
-        ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
-        : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
+  final url = busId == null
+      ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
+      : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
 
-    final body = jsonEncode({
-      "driver_id": _selectedDriverId,
-      "nomor_bus": _noBusController.text,
-      "plat_nomor": _platController.text,
-      "mesin": _mesinController.text,
-      "rute_berangkat": _ruteBerangkatController.text,
-      "rute_tujuan": _ruteTujuanController.text,
-      "status": _selectedStatus,
-    });
+  final body = jsonEncode({
+    "driver_id": _selectedDriverId,
+    "nomor_bus": _noBusController.text,
+    "plat_nomor": _platController.text,
+    "mesin": _mesinController.text,
+    "rute_berangkat": _ruteBerangkatController.text,
+    "rute_tujuan": _ruteTujuanController.text,
+    "status": _selectedStatus,
+  });
 
+  try {
     final res = busId == null
         ? await http.post(
             Uri.parse(url),
@@ -95,10 +96,17 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
           );
 
     if (res.statusCode == 200 || res.statusCode == 201) {
-      _showSnackBar("Data Armada Berhasil Disimpan");
-      _fetchData();
+      _showSnackBar("✅ Data Armada Berhasil Disimpan");
+      _fetchData(); // Refresh list setelah simpan
+    } else {
+      // Jika error 500, ambil pesan error dari server jika ada
+      final errorResponse = jsonDecode(res.body);
+      _showSnackBar("❌ Gagal: ${errorResponse['error'] ?? 'Terjadi kesalahan server (500)'}");
     }
+  } catch (e) {
+    _showSnackBar("❌ Kesalahan Koneksi: $e");
   }
+}
 
   Future<void> _deleteBus(int id) async {
     final res = await http.delete(
@@ -143,18 +151,20 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<int>(
-                  value: _selectedDriverId,
-                  decoration: const InputDecoration(
-                    labelText: "Pilih Driver (Batangan)",
-                  ),
-                  items: _availableDrivers.isEmpty 
-                  ? [] 
-                  : _availableDrivers.map((d) => DropdownMenuItem<int>(
-                      value: d['id'], 
-                      child: Text(d['driver_name'] ?? "Tanpa Nama")
-                    )).toList(),
-                  onChanged: (val) =>
-                      setDialogState(() => _selectedDriverId = val),
+                  value: _availableDrivers.any((d) => d['id'] == _selectedDriverId) 
+                        ? _selectedDriverId 
+                        : null, // Jika ID lama tidak ada di list baru, set null
+                  decoration: const InputDecoration(labelText: "Pilih Driver (Batangan)"),
+                  items: [
+                    const DropdownMenuItem<int>(value: null, child: Text("Tanpa Driver")), // Tambahkan opsi null
+                    ..._availableDrivers.map((d) {
+                      return DropdownMenuItem<int>(
+                        value: d['id'],
+                        child: Text(d['driver_name'] ?? "Tanpa Nama"),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) => setDialogState(() => _selectedDriverId = val),
                 ),
                 TextField(
                   controller: _noBusController,
@@ -200,8 +210,14 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
-                _saveBus(busId: bus?['id']);
+                // Validasi input sederhana di sisi Flutter
+                if (_noBusController.text.isEmpty || _platController.text.isEmpty) {
+                  _showSnackBar("Nomor Bus dan Plat Nomor wajib diisi!");
+                  return; 
+                }
+                
+                Navigator.pop(context); // Tutup dialog
+                _saveBus(busId: bus?['id']); // Jalankan fungsi simpan
               },
               child: const Text("Simpan"),
             ),
