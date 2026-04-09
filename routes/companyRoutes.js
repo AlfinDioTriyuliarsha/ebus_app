@@ -179,16 +179,19 @@ router.get("/:companyId/available-drivers", async (req, res) => {
 
 // CRUD BUSES
 router.get("/:companyId/buses", async (req, res) => {
-    const { companyId } = req.params;
+    const { companyId } = req.params; // Pastikan menggunakan companyId tanpa underscore
     try {
         const result = await pool.query(
             `SELECT b.*, d.driver_name 
              FROM buses b 
              LEFT JOIN drivers d ON b.driver_id = d.id 
-             WHERE b.company_id = $1 ORDER BY b.id DESC`, [companyId]
+             WHERE b.company_id = $1 ORDER BY b.id DESC`, 
+            [companyId]
         );
         res.json({ success: true, data: result.rows });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
+    }
 });
 
 router.post("/:companyId/buses", async (req, res) => {
@@ -201,7 +204,18 @@ router.post("/:companyId/buses", async (req, res) => {
             [companyId, driver_id || null, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status || 'Aktif']
         );
         res.status(201).json({ success: true, data: result.rows[0] });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
+    }
 });
+
+router.delete("/:companyId/buses/:id", async (req, res) => {
+    try {
+        await pool.query("DELETE FROM buses WHERE id = $1", [req.params.id]);
+        res.json({ success: true, message: "Bus berhasil dihapus" });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+})
 
 module.exports = router;

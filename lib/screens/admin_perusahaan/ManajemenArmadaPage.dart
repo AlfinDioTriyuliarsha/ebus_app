@@ -147,14 +147,12 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                   decoration: const InputDecoration(
                     labelText: "Pilih Driver (Batangan)",
                   ),
-                  items: _availableDrivers
-                      .map(
-                        (d) => DropdownMenuItem<int>(
-                          value: d['id'],
-                          child: Text(d['driver_name']),
-                        ),
-                      )
-                      .toList(),
+                  items: _availableDrivers.isEmpty 
+                  ? [] 
+                  : _availableDrivers.map((d) => DropdownMenuItem<int>(
+                      value: d['id'], 
+                      child: Text(d['driver_name'] ?? "Tanpa Nama")
+                    )).toList(),
                   onChanged: (val) =>
                       setDialogState(() => _selectedDriverId = val),
                 ),
