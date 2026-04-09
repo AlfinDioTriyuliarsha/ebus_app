@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; // Library untuk grafik
+import 'package:fl_chart/fl_chart.dart';
 import 'package:ebus_app/services/api_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -26,49 +26,47 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
 
   Future<void> _fetchStats() async {
     try {
-      // Mengambil data User dari ApiService yang sudah ada
+      // 1. Ambil data User
       final users = await ApiService.getUsers();
 
-      // FIX URL: Sesuaikan endpoint ke /api/company (tanpa 's') dan /api/bus sesuai rute backend
+      // 2. Ambil data Perusahaan (FIX URL: /api/company)
       final resComp = await http.get(
         Uri.parse("${ApiService.baseUrl}/api/company"),
       );
 
+      // 3. Ambil data Bus (FIX URL: /api/bus)
       final resBus = await http.get(Uri.parse("${ApiService.baseUrl}/api/bus"));
 
       if (mounted) {
         setState(() {
+          // Set User
           totalUser = users.length;
-          totalAkunAktif =
-              users.length; // Asumsi user yang terdaftar adalah akun aktif
+          totalAkunAktif = users.length;
 
-          // Memproses data Perusahaan
+          // Set Perusahaan
           if (resComp.statusCode == 200) {
             var dataComp = jsonDecode(resComp.body);
-            // Mengambil panjang list dari dataComp['data']
             if (dataComp['data'] != null) {
               totalPerusahaan = (dataComp['data'] as List).length;
             }
-          } else {
-            print("Gagal ambil data Perusahaan: ${resComp.statusCode}");
           }
 
-          // Memproses data Bus
+          // Set Bus
           if (resBus.statusCode == 200) {
             var dataBus = jsonDecode(resBus.body);
             if (dataBus['data'] != null) {
               totalBus = (dataBus['data'] as List).length;
             }
-          } else {
-            print("Gagal ambil data Bus: ${resBus.statusCode}");
           }
 
           isLoading = false;
         });
       }
     } catch (e) {
-      print("Error Fetch Stats: $e");
-      if (mounted) setState(() => isLoading = false);
+      debugPrint("Error Fetch Stats: $e");
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -78,59 +76,61 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // Perhitungan maxY agar grafik tidak menyentuh atap
+    double maxVal = [
+      totalUser,
+      totalPerusahaan,
+      totalBus,
+      totalAkunAktif,
+    ].reduce((curr, next) => curr > next ? curr : next).toDouble();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(25),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row Kartu Statistik
           Row(
             children: [
               _buildModernCard(
                 "Users",
-                totalUser.toString(),
+                "$totalUser",
                 Icons.people,
                 Colors.blue,
               ),
               const SizedBox(width: 15),
               _buildModernCard(
                 "Perusahaan",
-                totalPerusahaan.toString(),
+                "$totalPerusahaan",
                 Icons.business,
                 Colors.orange,
               ),
               const SizedBox(width: 15),
               _buildModernCard(
-                "Armada Bus",
-                totalBus.toString(),
+                "Bus",
+                "$totalBus",
                 Icons.directions_bus,
                 Colors.green,
               ),
             ],
           ),
-
           const SizedBox(height: 30),
-
-          // Bagian Grafik
           Container(
             padding: const EdgeInsets.all(20),
             height: 350,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10),
-              ],
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "Visualisasi Data Akses",
+                  "Visualisasi Data Sistem",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 30),
-                Expanded(child: _buildBarChart()),
+                Expanded(child: _buildBarChart(maxVal)),
               ],
             ),
           ),
@@ -139,7 +139,6 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
     );
   }
 
-  // Widget Kartu Modern
   Widget _buildModernCard(
     String title,
     String value,
@@ -148,7 +147,7 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
   ) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(15),
@@ -160,17 +159,15 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 30),
-            const SizedBox(height: 10),
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
             Text(
               title,
-              style: const TextStyle(color: Colors.black54, fontSize: 14),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.black54, fontSize: 11),
             ),
             Text(
               value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -178,20 +175,11 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
     );
   }
 
-  // Widget Grafik Batang (Bar Chart)
-  Widget _buildBarChart() {
-    // Mencari nilai tertinggi untuk skala bar
-    double maxVal = [
-      totalUser,
-      totalPerusahaan,
-      totalBus,
-      totalAkunAktif,
-    ].reduce((curr, next) => curr > next ? curr : next).toDouble();
-
+  Widget _buildBarChart(double maxVal) {
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY: maxVal + 5,
+        maxY: maxVal + 2,
         barGroups: [
           _makeGroupData(0, totalUser.toDouble(), Colors.blue),
           _makeGroupData(1, totalPerusahaan.toDouble(), Colors.orange),
@@ -199,23 +187,18 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
           _makeGroupData(3, totalAkunAktif.toDouble(), Colors.purple),
         ],
         titlesData: FlTitlesData(
-          show: true,
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              getTitlesWidget: (value, meta) {
-                switch (value.toInt()) {
-                  case 0:
-                    return const Text('User', style: TextStyle(fontSize: 10));
-                  case 1:
-                    return const Text('PT', style: TextStyle(fontSize: 10));
-                  case 2:
-                    return const Text('Bus', style: TextStyle(fontSize: 10));
-                  case 3:
-                    return const Text('Aktif', style: TextStyle(fontSize: 10));
-                  default:
-                    return const Text('');
-                }
+              getTitlesWidget: (val, meta) {
+                const labels = ['User', 'PT', 'Bus', 'Aktif'];
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    labels[val.toInt()],
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                );
               },
             ),
           ),
@@ -242,8 +225,8 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
         BarChartRodData(
           toY: y,
           color: color,
-          width: 25,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+          width: 20,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
         ),
       ],
     );
