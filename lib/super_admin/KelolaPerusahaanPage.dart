@@ -15,10 +15,8 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
   bool _isLoading = true;
   String? _error;
 
-  // 1. Variabel untuk endpoint Company (agar fungsi CRUD perusahaan tidak error)
+  // Endpoint yang sudah sesuai dengan standar API Railway kamu
   String get baseUrl => "${ApiService.baseUrl}/api/company";
-
-  // 2. Variabel untuk endpoint Buses (sesuai permintaan kamu untuk standarisasi parameter)
   String get busApiUrl => "${ApiService.baseUrl}/api/buses";
 
   @override
@@ -27,32 +25,47 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
     _fetchCompanies();
   }
 
+  // FIXED: Penanganan response agar tidak error saat membaca field 'data'
   Future<void> _fetchCompanies() async {
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
+
+        // Memastikan mengambil list dari key 'data' atau fallback ke list kosong
+        final List rawData = (decoded is Map && decoded.containsKey('data'))
+            ? decoded['data']
+            : (decoded is List ? decoded : []);
+
         final List<Map<String, dynamic>> companies =
-            List<Map<String, dynamic>>.from(decoded['data']);
-        setState(() {
-          _companies = companies;
-          _isLoading = false;
-          _error = null;
-        });
+            List<Map<String, dynamic>>.from(rawData);
+
+        if (mounted) {
+          setState(() {
+            _companies = companies;
+            _isLoading = false;
+            _error = null;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _error = "Gagal mengambil data. Code: ${response.statusCode}";
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _error = "Gagal mengambil data. Code: ${response.statusCode}";
+          _error = "Error Koneksi: $e";
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _error = "Error: $e";
-        _isLoading = false;
-      });
     }
   }
 
+  // FIXED: Penyesuaian key JSON agar terbaca di Database Neon
   Future<void> _addCompany({
     required String name,
     required String email,
@@ -81,9 +94,9 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
         }),
       );
 
+      final decoded = jsonDecode(response.body);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final decoded = jsonDecode(response.body);
-        if (decoded["success"] == true) {
+        if (decoded["success"] == true || response.statusCode == 201) {
           if (mounted) Navigator.pop(context);
           _fetchCompanies();
           _showAlert("Perusahaan berhasil ditambahkan");
@@ -91,13 +104,14 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
           _showAlert("Gagal: ${decoded['message'] ?? 'Unknown'}");
         }
       } else {
-        _showAlert("Gagal tambah perusahaan. Code: ${response.statusCode}");
+        _showAlert("Gagal: ${decoded['message'] ?? response.statusCode}");
       }
     } catch (e) {
       _showAlert("Error: $e");
     }
   }
 
+  // FIXED: Update menggunakan ID yang tepat
   Future<void> _updateCompany({
     required int id,
     required String name,
@@ -115,12 +129,12 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
         Uri.parse("$baseUrl/$id"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "company_name": name,
-          "email": email,
-          "alamat": alamat,
-          "kota": kota,
-          "pemilik": pemilik,
-          "no_hp": noHp,
+          "company_name": name.trim(),
+          "email": email.trim(),
+          "alamat": alamat.trim(),
+          "kota": kota.trim(),
+          "pemilik": pemilik.trim(),
+          "no_hp": noHp.trim(),
           "jumlah_armada": int.tryParse(armada) ?? 0,
           "izin": izin,
           "status": status,
@@ -131,18 +145,24 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
         if (mounted) Navigator.pop(context);
         _fetchCompanies();
         _showAlert("Perusahaan berhasil diperbarui");
+      } else {
+        final decoded = jsonDecode(response.body);
+        _showAlert(
+          "Update Gagal: ${decoded['message'] ?? response.statusCode}",
+        );
       }
     } catch (e) {
       _showAlert("Error: $e");
     }
   }
 
+  // FIXED: Penanganan delete dengan konfirmasi refresh
   Future<void> _deleteCompany(int id) async {
     try {
       final response = await http.delete(Uri.parse("$baseUrl/$id"));
       final decoded = jsonDecode(response.body);
 
-      if (response.statusCode == 200 && decoded["success"] == true) {
+      if (response.statusCode == 200) {
         _fetchCompanies();
         _showAlert("Perusahaan berhasil dihapus");
       } else {
@@ -154,6 +174,7 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
   }
 
   void _showAlert(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -182,59 +203,71 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Tambah Perusahaan"),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildInput(nameCtrl, "Nama Perusahaan"),
-              _buildInput(kotaCtrl, "Kota"),
-              _buildInput(pemilikCtrl, "Pemilik"),
-              _buildInput(emailCtrl, "Email", type: TextInputType.emailAddress),
-              _buildInput(noHpCtrl, "Nomor HP", type: TextInputType.phone),
-              _buildInput(
-                armadaCtrl,
-                "Jumlah Unit Armada",
-                type: TextInputType.number,
+      builder: (context) => StatefulBuilder(
+        // Menjaga state dropdown di dalam dialog
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text("Tambah Perusahaan"),
+            content: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildInput(nameCtrl, "Nama Perusahaan"),
+                  _buildInput(kotaCtrl, "Kota"),
+                  _buildInput(pemilikCtrl, "Pemilik"),
+                  _buildInput(
+                    emailCtrl,
+                    "Email",
+                    type: TextInputType.emailAddress,
+                  ),
+                  _buildInput(noHpCtrl, "Nomor HP", type: TextInputType.phone),
+                  _buildInput(
+                    armadaCtrl,
+                    "Jumlah Unit Armada",
+                    type: TextInputType.number,
+                  ),
+                  _buildInput(alamatCtrl, "Alamat"),
+                  _buildDropdown(
+                    "Surat Izin",
+                    izin,
+                    ["Lengkap", "Tidak Lengkap"],
+                    (v) {
+                      setDialogState(() => izin = v!);
+                    },
+                  ),
+                  _buildDropdown("Status", status, ["Aktif", "Nonaktif"], (v) {
+                    setDialogState(() => status = v!);
+                  }),
+                ],
               ),
-              _buildInput(alamatCtrl, "Alamat"),
-              _buildDropdown("Surat Izin", izin, [
-                "Lengkap",
-                "Tidak Lengkap",
-              ], (v) => izin = v!),
-              _buildDropdown("Status", status, [
-                "Aktif",
-                "Nonaktif",
-              ], (v) => status = v!),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Batal"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty) {
+                    _showAlert("Nama dan Email wajib diisi");
+                    return;
+                  }
+                  _addCompany(
+                    name: nameCtrl.text,
+                    email: emailCtrl.text,
+                    alamat: alamatCtrl.text,
+                    kota: kotaCtrl.text,
+                    pemilik: pemilikCtrl.text,
+                    noHp: noHpCtrl.text,
+                    armada: armadaCtrl.text,
+                    izin: izin,
+                    status: status,
+                  );
+                },
+                child: const Text("Simpan"),
+              ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty) {
-                _showAlert("Nama dan Email wajib diisi");
-                return;
-              }
-              _addCompany(
-                name: nameCtrl.text,
-                email: emailCtrl.text,
-                alamat: alamatCtrl.text,
-                kota: kotaCtrl.text,
-                pemilik: pemilikCtrl.text,
-                noHp: noHpCtrl.text,
-                armada: armadaCtrl.text,
-                izin: izin,
-                status: status,
-              );
-            },
-            child: const Text("Simpan"),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -246,58 +279,71 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
     final kotaCtrl = TextEditingController(text: company['kota']);
     final pemilikCtrl = TextEditingController(text: company['pemilik']);
     final noHpCtrl = TextEditingController(text: company['no_hp']);
+
+    // FIXED: Pencegahan string 'null' pada jumlah armada
+    final armadaValue = company['jumlah_armada'];
     final armadaCtrl = TextEditingController(
-      text: company['jumlah_armada'].toString(),
+      text: (armadaValue == null || armadaValue == 'null')
+          ? "0"
+          : armadaValue.toString(),
     );
+
     String status = company['status'] ?? "Aktif";
     String izin = company['izin'] ?? "Lengkap";
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Edit Perusahaan"),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildInput(nameCtrl, "Nama Perusahaan"),
-              _buildInput(kotaCtrl, "Kota"),
-              _buildInput(pemilikCtrl, "Pemilik"),
-              _buildInput(emailCtrl, "Email"),
-              _buildInput(noHpCtrl, "Nomor HP"),
-              _buildInput(armadaCtrl, "Jumlah Unit Armada"),
-              _buildInput(alamatCtrl, "Alamat"),
-              _buildDropdown("Surat Izin", izin, [
-                "Lengkap",
-                "Tidak Lengkap",
-              ], (v) => izin = v!),
-              _buildDropdown("Status", status, [
-                "Aktif",
-                "Nonaktif",
-              ], (v) => status = v!),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          ElevatedButton(
-            onPressed: () => _updateCompany(
-              id: company['id'],
-              name: nameCtrl.text,
-              email: emailCtrl.text,
-              alamat: alamatCtrl.text,
-              kota: kotaCtrl.text,
-              pemilik: pemilikCtrl.text,
-              noHp: noHpCtrl.text,
-              armada: armadaCtrl.text,
-              izin: izin,
-              status: status,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text("Edit Perusahaan"),
+            content: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildInput(nameCtrl, "Nama Perusahaan"),
+                  _buildInput(kotaCtrl, "Kota"),
+                  _buildInput(pemilikCtrl, "Pemilik"),
+                  _buildInput(emailCtrl, "Email"),
+                  _buildInput(noHpCtrl, "Nomor HP"),
+                  _buildInput(armadaCtrl, "Jumlah Unit Armada"),
+                  _buildInput(alamatCtrl, "Alamat"),
+                  _buildDropdown(
+                    "Surat Izin",
+                    izin,
+                    ["Lengkap", "Tidak Lengkap"],
+                    (v) {
+                      setDialogState(() => izin = v!);
+                    },
+                  ),
+                  _buildDropdown("Status", status, ["Aktif", "Nonaktif"], (v) {
+                    setDialogState(() => status = v!);
+                  }),
+                ],
+              ),
             ),
-            child: const Text("Update"),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Batal"),
+              ),
+              ElevatedButton(
+                onPressed: () => _updateCompany(
+                  id: company['id'],
+                  name: nameCtrl.text,
+                  email: emailCtrl.text,
+                  alamat: alamatCtrl.text,
+                  kota: kotaCtrl.text,
+                  pemilik: pemilikCtrl.text,
+                  noHp: noHpCtrl.text,
+                  armada: armadaCtrl.text,
+                  izin: izin,
+                  status: status,
+                ),
+                child: const Text("Update"),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -312,7 +358,10 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
       child: TextField(
         controller: ctrl,
         keyboardType: type,
-        decoration: InputDecoration(labelText: label),
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
       ),
     );
   }
@@ -323,13 +372,19 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
     List<String> items,
     Function(String?) onChanged,
   ) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      items: items
-          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-          .toList(),
-      onChanged: onChanged,
-      decoration: InputDecoration(labelText: label),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DropdownButtonFormField<String>(
+        value: value,
+        items: items
+            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+            .toList(),
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+      ),
     );
   }
 
@@ -339,63 +394,119 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
       appBar: AppBar(
         title: const Text("Manajemen Perusahaan"),
         backgroundColor: Colors.orange,
+        actions: [
+          IconButton(
+            onPressed: _fetchCompanies,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text(_error!))
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: _fetchCompanies,
+                    child: const Text("Coba Lagi"),
+                  ),
+                ],
+              ),
+            )
           : _companies.isEmpty
           ? const Center(child: Text("Belum ada perusahaan"))
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _companies.length,
-              itemBuilder: (context, index) {
-                final company = _companies[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 3,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+          : RefreshIndicator(
+              onRefresh: _fetchCompanies,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: _companies.length,
+                itemBuilder: (context, index) {
+                  final company = _companies[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.orange[100],
-                      child: const Icon(Icons.business, color: Colors.orange),
+                    elevation: 3,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.orange[100],
+                        child: const Icon(Icons.business, color: Colors.orange),
+                      ),
+                      title: Text(
+                        company['company_name'] ?? 'Tanpa Nama',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Pemilik: ${company['pemilik'] ?? '-'}"),
+                          Text("Kota: ${company['kota'] ?? '-'}"),
+                          Text(
+                            "Armada: ${company['jumlah_armada'] ?? '0'} Unit",
+                          ),
+                          Text(
+                            "Status: ${company['status'] ?? 'Aktif'}",
+                            style: TextStyle(
+                              color: company['status'] == 'Aktif'
+                                  ? Colors.green
+                                  : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () => _showEditCompanyDialog(company),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text("Hapus"),
+                                  content: const Text(
+                                    "Yakin ingin menghapus perusahaan ini?",
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: const Text("Batal"),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.pop(ctx);
+                                        _deleteCompany(company['id']);
+                                      },
+                                      child: const Text(
+                                        "Hapus",
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    title: Text(
-                      company['company_name'],
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Pemilik: ${company['pemilik'] ?? '-'}"),
-                        Text("Kota: ${company['kota'] ?? '-'}"),
-                        Text("Armada: ${company['jumlah_armada'] ?? '0'} Unit"),
-                        Text("Izin: ${company['izin'] ?? '-'}"),
-                        Text("Status: ${company['status']}"),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _showEditCompanyDialog(company),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteCompany(company['id']),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddCompanyDialog,
