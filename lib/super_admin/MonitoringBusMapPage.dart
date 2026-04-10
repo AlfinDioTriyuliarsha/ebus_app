@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:ebus_app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
@@ -7,7 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 
 class MonitoringBusMapPage extends StatefulWidget {
-  final int companyId; // Ini kuncinya
+  final int companyId;
   const MonitoringBusMapPage({super.key, required this.companyId});
 
   @override
@@ -15,13 +16,13 @@ class MonitoringBusMapPage extends StatefulWidget {
 }
 
 class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
-  // ⚠️ Bagian baseUrl lama dihapus karena kita sekarang pakai ApiService.baseUrl secara konsisten
-
   List<Map<String, dynamic>> _busData = [];
   List<Marker> _busMarkers = [];
   List<Polyline> _busRoutes = [];
-  List<String> _companies = [];
-  String? _selectedCompany;
+
+  // FIXED: List companies sekarang menampung data lengkap dari tabel companies
+  List<Map<String, dynamic>> _companyList = [];
+  String? _selectedCompanyName;
 
   bool _isLoading = true;
   String? _error;
@@ -32,8 +33,8 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
   @override
   void initState() {
     super.initState();
-    _fetchBuses();
-    // Refresh otomatis setiap 5 detik
+    _fetchInitialData();
+    // Refresh otomatis data bus setiap 5 detik
     _timer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchBuses());
   }
 
@@ -43,36 +44,49 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
     super.dispose();
   }
 
+  // Melakukan fetch perusahaan satu kali di awal, lalu fetch bus
+  Future<void> _fetchInitialData() async {
+    await _fetchCompanies();
+    await _fetchBuses();
+  }
+
+  // FIXED: Fungsi untuk mengambil data perusahaan langsung dari tabel companies
+  Future<void> _fetchCompanies() async {
+    try {
+      final response = await http.get(
+        Uri.parse("${ApiService.baseUrl}/api/company"),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final List rawData = (decoded is Map && decoded.containsKey('data'))
+            ? decoded['data']
+            : (decoded is List ? decoded : []);
+
+        if (mounted) {
+          setState(() {
+            _companyList = List<Map<String, dynamic>>.from(rawData);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Gagal mengambil daftar perusahaan: $e");
+    }
+  }
+
   Future<void> _fetchBuses() async {
     try {
-      // Menggunakan ApiService.baseUrl agar otomatis mengarah ke Railway
-      final url = Uri.parse(
-        "https://ebusapp-production.up.railway.app/api/buses",
-      );
-
+      final url = Uri.parse("${ApiService.baseUrl}/api/buses");
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-
-        // Menangani jika data dibungkus dalam field 'data' atau tidak
         final List buses = decoded is List ? decoded : (decoded['data'] ?? []);
-
-        final List<Map<String, dynamic>> busList =
-            List<Map<String, dynamic>>.from(buses);
-
-        final companies = busList
-            .map((b) => b['company_name'] ?? 'Unknown')
-            .where((name) => name != 'Unknown')
-            .toSet()
-            .toList();
 
         if (mounted) {
           setState(() {
-            _busData = busList;
-            _companies = companies.cast<String>();
+            _busData = List<Map<String, dynamic>>.from(buses);
             _isLoading = false;
-            _error = null; // Reset error jika berhasil
+            _error = null;
           });
           _applyFilter();
         }
@@ -97,9 +111,10 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
   void _applyFilter() {
     List<Map<String, dynamic>> filtered = _busData;
 
-    if (_selectedCompany != null && _selectedCompany != "Semua") {
+    // Filter berdasarkan nama perusahaan yang dipilih di dropdown
+    if (_selectedCompanyName != null && _selectedCompanyName != "Semua") {
       filtered = _busData
-          .where((bus) => bus['company_name'] == _selectedCompany)
+          .where((bus) => bus['company_name'] == _selectedCompanyName)
           .toList();
     }
 
@@ -107,7 +122,6 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
     List<Polyline> polylines = [];
 
     for (var bus in filtered) {
-      // Pastikan latitude dan longitude ada dan bukan nol
       if (bus['latitude'] != null && bus['longitude'] != null) {
         double lat = double.tryParse(bus['latitude'].toString()) ?? 0.0;
         double lng = double.tryParse(bus['longitude'].toString()) ?? 0.0;
@@ -154,32 +168,40 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _busData.isEmpty)
-      // ignore: curly_braces_in_flow_control_structures
-      return const Center(child: CircularProgressIndicator());
+    if (_isLoading && _busData.isEmpty) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Monitoring Armada"),
+        backgroundColor: Colors.orange,
         actions: [
-          if (_companies.isNotEmpty)
-            DropdownButton<String>(
-              value: _selectedCompany ?? "Semua",
-              underline: const SizedBox(),
-              items: [
-                const DropdownMenuItem(
-                  value: "Semua",
-                  child: Text("Semua Perusahaan"),
-                ),
-                ..._companies.map(
-                  (c) => DropdownMenuItem(value: c, child: Text(c)),
-                ),
-              ],
-              onChanged: (val) {
-                setState(() => _selectedCompany = val);
-                _applyFilter();
-              },
+          // Dropdown sekarang mengambil data dari _companyList yang akurat
+          DropdownButton<String>(
+            value: _selectedCompanyName ?? "Semua",
+            underline: const SizedBox(),
+            style: const TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
             ),
+            items: [
+              const DropdownMenuItem(
+                value: "Semua",
+                child: Text("Semua Perusahaan"),
+              ),
+              ..._companyList.map(
+                (c) => DropdownMenuItem(
+                  value: c['company_name'].toString(),
+                  child: Text(c['company_name'].toString()),
+                ),
+              ),
+            ],
+            onChanged: (val) {
+              setState(() => _selectedCompanyName = val);
+              _applyFilter();
+            },
+          ),
           const SizedBox(width: 15),
         ],
       ),
@@ -187,10 +209,7 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
         children: [
           FlutterMap(
             options: MapOptions(
-              initialCenter: const LatLng(
-                -2.5489,
-                118.0149,
-              ), // Center ke Indonesia
+              initialCenter: const LatLng(-2.5489, 118.0149),
               initialZoom: 5,
               onTap: (_, __) => _popupController.hideAllPopups(),
             ),
@@ -207,7 +226,6 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
                   markers: _busMarkers,
                   popupDisplayOptions: PopupDisplayOptions(
                     builder: (BuildContext context, Marker marker) {
-                      // Mencari data bus berdasarkan koordinat marker
                       final bus = _busData.firstWhere(
                         (b) =>
                             (double.tryParse(b['latitude'].toString()) ==
