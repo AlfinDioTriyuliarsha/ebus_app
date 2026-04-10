@@ -15,8 +15,11 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
   bool _isLoading = true;
   String? _error;
 
-  // URL FIX: Menggunakan /company (tanpa 's') sesuai backend
+  // 1. Variabel untuk endpoint Company (agar fungsi CRUD perusahaan tidak error)
   String get baseUrl => "${ApiService.baseUrl}/api/company";
+
+  // 2. Variabel untuk endpoint Buses (sesuai permintaan kamu untuk standarisasi parameter)
+  String get busApiUrl => "${ApiService.baseUrl}/api/buses";
 
   @override
   void initState() {
@@ -157,7 +160,10 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
         title: const Text("Informasi"),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
         ],
       ),
     );
@@ -186,15 +192,28 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
               _buildInput(pemilikCtrl, "Pemilik"),
               _buildInput(emailCtrl, "Email", type: TextInputType.emailAddress),
               _buildInput(noHpCtrl, "Nomor HP", type: TextInputType.phone),
-              _buildInput(armadaCtrl, "Jumlah Unit Armada", type: TextInputType.number),
+              _buildInput(
+                armadaCtrl,
+                "Jumlah Unit Armada",
+                type: TextInputType.number,
+              ),
               _buildInput(alamatCtrl, "Alamat"),
-              _buildDropdown("Surat Izin", izin, ["Lengkap", "Tidak Lengkap"], (v) => izin = v!),
-              _buildDropdown("Status", status, ["Aktif", "Nonaktif"], (v) => status = v!),
+              _buildDropdown("Surat Izin", izin, [
+                "Lengkap",
+                "Tidak Lengkap",
+              ], (v) => izin = v!),
+              _buildDropdown("Status", status, [
+                "Aktif",
+                "Nonaktif",
+              ], (v) => status = v!),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
           ElevatedButton(
             onPressed: () {
               if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty) {
@@ -227,7 +246,9 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
     final kotaCtrl = TextEditingController(text: company['kota']);
     final pemilikCtrl = TextEditingController(text: company['pemilik']);
     final noHpCtrl = TextEditingController(text: company['no_hp']);
-    final armadaCtrl = TextEditingController(text: company['jumlah_armada'].toString());
+    final armadaCtrl = TextEditingController(
+      text: company['jumlah_armada'].toString(),
+    );
     String status = company['status'] ?? "Aktif";
     String izin = company['izin'] ?? "Lengkap";
 
@@ -245,13 +266,22 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
               _buildInput(noHpCtrl, "Nomor HP"),
               _buildInput(armadaCtrl, "Jumlah Unit Armada"),
               _buildInput(alamatCtrl, "Alamat"),
-              _buildDropdown("Surat Izin", izin, ["Lengkap", "Tidak Lengkap"], (v) => izin = v!),
-              _buildDropdown("Status", status, ["Aktif", "Nonaktif"], (v) => status = v!),
+              _buildDropdown("Surat Izin", izin, [
+                "Lengkap",
+                "Tidak Lengkap",
+              ], (v) => izin = v!),
+              _buildDropdown("Status", status, [
+                "Aktif",
+                "Nonaktif",
+              ], (v) => status = v!),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
           ElevatedButton(
             onPressed: () => _updateCompany(
               id: company['id'],
@@ -272,17 +302,32 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
     );
   }
 
-  Widget _buildInput(TextEditingController ctrl, String label, {TextInputType type = TextInputType.text}) {
+  Widget _buildInput(
+    TextEditingController ctrl,
+    String label, {
+    TextInputType type = TextInputType.text,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: TextField(controller: ctrl, keyboardType: type, decoration: InputDecoration(labelText: label)),
+      child: TextField(
+        controller: ctrl,
+        keyboardType: type,
+        decoration: InputDecoration(labelText: label),
+      ),
     );
   }
 
-  Widget _buildDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+  Widget _buildDropdown(
+    String label,
+    String value,
+    List<String> items,
+    Function(String?) onChanged,
+  ) {
     return DropdownButtonFormField<String>(
       value: value,
-      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+      items: items
+          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+          .toList(),
       onChanged: onChanged,
       decoration: InputDecoration(labelText: label),
     );
@@ -298,46 +343,60 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
-              : _companies.isEmpty
-                  ? const Center(child: Text("Belum ada perusahaan"))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _companies.length,
-                      itemBuilder: (context, index) {
-                        final company = _companies[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 3,
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.orange[100],
-                              child: const Icon(Icons.business, color: Colors.orange),
-                            ),
-                            title: Text(company['company_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("Pemilik: ${company['pemilik'] ?? '-'}"),
-                                Text("Kota: ${company['kota'] ?? '-'}"),
-                                Text("Armada: ${company['jumlah_armada'] ?? '0'} Unit"),
-                                Text("Izin: ${company['izin'] ?? '-'}"),
-                                Text("Status: ${company['status']}"),
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showEditCompanyDialog(company)),
-                                IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteCompany(company['id'])),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+          ? Center(child: Text(_error!))
+          : _companies.isEmpty
+          ? const Center(child: Text("Belum ada perusahaan"))
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: _companies.length,
+              itemBuilder: (context, index) {
+                final company = _companies[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 3,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
                     ),
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.orange[100],
+                      child: const Icon(Icons.business, color: Colors.orange),
+                    ),
+                    title: Text(
+                      company['company_name'],
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Pemilik: ${company['pemilik'] ?? '-'}"),
+                        Text("Kota: ${company['kota'] ?? '-'}"),
+                        Text("Armada: ${company['jumlah_armada'] ?? '0'} Unit"),
+                        Text("Izin: ${company['izin'] ?? '-'}"),
+                        Text("Status: ${company['status']}"),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showEditCompanyDialog(company),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deleteCompany(company['id']),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddCompanyDialog,
         icon: const Icon(Icons.add_business),

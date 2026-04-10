@@ -206,4 +206,21 @@ class ApiService {
       return {"success": false, "message": "Koneksi gagal: $e"};
     }
   }
+
+  // GET SEMUA BUS (Untuk semua Role)
+  static Future<List<dynamic>> getBuses() async {
+    final url = Uri.parse("$baseUrl/api/buses"); // Pastikan 'buses'
+    try {
+      final res = await http.get(url, headers: _headers);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        // Karena backend kamu mengirim { success: true, data: [...] }
+        return body["data"];
+      } else {
+        throw Exception("Gagal ambil data bus");
+      }
+    } catch (e) {
+      throw Exception("Koneksi error: $e");
+    }
+  }
 }

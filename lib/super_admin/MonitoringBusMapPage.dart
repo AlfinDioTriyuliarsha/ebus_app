@@ -225,7 +225,7 @@ class _MonitoringBusMapPageState extends State<MonitoringBusMapPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "🚍 ${bus['plate_number'] ?? 'Tanpa Nomor'}",
+                                "🚍 ${bus['plat_nomor'] ?? 'Tanpa Nomor'}",
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,

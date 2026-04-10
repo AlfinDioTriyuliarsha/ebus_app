@@ -33,7 +33,6 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ================= ROUTES =================
 app.use("/api/users", userRoutes);
 app.use("/api/company", companyRoutes);
-app.use("/api/bus", busRoutes);
 app.use("/api/buses", busRoutes);
 
 // ================= ROOT TEST =================
