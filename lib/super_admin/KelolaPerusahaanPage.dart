@@ -271,7 +271,10 @@ class _KelolaPerusahaanPageState extends State<KelolaPerusahaanPage> {
     // FIXED: Membersihkan data null pada jumlah armada
     final armadaValue = company['jumlah_armada'];
     final armadaCtrl = TextEditingController(
-      text: (armadaValue == null || armadaValue.toString() == 'null')
+      text:
+          (armadaValue == null ||
+              armadaValue.toString() == 'null' ||
+              armadaValue.toString() == '')
           ? "0"
           : armadaValue.toString(),
     );
