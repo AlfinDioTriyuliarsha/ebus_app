@@ -34,8 +34,10 @@ class _LaporanDashboardPageState extends State<LaporanDashboardPage> {
         Uri.parse("${ApiService.baseUrl}/api/company"),
       );
 
-      // 3. Ambil data Bus (FIX URL: /api/bus)
-      final resBus = await http.get(Uri.parse("${ApiService.baseUrl}/api/bus"));
+      // 3. Ambil data Bus (FIX URL: /api/buses)
+      final resBus = await http.get(
+        Uri.parse("${ApiService.baseUrl}/api/buses"),
+      );
 
       if (mounted) {
         setState(() {

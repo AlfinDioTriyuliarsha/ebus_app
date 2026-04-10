@@ -48023,7 +48023,7 @@ $S:211}
 A.aAH.prototype={
 $2(a,b){var s,r,q,p,o=null,n=B.b.w5(this.a.d,new A.aAB(b),new A.aAC()),m=J.am(n)
 if(m.ga7(n))return B.am
-s=m.i(n,"plate_number")
+s=m.i(n,"plat_nomor")
 s=A.aR("\ud83d\ude8d "+A.k(s==null?"Tanpa Nomor":s),o,o,o,B.iQ,o,o)
 r=m.i(n,"company_name")
 r=A.aR("Perusahaan: "+A.k(r==null?"-":r),o,o,o,o,o,o)
