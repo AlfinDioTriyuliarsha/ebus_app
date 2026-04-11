@@ -66,6 +66,34 @@ app.post('/api/routes', async (req, res) => {
     }
 });
 
+app.get('/api/schedules', async (req, res) => {
+  const { company_id } = req.query; // Menangkap ID perusahaan dari Flutter
+  
+  try {
+    // Query ini menggabungkan (JOIN) tabel schedules dengan buses dan routes
+    // agar kita bisa dapet plat nomor dan nama rutenya sekaligus
+    const result = await pool.query(`
+      SELECT 
+        s.*, 
+        b.plat_nomor, 
+        r.nama_rute 
+      FROM schedules s
+      JOIN buses b ON s.bus_id = b.id
+      JOIN routes r ON s.route_id = r.id
+      WHERE s.company_id = $1
+      ORDER BY s.waktu_keberangkatan ASC
+    `, [company_id]);
+
+    res.status(200).json({
+      status: 'success',
+      data: result.rows
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Gagal mengambil data jadwal' });
+  }
+});
+
 // ================= ROOT TEST =================
 app.get("/", (req, res) => {
     res.send("🚍 E-Bus API is running on Railway");
