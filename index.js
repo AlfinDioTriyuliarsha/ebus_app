@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const helmet = require("helmet");
+const { Pool } = require("pg");
 
 // Import rute
 const userRoutes = require("./routes/userRoutes");
@@ -35,28 +36,6 @@ app.use("/api/users", userRoutes);
 app.use("/api/company", companyRoutes);
 app.use("/api/buses", busRoutes);
 
-// ================= ROOT TEST =================
-app.get("/", (req, res) => {
-    res.send("🚍 E-Bus API is running on Railway");
-});
-
-// ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, next) => {
-    console.error("🔴 SERVER ERROR:", err.stack);
-    res.status(500).json({
-        success: false,
-        message: "Terjadi kesalahan pada internal server",
-        error: err.message // Menampilkan pesan error di response untuk debug
-    });
-});
-
-// ================= SERVER LISTEN =================
-const PORT = process.env.PORT || 8080; 
-
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
-});
-
 // 1. Endpoint untuk MENGAMBIL Rute berdasarkan company_id
 app.get('/api/routes', async (req, res) => {
     const { company_id } = req.query;
@@ -83,4 +62,26 @@ app.post('/api/routes', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// ================= ROOT TEST =================
+app.get("/", (req, res) => {
+    res.send("🚍 E-Bus API is running on Railway");
+});
+
+// ================= GLOBAL ERROR HANDLER =================
+app.use((err, req, res, next) => {
+    console.error("🔴 SERVER ERROR:", err.stack);
+    res.status(500).json({
+        success: false,
+        message: "Terjadi kesalahan pada internal server",
+        error: err.message // Menampilkan pesan error di response untuk debug
+    });
+});
+
+// ================= SERVER LISTEN =================
+const PORT = process.env.PORT || 8080; 
+
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
 });
