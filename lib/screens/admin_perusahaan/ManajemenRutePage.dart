@@ -7,7 +7,7 @@ class ManajemenRutePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Manajemen Rute & Zona")),
+      appBar: AppBar(title: const Text("Manajemen Rute")),
       body: const Center(child: Text("Rute Keberangkatan")),
     );
   }
