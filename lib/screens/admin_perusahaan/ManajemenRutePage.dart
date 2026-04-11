@@ -67,19 +67,11 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
       print("Response Body: ${response.body}");
 
       if (response.statusCode == 201) {
-        if (!mounted) return;
-        Navigator.pop(context); // Tutup dialog
-        _fetchRoutes(); // Refresh list agar data baru muncul
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Rute berhasil ditambahkan")),
-        );
-      } else {
-        // Jika gagal, munculkan pesan error dari server
-        final errorData = jsonDecode(response.body);
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal: ${errorData['message'] ?? 'Terjadi kesalahan'}")),
-        );
+        // Pastikan konteks masih ada
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop(); // Pakai rootNavigator untuk menutup Dialog
+          _fetchRoutes(); // Panggil ulang fungsi ambil data supaya list terupdate
+        }
       }
     } catch (e) {
       print("Error simpan: $e");
