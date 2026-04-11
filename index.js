@@ -13,6 +13,13 @@ const routeRoutes = require("./routes/routeRoutes");
 
 const app = express();
 
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // Penting untuk Railway agar bisa konek ke DB
+    }
+});
+
 // ================= MIDDLEWARE =================
 app.use(helmet({
     contentSecurityPolicy: false, 
@@ -41,6 +48,8 @@ app.use("/api/routes", routeRoutes);
 // 1. Endpoint untuk MENGAMBIL Rute berdasarkan company_id
 app.get('/api/routes', async (req, res) => {
     const { company_id } = req.query;
+    if (!company_id) return res.status(400).json({ error: 'company_id is required' });
+
     try {
         const result = await pool.query(
             'SELECT * FROM routes WHERE company_id = $1 ORDER BY id DESC', 
@@ -48,6 +57,7 @@ app.get('/api/routes', async (req, res) => {
         );
         res.status(200).json({ status: 'success', data: result.rows });
     } catch (err) {
+        console.error("Error Routes:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -74,6 +84,7 @@ app.get('/api/schedules', async (req, res) => {
   }
 
   try {
+    // Pastikan nama tabel 'schedules', 'buses', dan 'routes' sudah benar di DB
     const result = await pool.query(`
       SELECT 
         s.*, 
@@ -91,9 +102,8 @@ app.get('/api/schedules', async (req, res) => {
       data: result.rows
     });
   } catch (err) {
-    // LIHAT LOG DI DASHBOARD RAILWAY UNTUK ERROR INI
     console.error("DETAIL ERROR DATABASE:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Database error: " + err.message });
   }
 });
 
