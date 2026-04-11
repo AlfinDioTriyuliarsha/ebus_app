@@ -5,6 +5,7 @@ import 'package:ebus_app/screens/admin_perusahaan/ManajemenDriverPage.dart';
 import 'package:ebus_app/screens/admin_perusahaan/ManajemenRutePage.dart';
 import 'package:ebus_app/screens/admin_perusahaan/MonitoringBusMapAdmin.dart';
 import 'package:ebus_app/super_admin/PengaturanAkunPage.dart';
+import 'package:ebus_app/screens/admin_perusahaan/ManajemenJadwalPage.dart';
 import 'package:flutter/material.dart';
 
 class AdminPerusahaanDashboard extends StatefulWidget {
@@ -31,6 +32,7 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
     "Manajemen Agent",
     "Manajemen Armada Bus",
     "Manajemen Rute dan Zona",
+    "Manajemen Jadwal", // Index 3
     "Manajemen Driver",
     "Monitoring Bus",
     "Laporan Operasional",
@@ -47,12 +49,14 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
       case 2:
         return ManajemenRutePage(companyId: widget.companyId);
       case 3:
-        return ManajemenDriverPage(companyId: widget.companyId);
+        return ManajemenJadwalPage(companyId: widget.companyId); // Case baru
       case 4:
-        return MonitoringBusMapAdmin(companyId: widget.companyId);
+        return ManajemenDriverPage(companyId: widget.companyId);
       case 5:
-        return const LaporanOperasionalPage();
+        return MonitoringBusMapAdmin(companyId: widget.companyId);
       case 6:
+        return const LaporanOperasionalPage();
+      case 7:
         return PengaturanAkunPage(userId: widget.userId);
       default:
         return ManajemenAgentPage(companyId: widget.companyId);
@@ -92,10 +96,11 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
                 _buildSidebarItem(0, Icons.people, "Manajemen Agent"),
                 _buildSidebarItem(1, Icons.directions_bus, "Manajemen Armada"),
                 _buildSidebarItem(2, Icons.map, "Manajemen Rute"),
-                _buildSidebarItem(3, Icons.person_pin, "Manajemen Driver"),
-                _buildSidebarItem(4, Icons.location_on, "Monitoring Bus"),
-                _buildSidebarItem(5, Icons.bar_chart, "Laporan"),
-                _buildSidebarItem(6, Icons.settings, "Pengaturan Akun"),
+                _buildSidebarItem(3, Icons.schedule, "Manajemen Jadwal"), // Tambah ini
+                _buildSidebarItem(4, Icons.person_pin, "Manajemen Driver"),
+                _buildSidebarItem(5, Icons.location_on, "Monitoring Bus"),
+                _buildSidebarItem(6, Icons.bar_chart, "Laporan"),
+                _buildSidebarItem(7, Icons.settings, "Pengaturan Akun"),
                 const Spacer(),
                 _buildSidebarItem(
                   -1,
