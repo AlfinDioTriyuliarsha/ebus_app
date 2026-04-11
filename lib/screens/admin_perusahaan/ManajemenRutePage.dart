@@ -76,12 +76,14 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
       } else {
         // Jika gagal, munculkan pesan error dari server
         final errorData = jsonDecode(response.body);
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Gagal: ${errorData['message'] ?? 'Terjadi kesalahan'}")),
         );
       }
     } catch (e) {
       print("Error simpan: $e");
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
