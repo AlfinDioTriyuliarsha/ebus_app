@@ -23,15 +23,28 @@ router.get("/", async (req, res) => {
 });
 
 // Tambah rute baru
+// routes/routeRoutes.js
 router.post("/", async (req, res) => {
     const { company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi } = req.body;
+    
+    // Validasi sederhana supaya tidak error saat query
+    if (!company_id || !nama_rute) {
+        return res.status(400).json({ status: "error", message: "Data tidak lengkap" });
+    }
+
     try {
         const result = await pool.query(
             "INSERT INTO routes (company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi) VALUES ($1, $2, $3, $4, $5) RETURNING *",
             [company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi]
         );
-        res.status(201).json({ status: "success", data: result.rows[0] });
+        
+        // PASTIKAN .status(201)
+        res.status(201).json({ 
+            status: "success", 
+            data: result.rows[0] 
+        });
     } catch (err) {
+        console.error("DB Error:", err.message);
         res.status(500).json({ status: "error", message: err.message });
     }
 });

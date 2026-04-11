@@ -42,6 +42,14 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
   // Fungsi simpan data ke Node.js
   Future<void> _storeRoute(String nama, String asal, String tujuan, String jarak) async {
+    // Validasi input di Flutter
+    if (nama.isEmpty || asal.isEmpty || tujuan.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Semua field harus diisi!")),
+      );
+      return;
+    }
+
     try {
       final response = await http.post(
         Uri.parse("${ApiService.baseUrl}/api/routes"),
@@ -55,13 +63,28 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
         }),
       );
 
+      print("Response Status: ${response.statusCode}");
+      print("Response Body: ${response.body}");
+
       if (response.statusCode == 201) {
-        // ignore: use_build_context_synchronously
+        if (!mounted) return;
         Navigator.pop(context); // Tutup dialog
-        _fetchRoutes(); // Refresh list
+        _fetchRoutes(); // Refresh list agar data baru muncul
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Rute berhasil ditambahkan")),
+        );
+      } else {
+        // Jika gagal, munculkan pesan error dari server
+        final errorData = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal: ${errorData['message'] ?? 'Terjadi kesalahan'}")),
+        );
       }
     } catch (e) {
       print("Error simpan: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
     }
   }
 
