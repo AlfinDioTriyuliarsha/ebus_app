@@ -67,19 +67,21 @@ app.post('/api/routes', async (req, res) => {
 });
 
 app.get('/api/schedules', async (req, res) => {
-  const { company_id } = req.query; // Menangkap ID perusahaan dari Flutter
+  const { company_id } = req.query;
   
+  if (!company_id) {
+    return res.status(400).json({ error: 'company_id is required' });
+  }
+
   try {
-    // Query ini menggabungkan (JOIN) tabel schedules dengan buses dan routes
-    // agar kita bisa dapet plat nomor dan nama rutenya sekaligus
     const result = await pool.query(`
       SELECT 
         s.*, 
-        b.plat_nomor, 
-        r.nama_rute 
+        b.plat_nomor AS bus_name, 
+        r.nama_rute AS route_name 
       FROM schedules s
-      JOIN buses b ON s.bus_id = b.id
-      JOIN routes r ON s.route_id = r.id
+      LEFT JOIN buses b ON s.bus_id = b.id
+      LEFT JOIN routes r ON s.route_id = r.id
       WHERE s.company_id = $1
       ORDER BY s.waktu_keberangkatan ASC
     `, [company_id]);
@@ -89,8 +91,9 @@ app.get('/api/schedules', async (req, res) => {
       data: result.rows
     });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: 'Gagal mengambil data jadwal' });
+    // LIHAT LOG DI DASHBOARD RAILWAY UNTUK ERROR INI
+    console.error("DETAIL ERROR DATABASE:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
