@@ -9,6 +9,7 @@ const { Pool } = require("pg");
 const userRoutes = require("./routes/userRoutes");
 const companyRoutes = require("./routes/companyRoutes");
 const busRoutes = require("./routes/busRoutes");
+const routeRoutes = require("./routes/routeRoutes");
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/users", userRoutes);
 app.use("/api/company", companyRoutes);
 app.use("/api/buses", busRoutes);
+app.use("/api/routes", routeRoutes);
 
 // 1. Endpoint untuk MENGAMBIL Rute berdasarkan company_id
 app.get('/api/routes', async (req, res) => {
