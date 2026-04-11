@@ -38,9 +38,17 @@ class ApiService {
         }),
       );
 
-      return jsonDecode(response.body);
+      // Proteksi jika respon bukan JSON atau error server
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {
+          "success": false, 
+          "message": "Server error (${response.statusCode})"
+        };
+      }
     } catch (e) {
-      throw Exception("Tidak bisa terhubung ke server: $e");
+      return {"success": false, "message": "Tidak bisa terhubung ke server: $e"};
     }
   }
 
@@ -221,6 +229,27 @@ class ApiService {
       }
     } catch (e) {
       throw Exception("Koneksi error: $e");
+    }
+  }
+
+  static Future<List<dynamic>> getSchedules(int companyId) async {
+    final url = Uri.parse("$baseUrl/api/schedules?company_id=$companyId");
+
+    try {
+      final res = await http.get(url, headers: _headers);
+
+      // Cek apakah status code 200 (Berhasil)
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        return body["data"] ?? [];
+      } else {
+        // Jika status 500, jangan di-decode sebagai data normal
+        print("❌ Server Error: ${res.statusCode}");
+        return []; // Kembalikan list kosong agar UI tidak crash
+      }
+    } catch (e) {
+      print("❌ Koneksi Error di getSchedules: $e");
+      return [];
     }
   }
 }
