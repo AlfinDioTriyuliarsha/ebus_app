@@ -10,17 +10,22 @@ const pool = new Pool({
 // Ambil Jadwal (JOIN dengan tabel rute dan bus agar muncul namanya, bukan cuma ID)
 router.get("/", async (req, res) => {
     const { company_id } = req.query;
+
     try {
-        const result = await pool.query(
+        const result = await pool.query(  // ✅ DI SINI
             `SELECT s.*, r.nama_rute, b.plat_nomor 
              FROM schedules s
-             JOIN routes r ON s.route_id = r.id
-             JOIN buses b ON s.bus_id = b.id
-             WHERE s.company_id = $1 ORDER BY s.tanggal_berangkat DESC`, 
+             LEFT JOIN routes r ON s.route_id = r.id
+             LEFT JOIN buses b ON s.bus_id = b.id
+             WHERE s.company_id = $1 
+             ORDER BY s.tanggal_berangkat DESC`, 
             [company_id]
         );
+
         res.status(200).json({ status: "success", data: result.rows });
+
     } catch (err) {
+        console.error("ERROR GET SCHEDULE:", err);
         res.status(500).json({ status: "error", message: err.message });
     }
 });
