@@ -23,7 +23,7 @@ app.use(helmet({
     contentSecurityPolicy: false, 
 }));
 
-pp.use(cors({
+app.use(cors({
     origin: [
         "https://ebusapp.vercel.app",
         "http://localhost:3000",
