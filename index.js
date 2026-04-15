@@ -5,31 +5,32 @@ const path = require("path");
 const helmet = require("helmet");
 const { Pool } = require("pg");
 
-// Import rute
+// Import routes
 const userRoutes = require("./routes/userRoutes");
 const companyRoutes = require("./routes/companyRoutes");
 const busRoutes = require("./routes/busRoutes");
 const routeRoutes = require("./routes/routeRoutes");
+const scheduleRoutes = require("./routes/scheduleRoutes");
 
 const app = express();
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false // Penting untuk Railway agar bisa konek ke DB
-    }
+    ssl: { rejectUnauthorized: false }
 });
-
 // ================= MIDDLEWARE =================
 app.use(helmet({
     contentSecurityPolicy: false, 
 }));
 
-app.use(cors({
-    origin: '*', 
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+pp.use(cors({
+    origin: [
+        "https://ebusapp.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5173"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
 // Cukup panggil express.json satu kali saja dengan limit yang wajar
@@ -44,6 +45,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/company", companyRoutes);
 app.use("/api/buses", busRoutes);
 app.use("/api/routes", routeRoutes);
+app.use("/api/schedules", scheduleRoutes);
 
 // 1. Endpoint untuk MENGAMBIL Rute berdasarkan company_id
 app.get('/api/routes', async (req, res) => {
@@ -84,7 +86,6 @@ app.get('/api/schedules', async (req, res) => {
   }
 
   try {
-    // Pastikan nama tabel 'schedules', 'buses', dan 'routes' sudah benar di DB
     const result = await pool.query(`
       SELECT 
         s.*, 
@@ -94,7 +95,7 @@ app.get('/api/schedules', async (req, res) => {
       LEFT JOIN buses b ON s.bus_id = b.id
       LEFT JOIN routes r ON s.route_id = r.id
       WHERE s.company_id = $1
-      ORDER BY s.waktu_keberangkatan ASC
+      ORDER BY s.tanggal_berangkat ASC, s.jam_berangkat ASC
     `, [company_id]);
 
     res.status(200).json({
@@ -102,7 +103,7 @@ app.get('/api/schedules', async (req, res) => {
       data: result.rows
     });
   } catch (err) {
-    console.error("DETAIL ERROR DATABASE:", err.message);
+    console.error("DETAIL ERROR DATABASE:", err);
     res.status(500).json({ error: "Database error: " + err.message });
   }
 });
@@ -117,14 +118,14 @@ app.use((err, req, res, next) => {
     console.error("🔴 SERVER ERROR:", err.stack);
     res.status(500).json({
         success: false,
-        message: "Terjadi kesalahan pada internal server",
-        error: err.message // Menampilkan pesan error di response untuk debug
+        message: "Internal server error",
+        error: err.message
     });
 });
 
 // ================= SERVER LISTEN =================
-const PORT = process.env.PORT || 8080; 
+const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
