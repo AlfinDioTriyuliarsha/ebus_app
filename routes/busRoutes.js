@@ -21,29 +21,34 @@ router.get("/", async (req, res) => {
 // POST: Tambah bus baru (Dipanggil oleh Flutter)
 router.post("/", async (req, res) => {
     const { company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
+
     try {
+        // ✅ CEK DUPLIKAT PLAT (PINDAH KE SINI)
+        const check = await pool.query(
+            "SELECT * FROM buses WHERE plat_nomor = $1 AND company_id = $2",
+            [plat_nomor, company_id]
+        );
+
+        if (check.rows.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: "Plat nomor sudah digunakan!"
+            });
+        }
+
+        // ✅ INSERT DATA
         const result = await pool.query(
             `INSERT INTO buses 
             (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
             [company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status || 'Aktif']
         );
+
         res.status(201).json({ success: true, data: result.rows[0] });
+
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
-
-// CEK DUPLIKAT PLAT
-const check = await pool.query(
-  "SELECT * FROM buses WHERE plat_nomor = $1 AND company_id = $2",
-  [plat_nomor, company_id]
-);
-
-if (check.rows.length > 0) {
-  return res.status(400).json({
-    error: "Plat nomor sudah digunakan!"
-  });
-}
 
 module.exports = router;
