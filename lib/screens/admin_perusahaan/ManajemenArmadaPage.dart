@@ -8,25 +8,30 @@ class ManajemenArmadaPage extends StatefulWidget {
   const ManajemenArmadaPage({super.key, required this.companyId});
 
   @override
-  State<ManajemenArmadaPage> createState() => _ManajemenArmadaPageState();
+  State<ManajemenArmadaPage> createState() =>
+      _ManajemenArmadaPageState();
 }
 
 class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   List<dynamic> _buses = [];
   List<dynamic> _availableDrivers = [];
+  List<dynamic> _routes = [];
+  List<dynamic> _schedules = [];
+
   bool _isLoading = true;
+  // ignore: prefer_final_fields
   String _selectedFilter = "Semua";
 
-  // Controller untuk Form
   final TextEditingController _noBusController = TextEditingController();
   final TextEditingController _platController = TextEditingController();
-  final TextEditingController _mesinController = TextEditingController();
-  final TextEditingController _ruteBerangkatController =
-      TextEditingController();
-  final TextEditingController _ruteTujuanController = TextEditingController();
 
   int? _selectedDriverId;
+  int? _selectedRouteId;
+  int? _selectedScheduleId;
+  String _selectedMesin = "Hino";
   String _selectedStatus = "Aktif";
+
+  final List<String> _mesinList = ["Hino", "Mercedes", "Scania", "Volvo"];
 
   @override
   void initState() {
@@ -34,11 +39,15 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
     _fetchData();
   }
 
-  // Ambil Data Bus & Driver Tersedia
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
-      await Future.wait([_fetchBuses(), _fetchAvailableDrivers()]);
+      await Future.wait([
+        _fetchBuses(),
+        _fetchAvailableDrivers(),
+        _fetchRoutes(),
+        _fetchSchedules(),
+      ]);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -49,8 +58,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/buses"),
     );
     if (res.statusCode == 200) {
-      final decoded = jsonDecode(res.body);
-      _buses = decoded['data'];
+      _buses = jsonDecode(res.body)['data'];
     }
   }
 
@@ -65,83 +73,78 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
     }
   }
 
-  // ================= CRUD OPERATIONS =================
+  Future<void> _fetchRoutes() async {
+    final res = await http.get(
+      Uri.parse("${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}"),
+    );
+    if (res.statusCode == 200) {
+      _routes = jsonDecode(res.body)['data'];
+    }
+  }
 
+  Future<void> _fetchSchedules() async {
+    final res = await http.get(
+      Uri.parse("${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}"),
+    );
+    if (res.statusCode == 200) {
+      _schedules = jsonDecode(res.body)['data'];
+    }
+  }
+
+  // ================= SAVE =================
   Future<void> _saveBus({int? busId}) async {
     final url = busId == null
         ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
         : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
 
-    // Memastikan data yang dikirim sesuai dengan database
     final body = jsonEncode({
-      "driver_id": _selectedDriverId, 
+      "driver_id": _selectedDriverId,
       "nomor_bus": _noBusController.text,
       "plat_nomor": _platController.text,
-      "mesin": _mesinController.text,
-      "rute_berangkat": _ruteBerangkatController.text,
-      "rute_tujuan": _ruteTujuanController.text,
+      "mesin": _selectedMesin,
+      "route_id": _selectedRouteId,
+      "schedule_id": _selectedScheduleId,
       "status": _selectedStatus,
     });
 
-    try {
-      final res = busId == null
-          ? await http.post(
-              Uri.parse(url),
-              headers: {"Content-Type": "application/json"},
-              body: body,
-            )
-          : await http.put(
-              Uri.parse(url),
-              headers: {"Content-Type": "application/json"},
-              body: body,
-            );
+    final res = busId == null
+        ? await http.post(Uri.parse(url),
+            headers: {"Content-Type": "application/json"}, body: body)
+        : await http.put(Uri.parse(url),
+            headers: {"Content-Type": "application/json"}, body: body);
 
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        if (mounted) {
-          _showSnackBar("✅ Data Armada Berhasil Disimpan");
-          _fetchData(); // Refresh daftar bus
-        }
-      } else {
-        // Menangkap pesan error dari server
-        final errorData = jsonDecode(res.body);
-        _showSnackBar("❌ Gagal: ${errorData['error'] ?? 'Terjadi kesalahan server'}");
-      }
-    } catch (e) {
-      _showSnackBar("❌ Kesalahan Koneksi: $e");
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      _showSnackBar("✅ Berhasil disimpan");
+      _fetchData();
+    } else {
+      _showSnackBar("❌ Gagal");
     }
   }
 
   Future<void> _deleteBus(int id) async {
-    final res = await http.delete(
-      Uri.parse(
-        "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$id",
-      ),
+    await http.delete(
+      Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$id"),
     );
-    if (res.statusCode == 200) {
-      _showSnackBar("Armada Berhasil Dihapus");
-      _fetchData();
-    }
+    _fetchData();
   }
 
-  // ================= UI HELPERS =================
-
+  // ================= FORM =================
   void _showForm({Map? bus}) {
     if (bus != null) {
       _noBusController.text = bus['nomor_bus'];
       _platController.text = bus['plat_nomor'];
-      _mesinController.text = bus['mesin'] ?? "";
-      _ruteBerangkatController.text = bus['rute_berangkat'] ?? "";
-      _ruteTujuanController.text = bus['rute_tujuan'] ?? "";
       _selectedDriverId = bus['driver_id'];
       _selectedStatus = bus['status'];
+      _selectedMesin = bus['mesin'] ?? "Hino";
+      _selectedRouteId = bus['route_id'];
+      _selectedScheduleId = bus['schedule_id'];
     } else {
       _noBusController.clear();
       _platController.clear();
-      _mesinController.clear();
-      _ruteBerangkatController.clear();
-      _ruteTujuanController.clear();
       _selectedDriverId = null;
       _selectedStatus = "Aktif";
+      _selectedRouteId = null;
+      _selectedScheduleId = null;
     }
 
     showDialog(
@@ -151,55 +154,85 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
           title: Text(bus == null ? "Tambah Armada" : "Edit Armada"),
           content: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<int>(
-                  value: _availableDrivers.any((d) => d['id'] == _selectedDriverId) 
-                        ? _selectedDriverId 
-                        : null, // Jika ID lama tidak ada di list baru, set null
-                  decoration: const InputDecoration(labelText: "Pilih Driver (Batangan)"),
+                // DRIVER
+                DropdownButtonFormField<int?>(
+                  value: _selectedDriverId,
+                  decoration: const InputDecoration(labelText: "Driver"),
                   items: [
-                    const DropdownMenuItem<int>(value: null, child: Text("Tanpa Driver")), // Tambahkan opsi null
-                    ..._availableDrivers.map((d) {
-                      return DropdownMenuItem<int>(
-                        value: d['id'],
-                        child: Text(d['driver_name'] ?? "Tanpa Nama"),
+                    const DropdownMenuItem(
+                        value: null, child: Text("Tanpa Driver")),
+                    ..._availableDrivers.map<DropdownMenuItem<int?>>((d) {
+                      return DropdownMenuItem<int?>(
+                        value: d['id'] as int?,
+                        child: Text(d['driver_name']),
                       );
                     }),
                   ],
-                  onChanged: (val) => setDialogState(() => _selectedDriverId = val),
+                  onChanged: (val) =>
+                      setDialogState(() => _selectedDriverId = val),
                 ),
+
                 TextField(
                   controller: _noBusController,
                   decoration: const InputDecoration(labelText: "Nomor Bus"),
                 ),
+
                 TextField(
                   controller: _platController,
                   decoration: const InputDecoration(labelText: "Plat Nomor"),
                 ),
-                TextField(
-                  controller: _mesinController,
+
+                // MESIN
+                DropdownButtonFormField<String>(
+                  value: _selectedMesin,
                   decoration: const InputDecoration(labelText: "Mesin"),
+                  items: _mesinList
+                      .map((m) =>
+                          DropdownMenuItem(value: m, child: Text(m)))
+                      .toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => _selectedMesin = val!),
                 ),
-                TextField(
-                  controller: _ruteBerangkatController,
-                  decoration: const InputDecoration(
-                    labelText: "Rute Berangkat",
-                  ),
+
+                // ROUTE
+                DropdownButtonFormField<int?>(
+                  value: _selectedRouteId,
+                  decoration: const InputDecoration(labelText: "Rute"),
+                  items: _routes.map<DropdownMenuItem<int?>>((r) {
+                    return DropdownMenuItem<int?>(
+                      value: r['id'] as int?,
+                      child: Text(
+                        "${r['nama_rute']} (${r['titik_awal']} → ${r['titik_tujuan']})"),
+                    );
+                  }).toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => _selectedRouteId = val),
                 ),
-                TextField(
-                  controller: _ruteTujuanController,
-                  decoration: const InputDecoration(labelText: "Rute Tujuan"),
+
+                // SCHEDULE
+                DropdownButtonFormField<int?>(
+                  value: _selectedScheduleId,
+                  decoration: const InputDecoration(labelText: "Jadwal"),
+                  items: _schedules.map<DropdownMenuItem<int?>>((s) {
+                    return DropdownMenuItem<int?>(
+                      value: s['id'] as int?,
+                      child: Text(
+                        "${s['route_name']} - ${s['waktu_keberangkatan']}"),
+                    );
+                  }).toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => _selectedScheduleId = val),
                 ),
+
+                // STATUS
                 DropdownButtonFormField<String>(
                   value: _selectedStatus,
                   decoration: const InputDecoration(labelText: "Status"),
-                  items:
-                      ["Aktif", "Non Aktif", "Tidak Ada Driver", "Maintenance"]
-                          .map(
-                            (s) => DropdownMenuItem(value: s, child: Text(s)),
-                          )
-                          .toList(),
+                  items: ["Aktif", "Non Aktif", "Tidak Ada Driver", "Maintenance"]
+                      .map((s) =>
+                          DropdownMenuItem(value: s, child: Text(s)))
+                      .toList(),
                   onChanged: (val) =>
                       setDialogState(() => _selectedStatus = val!),
                 ),
@@ -208,19 +241,12 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Batal"),
-            ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Batal")),
             ElevatedButton(
               onPressed: () {
-                // Validasi input sederhana di sisi Flutter
-                if (_noBusController.text.isEmpty || _platController.text.isEmpty) {
-                  _showSnackBar("Nomor Bus dan Plat Nomor wajib diisi!");
-                  return; 
-                }
-                
-                Navigator.pop(context); // Tutup dialog
-                _saveBus(busId: bus?['id']); // Jalankan fungsi simpan
+                Navigator.pop(context);
+                _saveBus(busId: bus?['id']);
               },
               child: const Text("Simpan"),
             ),
@@ -230,90 +256,70 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
     );
   }
 
+  // ================= STATUS COLOR =================
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case "Aktif":
+        return Colors.green;
+      case "Maintenance":
+        return Colors.orange;
+      case "Non Aktif":
+        return Colors.grey;
+      case "Tidak Ada Driver":
+        return Colors.red;
+      default:
+        return Colors.black;
+    }
+  }
+
   void _showSnackBar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
-    // Logika Filter
-    List<dynamic> filteredBuses = _selectedFilter == "Semua"
+    final filtered = _selectedFilter == "Semua"
         ? _buses
         : _buses.where((b) => b['status'] == _selectedFilter).toList();
 
     return Column(
       children: [
-        // Header dengan Filter
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "MANAJEMEN ARMADA",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF004D74),
-                ),
-              ),
-              DropdownButton<String>(
-                value: _selectedFilter,
-                underline: Container(),
-                icon: const Icon(Icons.filter_list, color: Color(0xFF004D74)),
-                items:
-                    [
-                          "Semua",
-                          "Aktif",
-                          "Non Aktif",
-                          "Tidak Ada Driver",
-                          "Maintenance",
-                        ]
-                        .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                        .toList(),
-                onChanged: (val) => setState(() => _selectedFilter = val!),
-              ),
-            ],
-          ),
-        ),
-
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : filteredBuses.isEmpty
-              ? const Center(child: Text("Tidak ada data armada"))
               : ListView.builder(
-                  padding: const EdgeInsets.all(10),
-                  itemCount: filteredBuses.length,
-                  itemBuilder: (context, index) {
-                    final bus = filteredBuses[index];
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) {
+                    final bus = filtered[i];
                     return Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
                       child: ListTile(
-                        leading: const Icon(
-                          Icons.directions_bus,
-                          color: Color(0xFF004D74),
-                          size: 40,
-                        ),
                         title: Text(
-                          "${bus['nomor_bus']} - ${bus['plat_nomor']}",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                            "${bus['nomor_bus']} - ${bus['plat_nomor']}"),
                         subtitle: Text(
-                          "Driver: ${bus['driver_name'] ?? 'Belum ada'}\nRute: ${bus['rute_berangkat']} -> ${bus['rute_tujuan']}",
-                        ),
+                            "Driver: ${bus['driver_name'] ?? '-'}"),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(bus['status']),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                bus['status'],
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
                             IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              icon: const Icon(Icons.edit),
                               onPressed: () => _showForm(bus: bus),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _deleteBus(bus['id']),
+                              icon: const Icon(Icons.delete),
+                              onPressed: () =>
+                                  _deleteBus(bus['id']),
                             ),
                           ],
                         ),
@@ -322,29 +328,10 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                   },
                 ),
         ),
-
-        // Floating Add Button Style
-        Padding(
-          padding: const EdgeInsets.all(15),
-          child: SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF004D74),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              onPressed: () => _showForm(),
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text(
-                "Tambah Armada Baru",
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-        ),
+        ElevatedButton(
+          onPressed: () => _showForm(),
+          child: const Text("Tambah Armada"),
+        )
       ],
     );
   }
