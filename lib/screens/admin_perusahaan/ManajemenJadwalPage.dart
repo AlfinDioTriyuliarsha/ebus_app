@@ -89,7 +89,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                 "bus_id": busId,
                 "tanggal_berangkat": tanggal,
                 "jam_berangkat": jam,
-                "harga_tiket": int.parse(harga.replaceAll(".", "")), // FIX 500
+                "harga_tiket": int.parse(harga.replaceAll(".", "")),
               }))
           : http.put(Uri.parse(url),
               headers: {"Content-Type": "application/json"},
@@ -144,12 +144,13 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
   // ================= DIALOG =================
   void _showDialog({Map<String, dynamic>? data}) {
-    int? selectedBus = data?['bus_id'];
+    int? selectedBus =
+        data?['bus_id'] != null ? int.tryParse(data!['bus_id'].toString()) : null;
 
     final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
     final jamCtrl = TextEditingController(text: data?['jam_berangkat']);
-    final hargaCtrl = TextEditingController(
-        text: data?['harga_tiket']?.toString());
+    final hargaCtrl =
+        TextEditingController(text: data?['harga_tiket']?.toString());
 
     showDialog(
       context: context,
@@ -164,11 +165,15 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                 hint: const Text("Pilih Bus"),
                 items: _busList
                     .map<DropdownMenuItem<int>>((b) => DropdownMenuItem<int>(
-                          value: b['id'] as int,
+                          value: int.parse(b['id'].toString()), // ✅ FIX TYPE
                           child: Text(b['plat_nomor'] ?? "-"),
                         ))
                     .toList(),
-                onChanged: (val) => setStateDialog(() => selectedBus = val),
+                onChanged: (val) {
+                  setStateDialog(() {
+                    selectedBus = val;
+                  });
+                },
               ),
 
               const SizedBox(height: 10),
@@ -199,9 +204,8 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                     context: context,
                     initialTime: TimeOfDay.now(),
                   );
-                  if (picked != null) {
-                    // ignore: use_build_context_synchronously
-                    jamCtrl.text = picked.format(context);
+                  if (picked != null && mounted) {
+                    jamCtrl.text = picked.format(context); // ✅ FIX warning
                   }
                 },
               ),

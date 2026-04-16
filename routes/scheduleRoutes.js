@@ -7,9 +7,10 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// ==============================
+
+// ===============================
 // ✅ GET SCHEDULE
-// ==============================
+// ===============================
 router.get("/", async (req, res) => {
     const { company_id } = req.query;
 
@@ -31,55 +32,51 @@ router.get("/", async (req, res) => {
             [company_id]
         );
 
-        res.status(200).json({
+        res.json({
             status: "success",
             data: result.rows
         });
 
     } catch (err) {
-        console.error("❌ ERROR GET SCHEDULE:", err);
-        res.status(500).json({
-            status: "error",
-            message: err.message
-        });
+        console.error("❌ GET ERROR:", err);
+        res.status(500).json({ status: "error", message: err.message });
     }
 });
 
-// ==============================
-// ✅ POST SCHEDULE (FIX)
-// ==============================
+
+// ===============================
+// ✅ POST SCHEDULE
+// ===============================
 router.post("/", async (req, res) => {
     const {
         company_id,
         bus_id,
+        route_id,
         tanggal_berangkat,
         jam_berangkat,
         harga_tiket
     } = req.body;
 
-    if (!company_id || !bus_id || !tanggal_berangkat || !jam_berangkat || !harga_tiket) {
-        return res.status(400).json({ message: "Semua field wajib diisi" });
+    if (!company_id || !bus_id || !route_id) {
+        return res.status(400).json({
+            message: "company_id, bus_id, route_id wajib diisi"
+        });
     }
 
     try {
-        // 🔥 AMBIL route_id DARI BUS
-        const busResult = await pool.query(
-            `SELECT route_id FROM buses WHERE id = $1`,
-            [bus_id]
-        );
-
-        if (busResult.rows.length === 0) {
-            return res.status(404).json({ message: "Bus tidak ditemukan" });
-        }
-
-        const route_id = busResult.rows[0].route_id;
-
         const result = await pool.query(
             `INSERT INTO schedules 
             (company_id, bus_id, route_id, tanggal_berangkat, jam_berangkat, harga_tiket) 
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *`,
-            [company_id, bus_id, route_id, tanggal_berangkat, jam_berangkat, harga_tiket]
+            [
+                company_id,
+                bus_id,
+                route_id,
+                tanggal_berangkat,
+                jam_berangkat,
+                harga_tiket
+            ]
         );
 
         res.status(201).json({
@@ -88,86 +85,83 @@ router.post("/", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("❌ ERROR INSERT SCHEDULE:", err);
-        res.status(500).json({
-            status: "error",
-            message: err.message
-        });
+        console.error("❌ INSERT ERROR:", err);
+        res.status(500).json({ status: "error", message: err.message });
     }
 });
 
-// ==============================
-// ✏️ UPDATE SCHEDULE
-// ==============================
+
+// ===============================
+// ✅ UPDATE SCHEDULE
+// ===============================
 router.put("/:id", async (req, res) => {
     const { id } = req.params;
+
     const {
         bus_id,
+        route_id,
         tanggal_berangkat,
         jam_berangkat,
-        harga_tiket
+        harga_tiket,
+        status
     } = req.body;
 
     try {
-        // ambil route_id dari bus
-        const busResult = await pool.query(
-            `SELECT route_id FROM buses WHERE id = $1`,
-            [bus_id]
-        );
-
-        if (busResult.rows.length === 0) {
-            return res.status(404).json({ message: "Bus tidak ditemukan" });
-        }
-
-        const route_id = busResult.rows[0].route_id;
-
         const result = await pool.query(
             `UPDATE schedules SET
                 bus_id = $1,
                 route_id = $2,
                 tanggal_berangkat = $3,
                 jam_berangkat = $4,
-                harga_tiket = $5
-            WHERE id = $6
+                harga_tiket = $5,
+                status = $6
+            WHERE id = $7
             RETURNING *`,
-            [bus_id, route_id, tanggal_berangkat, jam_berangkat, harga_tiket, id]
+            [
+                bus_id,
+                route_id,
+                tanggal_berangkat,
+                jam_berangkat,
+                harga_tiket,
+                status,
+                id
+            ]
         );
 
-        res.status(200).json({
+        res.json({
             status: "success",
             data: result.rows[0]
         });
 
     } catch (err) {
-        console.error("❌ ERROR UPDATE:", err);
-        res.status(500).json({
-            status: "error",
-            message: err.message
-        });
+        console.error("❌ UPDATE ERROR:", err);
+        res.status(500).json({ status: "error", message: err.message });
     }
 });
 
-// ==============================
-// 🗑️ DELETE SCHEDULE
-// ==============================
+
+// ===============================
+// ✅ DELETE SCHEDULE
+// ===============================
 router.delete("/:id", async (req, res) => {
     const { id } = req.params;
 
     try {
-        await pool.query(`DELETE FROM schedules WHERE id = $1`, [id]);
+        await pool.query(
+            `DELETE FROM schedules WHERE id = $1`,
+            [id]
+        );
 
-        res.status(200).json({
+        res.json({
             status: "success",
             message: "Jadwal berhasil dihapus"
         });
 
     } catch (err) {
-        console.error("❌ ERROR DELETE:", err);
-        res.status(500).json({
-            status: "error",
-            message: err.message
-        });
+        console.error("❌ DELETE ERROR:", err);
+        res.status(500).json({ status: "error", message: err.message });
     }
 });
+
 
 module.exports = router;
