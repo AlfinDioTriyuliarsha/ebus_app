@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:ebus_app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class ManajemenJadwalPage extends StatefulWidget {
   final int companyId;
@@ -17,6 +18,12 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   List<Map<String, dynamic>> _routeList = [];
   bool _isLoading = true;
 
+  final currencyFormatter = NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp ',
+    decimalDigits: 0,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -24,29 +31,49 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     _fetchSupportData();
   }
 
-  // 1. Ambil Data Bus dan Rute untuk Dropdown
+  // ================= FETCH DATA =================
   Future<void> _fetchSupportData() async {
     try {
-      final resBus = await http.get(Uri.parse("${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}"));
-      final resRoute = await http.get(Uri.parse("${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}"));
-      
+      final resBus = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
+      final resRoute = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}",
+        ),
+      );
+
       if (resBus.statusCode == 200 && resRoute.statusCode == 200) {
+        final buses = List<Map<String, dynamic>>.from(
+          jsonDecode(resBus.body)['data'] ?? [],
+        );
+
+        // 🔥 FILTER BUS (AKTIF + ADA DRIVER)
+        final filteredBus = buses
+            .where((b) => b['status'] == 'Aktif' && b['driver_id'] != null)
+            .toList();
+
         setState(() {
-          _busList = List<Map<String, dynamic>>.from(jsonDecode(resBus.body)['data'] ?? []);
-          _routeList = List<Map<String, dynamic>>.from(jsonDecode(resRoute.body)['data'] ?? []);
+          _busList = filteredBus;
+          _routeList = List<Map<String, dynamic>>.from(
+            jsonDecode(resRoute.body)['data'] ?? [],
+          );
         });
       }
     } catch (e) {
-      print("Error fetch data pendukung: $e");
+      debugPrint("Error fetch data pendukung: $e");
     }
   }
 
-  // 2. Ambil Data List Jadwal
   Future<void> _fetchSchedules() async {
     setState(() => _isLoading = true);
     try {
       final response = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}",
+        ),
       );
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
@@ -60,10 +87,22 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     }
   }
 
-  // 3. Fungsi Simpan Jadwal ke Backend
-  Future<void> _storeSchedule(int? busId, int? routeId, String tgl, String jam, String harga) async {
-    if (busId == null || routeId == null || tgl.isEmpty || jam.isEmpty || harga.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lengkapi semua data!")));
+  // ================= SIMPAN =================
+  Future<void> _storeSchedule(
+    int? busId,
+    int? routeId,
+    String tgl,
+    String jam,
+    int harga,
+  ) async {
+    if (busId == null ||
+        routeId == null ||
+        tgl.isEmpty ||
+        jam.isEmpty ||
+        harga <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Lengkapi semua data!")));
       return;
     }
 
@@ -83,16 +122,71 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
       if (response.statusCode == 201) {
         if (!mounted) return;
-        Navigator.pop(context); // Tutup dialog
-        _fetchSchedules(); // Refresh list agar data baru muncul
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Jadwal berhasil disimpan")));
+        Navigator.pop(context);
+        _fetchSchedules();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Jadwal berhasil disimpan")),
+        );
       }
     } catch (e) {
-      print("Error simpan jadwal: $e");
+      debugPrint("Error simpan jadwal: $e");
     }
   }
 
-  // 4. Dialog Input (Hanya Satu Fungsi)
+  // ================= DATE PICKER =================
+  Future<void> _pickDate(TextEditingController controller) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      controller.text = DateFormat('yyyy-MM-dd').format(picked);
+    }
+  }
+
+  // ================= TIME PICKER =================
+  Future<void> _pickTime(TextEditingController controller) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+
+    if (picked != null) {
+      final now = DateTime.now();
+      final dt = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        picked.hour,
+        picked.minute,
+      );
+      controller.text = DateFormat('HH:mm').format(dt);
+    }
+  }
+
+  // ================= FORMAT RUPIAH =================
+  void _formatCurrency(TextEditingController controller) {
+    String text = controller.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (text.isEmpty) return;
+
+    final number = int.parse(text);
+    controller.value = TextEditingValue(
+      text: currencyFormatter.format(number),
+      selection: TextSelection.collapsed(
+        offset: currencyFormatter.format(number).length,
+      ),
+    );
+  }
+
+  int _parseCurrency(String text) {
+    return int.parse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+  }
+
+  // ================= DIALOG =================
   void _showAddScheduleDialog() {
     int? selectedBus;
     int? selectedRoute;
@@ -107,30 +201,69 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
           title: const Text("Tambah Jadwal Baru"),
           content: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<int>(
                   hint: const Text("Pilih Bus"),
-                  items: _busList.map((b) => DropdownMenuItem<int>(
-                    value: b['id'], child: Text(b['plat_nomor'] ?? "-"))).toList(),
+                  items: _busList
+                      .map(
+                        (b) => DropdownMenuItem<int>(
+                          value: b['id'],
+                          child: Text("${b['plat_nomor']} (${b['nomor_bus']})"),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (val) => setDialogState(() => selectedBus = val),
                 ),
+
                 DropdownButtonFormField<int>(
                   hint: const Text("Pilih Rute"),
-                  items: _routeList.map((r) => DropdownMenuItem<int>(
-                    value: r['id'], child: Text(r['nama_rute'] ?? "-"))).toList(),
+                  items: _routeList
+                      .map(
+                        (r) => DropdownMenuItem<int>(
+                          value: r['id'],
+                          child: Text(r['nama_rute'] ?? "-"),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (val) => setDialogState(() => selectedRoute = val),
                 ),
-                TextField(controller: tglCtrl, decoration: const InputDecoration(labelText: "Tanggal (YYYY-MM-DD)")),
-                TextField(controller: jamCtrl, decoration: const InputDecoration(labelText: "Jam (HH:mm)")),
-                TextField(controller: hargaCtrl, decoration: const InputDecoration(labelText: "Harga"), keyboardType: TextInputType.number),
+
+                TextField(
+                  controller: tglCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(labelText: "Tanggal"),
+                  onTap: () => _pickDate(tglCtrl),
+                ),
+
+                TextField(
+                  controller: jamCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(labelText: "Jam"),
+                  onTap: () => _pickTime(jamCtrl),
+                ),
+
+                TextField(
+                  controller: hargaCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: "Harga"),
+                  onChanged: (_) => _formatCurrency(hargaCtrl),
+                ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Batal"),
+            ),
             ElevatedButton(
-              onPressed: () => _storeSchedule(selectedBus, selectedRoute, tglCtrl.text, jamCtrl.text, hargaCtrl.text),
+              onPressed: () => _storeSchedule(
+                selectedBus,
+                selectedRoute,
+                tglCtrl.text,
+                jamCtrl.text,
+                _parseCurrency(hargaCtrl.text),
+              ),
               child: const Text("Simpan"),
             ),
           ],
@@ -139,6 +272,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     );
   }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,27 +285,25 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _schedules.isEmpty
-              ? const Center(child: Text("Belum ada jadwal keberangkatan."))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _schedules.length,
-                  itemBuilder: (context, index) {
-                    final item = _schedules[index];
-                    return Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.event_note, color: Colors.blue),
-                        title: Text("${item['nama_rute'] ?? 'Rute'} (${item['plat_nomor'] ?? '-'})"),
-                        subtitle: Text(
-                          "Waktu: ${item['tanggal_berangkat']} - ${item['jam_berangkat']}\nHarga: Rp ${item['harga_tiket']}",
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          // Navigasi detail
-                        },
-                      ),
-                    );
-                  },
-                ),
+          ? const Center(child: Text("Belum ada jadwal keberangkatan."))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _schedules.length,
+              itemBuilder: (context, index) {
+                final item = _schedules[index];
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.event_note, color: Colors.blue),
+                    title: Text(
+                      "${item['nama_rute'] ?? 'Rute'} (${item['plat_nomor'] ?? '-'})",
+                    ),
+                    subtitle: Text(
+                      "Waktu: ${item['tanggal_berangkat']} - ${item['jam_berangkat']}\nHarga: Rp ${item['harga_tiket']}",
+                    ),
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddScheduleDialog,
         backgroundColor: Colors.orange,
