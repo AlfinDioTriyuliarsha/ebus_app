@@ -15,7 +15,6 @@ class ManajemenJadwalPage extends StatefulWidget {
 class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   List<Map<String, dynamic>> _schedules = [];
   List<Map<String, dynamic>> _busList = [];
-  List<Map<String, dynamic>> _routeList = [];
 
   bool _isLoading = true;
 
@@ -26,9 +25,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   }
 
   Future<void> _initLoad() async {
-    setState(() => _isLoading = true);
-    await Future.wait([_fetchSchedules(), _fetchBus(), _fetchRoutes()]);
-    setState(() => _isLoading = false);
+    await Future.wait([_fetchSchedules(), _fetchBus()]);
   }
 
   // ================= BUS =================
@@ -49,22 +46,10 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     }
   }
 
-  // ================= ROUTE =================
-  Future<void> _fetchRoutes() async {
-    try {
-      final res = await http.get(Uri.parse("${ApiService.baseUrl}/api/routes"));
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        _routeList = List<Map<String, dynamic>>.from(data['data'] ?? []);
-      }
-    } catch (e) {
-      debugPrint("Error route: $e");
-    }
-  }
-
   // ================= GET =================
   Future<void> _fetchSchedules() async {
+    setState(() => _isLoading = true);
+
     try {
       final res = await http.get(
         Uri.parse(
@@ -79,13 +64,14 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     } catch (e) {
       debugPrint("Error jadwal: $e");
     }
+
+    setState(() => _isLoading = false);
   }
 
   // ================= CREATE / UPDATE =================
   Future<void> _submitSchedule({
     int? id,
     required int busId,
-    required int routeId,
     required String tanggal,
     required String jam,
     required String harga,
@@ -98,7 +84,6 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       final body = {
         "company_id": widget.companyId,
         "bus_id": busId,
-        "route_id": routeId,
         "tanggal_berangkat": tanggal,
         "jam_berangkat": jam,
         "harga_tiket": int.parse(harga.replaceAll(".", "")),
@@ -120,24 +105,25 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         Navigator.pop(context);
-        await _initLoad();
+        await _fetchSchedules();
 
         if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              id == null ? "Berhasil tambah jadwal" : "Berhasil update jadwal",
-            ),
+            content: Text(id == null ? "Berhasil tambah" : "Berhasil update"),
           ),
         );
       } else {
         debugPrint(response.body);
+
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Gagal: ${response.body}")));
       }
     } catch (e) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -154,9 +140,10 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       if (!mounted) return;
 
       if (res.statusCode == 200) {
-        await _initLoad();
+        await _fetchSchedules();
 
         if (!mounted) return;
+
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
@@ -172,16 +159,10 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
         ? int.tryParse(data!['bus_id'].toString())
         : null;
 
-    int? selectedRoute = data?['route_id'] != null
-        ? int.tryParse(data!['route_id'].toString())
-        : null;
-
-    final tglCtrl = TextEditingController(
-      text: data?['tanggal_berangkat'] ?? "",
-    );
-    final jamCtrl = TextEditingController(text: data?['jam_berangkat'] ?? "");
+    final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
+    final jamCtrl = TextEditingController(text: data?['jam_berangkat']);
     final hargaCtrl = TextEditingController(
-      text: data?['harga_tiket']?.toString() ?? "",
+      text: data?['harga_tiket']?.toString(),
     );
 
     showDialog(
@@ -193,47 +174,16 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
             child: Column(
               children: [
                 DropdownButtonFormField<int>(
-                  value:
-                      _busList.any(
-                        (b) => int.tryParse(b['id'].toString()) == selectedBus,
-                      )
-                      ? selectedBus
-                      : null,
+                  value: selectedBus,
                   hint: const Text("Pilih Bus"),
-                  items: _busList
-                      .map<DropdownMenuItem<int>>(
-                        (b) => DropdownMenuItem<int>(
-                          value: int.parse(b['id'].toString()),
-                          child: Text(b['plat_nomor'] ?? "-"),
-                        ),
-                      )
-                      .toList(),
+                  items: _busList.map<DropdownMenuItem<int>>((b) {
+                    return DropdownMenuItem<int>(
+                      value: int.parse(b['id'].toString()),
+                      child: Text(b['plat_nomor'] ?? "-"),
+                    );
+                  }).toList(),
                   onChanged: (val) {
                     setStateDialog(() => selectedBus = val);
-                  },
-                ),
-
-                const SizedBox(height: 10),
-
-                DropdownButtonFormField<int>(
-                  value:
-                      _routeList.any(
-                        (r) =>
-                            int.tryParse(r['id'].toString()) == selectedRoute,
-                      )
-                      ? selectedRoute
-                      : null,
-                  hint: const Text("Pilih Rute"),
-                  items: _routeList
-                      .map<DropdownMenuItem<int>>(
-                        (r) => DropdownMenuItem<int>(
-                          value: int.parse(r['id'].toString()),
-                          child: Text(r['nama_rute'] ?? "Rute"),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (val) {
-                    setStateDialog(() => selectedRoute = val);
                   },
                 ),
 
@@ -287,20 +237,15 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
             ElevatedButton(
               onPressed: () {
                 if (selectedBus == null ||
-                    selectedRoute == null ||
                     tglCtrl.text.isEmpty ||
                     jamCtrl.text.isEmpty ||
                     hargaCtrl.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Semua field wajib diisi")),
-                  );
                   return;
                 }
 
                 _submitSchedule(
                   id: data?['id'],
                   busId: selectedBus!,
-                  routeId: selectedRoute!,
                   tanggal: tglCtrl.text,
                   jam: jamCtrl.text,
                   harga: hargaCtrl.text,
