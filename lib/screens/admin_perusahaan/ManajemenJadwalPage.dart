@@ -20,27 +20,26 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   @override
   void initState() {
     super.initState();
-    _fetchSchedules();
-    _fetchBus();
+    _initLoad();
+  }
+
+  Future<void> _initLoad() async {
+    await Future.wait([
+      _fetchBus(),
+      _fetchSchedules(),
+    ]);
   }
 
   // ================= BUS =================
   Future<void> _fetchBus() async {
     try {
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}"),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-
-        setState(() {
-          _busList = List<Map<String, dynamic>>.from(data['data'] ?? []);
-        });
-
-        debugPrint("BUS LIST: $_busList"); // DEBUG
+        _busList = List<Map<String, dynamic>>.from(data['data'] ?? []);
       }
     } catch (e) {
       debugPrint("Error bus: $e");
@@ -53,23 +52,19 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
     try {
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}"),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
-        setState(() {
-          _schedules = List<Map<String, dynamic>>.from(data['data'] ?? []);
-        });
+        _schedules = List<Map<String, dynamic>>.from(data['data'] ?? []);
       }
     } catch (e) {
       debugPrint("Error jadwal: $e");
     }
 
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   // ================= CREATE / UPDATE =================
@@ -81,43 +76,37 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     required String harga,
   }) async {
     try {
+      final cleanHarga = int.parse(harga.replaceAll(RegExp(r'[^0-9]'), ''));
+
       final url = id == null
           ? "${ApiService.baseUrl}/api/schedules"
           : "${ApiService.baseUrl}/api/schedules/$id";
 
-      final response = await (id == null
-          ? http.post(
-              Uri.parse(url),
+      final body = {
+        "company_id": widget.companyId,
+        "bus_id": busId,
+        "tanggal_berangkat": tanggal,
+        "jam_berangkat": jam,
+        "harga_tiket": cleanHarga,
+      };
+
+      final response = id == null
+          ? await http.post(Uri.parse(url),
               headers: {"Content-Type": "application/json"},
-              body: jsonEncode({
-                "company_id": widget.companyId,
-                "bus_id": busId,
-                "tanggal_berangkat": tanggal,
-                "jam_berangkat": jam,
-                "harga_tiket": int.parse(harga.replaceAll(".", "")),
-              }),
-            )
-          : http.put(
-              Uri.parse(url),
+              body: jsonEncode(body))
+          : await http.put(Uri.parse(url),
               headers: {"Content-Type": "application/json"},
-              body: jsonEncode({
-                "bus_id": busId,
-                "tanggal_berangkat": tanggal,
-                "jam_berangkat": jam,
-                "harga_tiket": int.parse(harga.replaceAll(".", "")),
-              }),
-            ));
+              body: jsonEncode(body));
 
       if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         Navigator.pop(context);
-        _fetchSchedules();
+        await _fetchSchedules();
 
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(id == null ? "Berhasil tambah" : "Berhasil update"),
-          ),
+          SnackBar(content: Text(id == null ? "Berhasil tambah" : "Berhasil update")),
         );
       } else {
         debugPrint(response.body);
@@ -127,9 +116,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
     }
   }
 
@@ -143,10 +132,11 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       if (!mounted) return;
 
       if (res.statusCode == 200) {
-        _fetchSchedules();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
+        await _fetchSchedules();
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Berhasil hapus")),
+        );
       }
     } catch (e) {
       debugPrint("Delete error: $e");
@@ -156,10 +146,8 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   // ================= DIALOG =================
   void _showDialog({Map<String, dynamic>? data}) {
     int? selectedBus = data?['bus_id'] != null
-        ? int.parse(data!['bus_id'].toString())
+        ? int.tryParse(data!['bus_id'].toString())
         : null;
-
-    debugPrint("BUS LIST: $_busList");
 
     final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
     final jamCtrl = TextEditingController(text: data?['jam_berangkat']);
@@ -172,65 +160,74 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       builder: (_) => StatefulBuilder(
         builder: (_, setStateDialog) => AlertDialog(
           title: Text(data == null ? "Tambah Jadwal" : "Edit Jadwal"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<int>(
-                value: selectedBus,
-                hint: const Text("Pilih Bus"),
-                items: _busList.map<DropdownMenuItem<int>>((b) {
-                  return DropdownMenuItem<int>(
-                    value: int.parse(b['id'].toString()), // 🔥 FIX WAJIB
-                    child: Text(b['plat_nomor'] ?? "-"),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  setStateDialog(() {
-                    selectedBus = val;
-                  });
-                },
-              ),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                DropdownButtonFormField<int>(
+                  value: _busList.any((b) => int.parse(b['id'].toString()) == selectedBus)
+                      ? selectedBus
+                      : null,
+                  hint: const Text("Pilih Bus"),
+                  items: _busList.map((b) {
+                    return DropdownMenuItem<int>(
+                      value: int.parse(b['id'].toString()),
+                      child: Text(b['plat_nomor'] ?? "-"),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setStateDialog(() => selectedBus = val);
+                  },
+                ),
 
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
 
-              TextField(
-                controller: tglCtrl,
-                readOnly: true,
-                decoration: const InputDecoration(labelText: "Tanggal"),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2100),
-                    initialDate: DateTime.now(),
-                  );
-                  if (picked != null) {
-                    tglCtrl.text = DateFormat('yyyy-MM-dd').format(picked);
-                  }
-                },
-              ),
+                TextField(
+                  controller: tglCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(labelText: "Tanggal"),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2100),
+                      initialDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      tglCtrl.text = DateFormat('yyyy-MM-dd').format(picked);
+                    }
+                  },
+                ),
 
-              TextField(
-                controller: jamCtrl,
-                readOnly: true,
-                decoration: const InputDecoration(labelText: "Jam"),
-                onTap: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
-                  );
-                  if (picked != null && mounted) {
-                    jamCtrl.text = picked.format(context); // ✅ FIX warning
-                  }
-                },
-              ),
+                TextField(
+                  controller: jamCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(labelText: "Jam"),
+                  onTap: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.now(),
+                    );
+                    if (picked != null) {
+                      final now = DateTime.now();
+                      final dt = DateTime(
+                        now.year,
+                        now.month,
+                        now.day,
+                        picked.hour,
+                        picked.minute,
+                      );
+                      jamCtrl.text = DateFormat('HH:mm:ss').format(dt);
+                    }
+                  },
+                ),
 
-              TextField(
-                controller: hargaCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: "Harga (Rp)"),
-              ),
-            ],
+                TextField(
+                  controller: hargaCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: "Harga (Rp)"),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -242,9 +239,12 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                 if (selectedBus == null ||
                     tglCtrl.text.isEmpty ||
                     jamCtrl.text.isEmpty ||
-                    hargaCtrl.text.isEmpty)
-                  // ignore: curly_braces_in_flow_control_structures
+                    hargaCtrl.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Semua field wajib diisi")),
+                  );
                   return;
+                }
 
                 _submitSchedule(
                   id: data?['id'],
@@ -272,34 +272,36 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _schedules.length,
-              itemBuilder: (_, i) {
-                final s = _schedules[i];
+          : _schedules.isEmpty
+              ? const Center(child: Text("Belum ada jadwal"))
+              : ListView.builder(
+                  itemCount: _schedules.length,
+                  itemBuilder: (_, i) {
+                    final s = _schedules[i];
 
-                return Card(
-                  child: ListTile(
-                    title: Text("${s['plat_nomor']}"),
-                    subtitle: Text(
-                      "${s['tanggal_berangkat']} | ${s['jam_berangkat']}\nRp ${s['harga_tiket']}",
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _showDialog(data: s),
+                    return Card(
+                      child: ListTile(
+                        title: Text("${s['plat_nomor'] ?? '-'}"),
+                        subtitle: Text(
+                          "${s['tanggal_berangkat']} | ${s['jam_berangkat']}\nRp ${s['harga_tiket']}",
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteSchedule(s['id']),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _showDialog(data: s),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteSchedule(s['id']),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      ),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showDialog(),
         backgroundColor: Colors.orange,
