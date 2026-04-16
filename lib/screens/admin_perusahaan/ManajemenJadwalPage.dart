@@ -26,7 +26,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   }
 
   Future<void> _initLoad() async {
+    setState(() => _isLoading = true);
     await Future.wait([_fetchSchedules(), _fetchBus(), _fetchRoutes()]);
+    setState(() => _isLoading = false);
   }
 
   // ================= BUS =================
@@ -63,8 +65,6 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
   // ================= GET =================
   Future<void> _fetchSchedules() async {
-    setState(() => _isLoading = true);
-
     try {
       final res = await http.get(
         Uri.parse(
@@ -74,14 +74,11 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-
         _schedules = List<Map<String, dynamic>>.from(data['data'] ?? []);
       }
     } catch (e) {
       debugPrint("Error jadwal: $e");
     }
-
-    setState(() => _isLoading = false);
   }
 
   // ================= CREATE / UPDATE =================
@@ -123,12 +120,14 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         Navigator.pop(context);
-        await _fetchSchedules();
+        await _initLoad();
 
-        // ignore: use_build_context_synchronously
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(id == null ? "Berhasil tambah" : "Berhasil update"),
+            content: Text(
+              id == null ? "Berhasil tambah jadwal" : "Berhasil update jadwal",
+            ),
           ),
         );
       } else {
@@ -139,7 +138,6 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       }
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -156,10 +154,10 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       if (!mounted) return;
 
       if (res.statusCode == 200) {
-        await _fetchSchedules();
+        await _initLoad();
 
+        if (!mounted) return;
         ScaffoldMessenger.of(
-          // ignore: use_build_context_synchronously
           context,
         ).showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
       }
@@ -178,10 +176,12 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
         ? int.tryParse(data!['route_id'].toString())
         : null;
 
-    final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
-    final jamCtrl = TextEditingController(text: data?['jam_berangkat']);
+    final tglCtrl = TextEditingController(
+      text: data?['tanggal_berangkat'] ?? "",
+    );
+    final jamCtrl = TextEditingController(text: data?['jam_berangkat'] ?? "");
     final hargaCtrl = TextEditingController(
-      text: data?['harga_tiket']?.toString(),
+      text: data?['harga_tiket']?.toString() ?? "",
     );
 
     showDialog(
@@ -192,16 +192,22 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
-                // BUS
                 DropdownButtonFormField<int>(
-                  value: selectedBus,
+                  value:
+                      _busList.any(
+                        (b) => int.tryParse(b['id'].toString()) == selectedBus,
+                      )
+                      ? selectedBus
+                      : null,
                   hint: const Text("Pilih Bus"),
-                  items: _busList.map<DropdownMenuItem<int>>((b) {
-                    return DropdownMenuItem<int>(
-                      value: int.parse(b['id'].toString()),
-                      child: Text(b['plat_nomor'] ?? "-"),
-                    );
-                  }).toList(),
+                  items: _busList
+                      .map<DropdownMenuItem<int>>(
+                        (b) => DropdownMenuItem<int>(
+                          value: int.parse(b['id'].toString()),
+                          child: Text(b['plat_nomor'] ?? "-"),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (val) {
                     setStateDialog(() => selectedBus = val);
                   },
@@ -209,16 +215,23 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
                 const SizedBox(height: 10),
 
-                // ROUTE
                 DropdownButtonFormField<int>(
-                  value: selectedRoute,
+                  value:
+                      _routeList.any(
+                        (r) =>
+                            int.tryParse(r['id'].toString()) == selectedRoute,
+                      )
+                      ? selectedRoute
+                      : null,
                   hint: const Text("Pilih Rute"),
-                  items: _routeList.map<DropdownMenuItem<int>>((r) {
-                    return DropdownMenuItem<int>(
-                      value: int.parse(r['id'].toString()),
-                      child: Text(r['nama_rute'] ?? "Rute"),
-                    );
-                  }).toList(),
+                  items: _routeList
+                      .map<DropdownMenuItem<int>>(
+                        (r) => DropdownMenuItem<int>(
+                          value: int.parse(r['id'].toString()),
+                          child: Text(r['nama_rute'] ?? "Rute"),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (val) {
                     setStateDialog(() => selectedRoute = val);
                   },
@@ -278,6 +291,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                     tglCtrl.text.isEmpty ||
                     jamCtrl.text.isEmpty ||
                     hargaCtrl.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Semua field wajib diisi")),
+                  );
                   return;
                 }
 
