@@ -28,17 +28,19 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   Future<void> _fetchBus() async {
     try {
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
         setState(() {
-          _busList = List<Map<String, dynamic>>.from(data['data'] ?? [])
-              .where((b) => b['status'] == 'aktif' && b['driver_id'] != null)
-              .toList();
+          _busList = List<Map<String, dynamic>>.from(data['data'] ?? []);
         });
+
+        debugPrint("BUS LIST: $_busList"); // DEBUG
       }
     } catch (e) {
       debugPrint("Error bus: $e");
@@ -51,7 +53,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
     try {
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}",
+        ),
       );
 
       if (res.statusCode == 200) {
@@ -82,7 +86,8 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
           : "${ApiService.baseUrl}/api/schedules/$id";
 
       final response = await (id == null
-          ? http.post(Uri.parse(url),
+          ? http.post(
+              Uri.parse(url),
               headers: {"Content-Type": "application/json"},
               body: jsonEncode({
                 "company_id": widget.companyId,
@@ -90,15 +95,18 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                 "tanggal_berangkat": tanggal,
                 "jam_berangkat": jam,
                 "harga_tiket": int.parse(harga.replaceAll(".", "")),
-              }))
-          : http.put(Uri.parse(url),
+              }),
+            )
+          : http.put(
+              Uri.parse(url),
               headers: {"Content-Type": "application/json"},
               body: jsonEncode({
                 "bus_id": busId,
                 "tanggal_berangkat": tanggal,
                 "jam_berangkat": jam,
                 "harga_tiket": int.parse(harga.replaceAll(".", "")),
-              })));
+              }),
+            ));
 
       if (!mounted) return;
 
@@ -107,7 +115,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
         _fetchSchedules();
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(id == null ? "Berhasil tambah" : "Berhasil update")),
+          SnackBar(
+            content: Text(id == null ? "Berhasil tambah" : "Berhasil update"),
+          ),
         );
       } else {
         debugPrint(response.body);
@@ -117,9 +127,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -134,8 +144,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
       if (res.statusCode == 200) {
         _fetchSchedules();
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
       }
     } catch (e) {
       debugPrint("Delete error: $e");
@@ -144,13 +155,17 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
   // ================= DIALOG =================
   void _showDialog({Map<String, dynamic>? data}) {
-    int? selectedBus =
-        data?['bus_id'] != null ? int.tryParse(data!['bus_id'].toString()) : null;
+    int? selectedBus = data?['bus_id'] != null
+        ? int.parse(data!['bus_id'].toString())
+        : null;
+
+    debugPrint("BUS LIST: $_busList");
 
     final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
     final jamCtrl = TextEditingController(text: data?['jam_berangkat']);
-    final hargaCtrl =
-        TextEditingController(text: data?['harga_tiket']?.toString());
+    final hargaCtrl = TextEditingController(
+      text: data?['harga_tiket']?.toString(),
+    );
 
     showDialog(
       context: context,
@@ -163,12 +178,12 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
               DropdownButtonFormField<int>(
                 value: selectedBus,
                 hint: const Text("Pilih Bus"),
-                items: _busList
-                    .map<DropdownMenuItem<int>>((b) => DropdownMenuItem<int>(
-                          value: int.parse(b['id'].toString()), // ✅ FIX TYPE
-                          child: Text(b['plat_nomor'] ?? "-"),
-                        ))
-                    .toList(),
+                items: _busList.map<DropdownMenuItem<int>>((b) {
+                  return DropdownMenuItem<int>(
+                    value: int.parse(b['id'].toString()), // 🔥 FIX WAJIB
+                    child: Text(b['plat_nomor'] ?? "-"),
+                  );
+                }).toList(),
                 onChanged: (val) {
                   setStateDialog(() {
                     selectedBus = val;
@@ -227,8 +242,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                 if (selectedBus == null ||
                     tglCtrl.text.isEmpty ||
                     jamCtrl.text.isEmpty ||
-                    // ignore: curly_braces_in_flow_control_structures
-                    hargaCtrl.text.isEmpty) return;
+                    hargaCtrl.text.isEmpty)
+                  // ignore: curly_braces_in_flow_control_structures
+                  return;
 
                 _submitSchedule(
                   id: data?['id'],
@@ -265,7 +281,8 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                   child: ListTile(
                     title: Text("${s['plat_nomor']}"),
                     subtitle: Text(
-                        "${s['tanggal_berangkat']} | ${s['jam_berangkat']}\nRp ${s['harga_tiket']}"),
+                      "${s['tanggal_berangkat']} | ${s['jam_berangkat']}\nRp ${s['harga_tiket']}",
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
