@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:ebus_app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class ManajemenJadwalPage extends StatefulWidget {
   final int companyId;
@@ -14,7 +15,6 @@ class ManajemenJadwalPage extends StatefulWidget {
 class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   List<Map<String, dynamic>> _schedules = [];
   List<Map<String, dynamic>> _busList = [];
-
   bool _isLoading = true;
 
   @override
@@ -28,185 +28,190 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   Future<void> _fetchBus() async {
     try {
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}"),
       );
 
       if (res.statusCode == 200) {
-        final data = List<Map<String, dynamic>>.from(
-          jsonDecode(res.body)['data'] ?? [],
-        );
+        final data = jsonDecode(res.body);
 
-        // 🔥 FILTER: hanya bus aktif & ada driver
-        _busList = data.where((b) {
-          return b['status'] == "Aktif" && b['driver_id'] != null;
-        }).toList();
-
-        setState(() {});
+        setState(() {
+          _busList = List<Map<String, dynamic>>.from(data['data'] ?? [])
+              .where((b) => b['status'] == 'aktif' && b['driver_id'] != null)
+              .toList();
+        });
       }
     } catch (e) {
-      debugPrint("Error fetch bus: $e");
+      debugPrint("Error bus: $e");
     }
   }
 
-  // ================= SCHEDULE =================
+  // ================= GET =================
   Future<void> _fetchSchedules() async {
     setState(() => _isLoading = true);
 
     try {
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}"),
       );
 
       if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
+        final data = jsonDecode(res.body);
 
-        _schedules = List<Map<String, dynamic>>.from(decoded['data'] ?? []);
+        setState(() {
+          _schedules = List<Map<String, dynamic>>.from(data['data'] ?? []);
+        });
       }
     } catch (e) {
-      debugPrint("Error fetch schedule: $e");
+      debugPrint("Error jadwal: $e");
     }
 
     setState(() => _isLoading = false);
   }
 
-  // ================= FORMAT RUPIAH =================
-  String formatRupiah(String number) {
-    if (number.isEmpty) return "";
-    final n = int.tryParse(number.replaceAll(".", "")) ?? 0;
-    return n.toString().replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'),
-      (match) => ".",
-    );
-  }
-
-  // ================= STORE =================
-  Future<void> _storeSchedule(
-    int? busId,
-    String tgl,
-    String jam,
-    String harga,
-  ) async {
-    if (busId == null || tgl.isEmpty || jam.isEmpty || harga.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Lengkapi semua data!")));
-      return;
-    }
-
+  // ================= CREATE / UPDATE =================
+  Future<void> _submitSchedule({
+    int? id,
+    required int busId,
+    required String tanggal,
+    required String jam,
+    required String harga,
+  }) async {
     try {
-      final res = await http.post(
-        Uri.parse("${ApiService.baseUrl}/api/schedules"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "company_id": widget.companyId,
-          "bus_id": busId,
-          "tanggal_berangkat": tgl,
-          "jam_berangkat": jam,
-          "harga_tiket": harga.replaceAll(".", ""),
-        }),
-      );
+      final url = id == null
+          ? "${ApiService.baseUrl}/api/schedules"
+          : "${ApiService.baseUrl}/api/schedules/$id";
 
-      if (res.statusCode == 201) {
-        if (!mounted) return;
+      final response = await (id == null
+          ? http.post(Uri.parse(url),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "company_id": widget.companyId,
+                "bus_id": busId,
+                "tanggal_berangkat": tanggal,
+                "jam_berangkat": jam,
+                "harga_tiket": int.parse(harga.replaceAll(".", "")), // FIX 500
+              }))
+          : http.put(Uri.parse(url),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "bus_id": busId,
+                "tanggal_berangkat": tanggal,
+                "jam_berangkat": jam,
+                "harga_tiket": int.parse(harga.replaceAll(".", "")),
+              })));
 
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
         Navigator.pop(context);
         _fetchSchedules();
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Jadwal berhasil disimpan")),
+          SnackBar(content: Text(id == null ? "Berhasil tambah" : "Berhasil update")),
+        );
+      } else {
+        debugPrint(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal: ${response.statusCode}")),
         );
       }
     } catch (e) {
-      debugPrint("Error store schedule: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    }
+  }
+
+  // ================= DELETE =================
+  Future<void> _deleteSchedule(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse("${ApiService.baseUrl}/api/schedules/$id"),
+      );
+
+      if (!mounted) return;
+
+      if (res.statusCode == 200) {
+        _fetchSchedules();
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
+      }
+    } catch (e) {
+      debugPrint("Delete error: $e");
     }
   }
 
   // ================= DIALOG =================
-  void _showAddScheduleDialog() {
-    int? selectedBus;
+  void _showDialog({Map<String, dynamic>? data}) {
+    int? selectedBus = data?['bus_id'];
 
-    final tglCtrl = TextEditingController();
-    final jamCtrl = TextEditingController();
-    final hargaCtrl = TextEditingController();
+    final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
+    final jamCtrl = TextEditingController(text: data?['jam_berangkat']);
+    final hargaCtrl = TextEditingController(
+        text: data?['harga_tiket']?.toString());
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Tambah Jadwal"),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                // BUS
-                DropdownButtonFormField<int>(
-                  hint: const Text("Pilih Bus"),
-                  items: _busList.map((b) {
-                    return DropdownMenuItem<int>(
-                      value: b['id'],
-                      child: Text("${b['nomor_bus']} - ${b['plat_nomor']}"),
-                    );
-                  }).toList(),
-                  onChanged: (val) => setDialogState(() => selectedBus = val),
-                ),
+      builder: (_) => StatefulBuilder(
+        builder: (_, setStateDialog) => AlertDialog(
+          title: Text(data == null ? "Tambah Jadwal" : "Edit Jadwal"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                value: selectedBus,
+                hint: const Text("Pilih Bus"),
+                items: _busList
+                    .map<DropdownMenuItem<int>>((b) => DropdownMenuItem<int>(
+                          value: b['id'] as int,
+                          child: Text(b['plat_nomor'] ?? "-"),
+                        ))
+                    .toList(),
+                onChanged: (val) => setStateDialog(() => selectedBus = val),
+              ),
 
-                // TANGGAL
-                TextField(
-                  controller: tglCtrl,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: "Tanggal"),
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2100),
-                    );
+              const SizedBox(height: 10),
 
-                    if (date != null) {
-                      tglCtrl.text = "${date.year}-${date.month}-${date.day}";
-                    }
-                  },
-                ),
+              TextField(
+                controller: tglCtrl,
+                readOnly: true,
+                decoration: const InputDecoration(labelText: "Tanggal"),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2100),
+                    initialDate: DateTime.now(),
+                  );
+                  if (picked != null) {
+                    tglCtrl.text = DateFormat('yyyy-MM-dd').format(picked);
+                  }
+                },
+              ),
 
-                // JAM
-                TextField(
-                  controller: jamCtrl,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: "Jam"),
-                  onTap: () async {
-                    final time = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.now(),
-                    );
+              TextField(
+                controller: jamCtrl,
+                readOnly: true,
+                decoration: const InputDecoration(labelText: "Jam"),
+                onTap: () async {
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                  );
+                  if (picked != null) {
+                    // ignore: use_build_context_synchronously
+                    jamCtrl.text = picked.format(context);
+                  }
+                },
+              ),
 
-                    if (time != null) {
-                      jamCtrl.text =
-                          "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
-                    }
-                  },
-                ),
-
-                // HARGA
-                TextField(
-                  controller: hargaCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Harga"),
-                  onChanged: (val) {
-                    final formatted = formatRupiah(val);
-                    hargaCtrl.value = TextEditingValue(
-                      text: formatted,
-                      selection: TextSelection.collapsed(
-                        offset: formatted.length,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+              TextField(
+                controller: hargaCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "Harga (Rp)"),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -214,12 +219,21 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
               child: const Text("Batal"),
             ),
             ElevatedButton(
-              onPressed: () => _storeSchedule(
-                selectedBus,
-                tglCtrl.text,
-                jamCtrl.text,
-                hargaCtrl.text,
-              ),
+              onPressed: () {
+                if (selectedBus == null ||
+                    tglCtrl.text.isEmpty ||
+                    jamCtrl.text.isEmpty ||
+                    // ignore: curly_braces_in_flow_control_structures
+                    hargaCtrl.text.isEmpty) return;
+
+                _submitSchedule(
+                  id: data?['id'],
+                  busId: selectedBus!,
+                  tanggal: tglCtrl.text,
+                  jam: jamCtrl.text,
+                  harga: hargaCtrl.text,
+                );
+              },
               child: const Text("Simpan"),
             ),
           ],
@@ -238,24 +252,35 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _schedules.isEmpty
-          ? const Center(child: Text("Belum ada jadwal"))
           : ListView.builder(
               itemCount: _schedules.length,
-              itemBuilder: (context, i) {
+              itemBuilder: (_, i) {
                 final s = _schedules[i];
+
                 return Card(
                   child: ListTile(
-                    title: Text("${s['plat_nomor'] ?? '-'}"),
+                    title: Text("${s['plat_nomor']}"),
                     subtitle: Text(
-                      "${s['tanggal_berangkat']} ${s['jam_berangkat']}\nRp ${formatRupiah(s['harga_tiket'].toString())}",
+                        "${s['tanggal_berangkat']} | ${s['jam_berangkat']}\nRp ${s['harga_tiket']}"),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showDialog(data: s),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deleteSchedule(s['id']),
+                        ),
+                      ],
                     ),
                   ),
                 );
               },
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddScheduleDialog,
+        onPressed: () => _showDialog(),
         backgroundColor: Colors.orange,
         child: const Icon(Icons.add),
       ),
