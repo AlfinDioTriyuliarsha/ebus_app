@@ -8,8 +8,7 @@ class ManajemenArmadaPage extends StatefulWidget {
   const ManajemenArmadaPage({super.key, required this.companyId});
 
   @override
-  State<ManajemenArmadaPage> createState() =>
-      _ManajemenArmadaPageState();
+  State<ManajemenArmadaPage> createState() => _ManajemenArmadaPageState();
 }
 
 class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
@@ -17,6 +16,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   List<dynamic> _availableDrivers = [];
   List<dynamic> _routes = [];
   List<dynamic> _schedules = [];
+  List<dynamic> _mesinList = []; // 🔥 sekarang dari API
 
   bool _isLoading = true;
   // ignore: prefer_final_fields
@@ -28,10 +28,8 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   int? _selectedDriverId;
   int? _selectedRouteId;
   int? _selectedScheduleId;
-  String _selectedMesin = "Hino";
+  int? _selectedMesinId; // 🔥 pakai ID
   String _selectedStatus = "Aktif";
-
-  final List<String> _mesinList = ["Hino", "Mercedes", "Scania", "Volvo"];
 
   @override
   void initState() {
@@ -47,6 +45,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
         _fetchAvailableDrivers(),
         _fetchRoutes(),
         _fetchSchedules(),
+        _fetchMesin(), // 🔥 tambah
       ]);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -75,7 +74,9 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
   Future<void> _fetchRoutes() async {
     final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}"),
+      Uri.parse(
+        "${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}",
+      ),
     );
     if (res.statusCode == 200) {
       _routes = jsonDecode(res.body)['data'];
@@ -84,15 +85,47 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
   Future<void> _fetchSchedules() async {
     final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}"),
+      Uri.parse(
+        "${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}",
+      ),
     );
     if (res.statusCode == 200) {
       _schedules = jsonDecode(res.body)['data'];
     }
   }
 
+  Future<void> _fetchMesin() async {
+    final res = await http.get(
+      Uri.parse(
+        "${ApiService.baseUrl}/api/mesin?company_id=${widget.companyId}",
+      ),
+    );
+    if (res.statusCode == 200) {
+      _mesinList = jsonDecode(res.body)['data'];
+    }
+  }
+
+  // ================= VALIDASI =================
+  bool _isPlatDuplicate(String plat, {int? currentId}) {
+    return _buses.any(
+      (b) =>
+          b['plat_nomor'] == plat &&
+          (currentId == null || b['id'] != currentId),
+    );
+  }
+
   // ================= SAVE =================
   Future<void> _saveBus({int? busId}) async {
+    if (_platController.text.isEmpty || _noBusController.text.isEmpty) {
+      _showSnackBar("❌ Semua field wajib diisi");
+      return;
+    }
+
+    if (_isPlatDuplicate(_platController.text, currentId: busId)) {
+      _showSnackBar("❌ Plat nomor sudah digunakan!");
+      return;
+    }
+
     final url = busId == null
         ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
         : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
@@ -101,31 +134,43 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       "driver_id": _selectedDriverId,
       "nomor_bus": _noBusController.text,
       "plat_nomor": _platController.text,
-      "mesin": _selectedMesin,
+      "mesin_id": _selectedMesinId,
       "route_id": _selectedRouteId,
       "schedule_id": _selectedScheduleId,
       "status": _selectedStatus,
     });
 
     final res = busId == null
-        ? await http.post(Uri.parse(url),
-            headers: {"Content-Type": "application/json"}, body: body)
-        : await http.put(Uri.parse(url),
-            headers: {"Content-Type": "application/json"}, body: body);
+        ? await http.post(
+            Uri.parse(url),
+            headers: {"Content-Type": "application/json"},
+            body: body,
+          )
+        : await http.put(
+            Uri.parse(url),
+            headers: {"Content-Type": "application/json"},
+            body: body,
+          );
+
+    // ignore: use_build_context_synchronously
+    Navigator.pop(context);
 
     if (res.statusCode == 200 || res.statusCode == 201) {
-      _showSnackBar("✅ Berhasil disimpan");
       _fetchData();
+      _showDialog("Sukses", "Data armada berhasil disimpan");
     } else {
-      _showSnackBar("❌ Gagal");
+      _showDialog("Error", "Gagal menyimpan data");
     }
   }
 
   Future<void> _deleteBus(int id) async {
     await http.delete(
-      Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$id"),
+      Uri.parse(
+        "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$id",
+      ),
     );
     _fetchData();
+    _showDialog("Sukses", "Data berhasil dihapus");
   }
 
   // ================= FORM =================
@@ -135,7 +180,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       _platController.text = bus['plat_nomor'];
       _selectedDriverId = bus['driver_id'];
       _selectedStatus = bus['status'];
-      _selectedMesin = bus['mesin'] ?? "Hino";
+      _selectedMesinId = bus['mesin_id'];
       _selectedRouteId = bus['route_id'];
       _selectedScheduleId = bus['schedule_id'];
     } else {
@@ -145,6 +190,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       _selectedStatus = "Aktif";
       _selectedRouteId = null;
       _selectedScheduleId = null;
+      _selectedMesinId = null;
     }
 
     showDialog(
@@ -155,17 +201,17 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
-                // DRIVER
                 DropdownButtonFormField<int?>(
                   value: _selectedDriverId,
-                  decoration: const InputDecoration(labelText: "Driver"),
                   items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text("Tanpa Driver")),
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text("Tanpa Driver"),
+                    ),
                     ..._availableDrivers.map<DropdownMenuItem<int?>>((d) {
                       return DropdownMenuItem<int?>(
-                        value: d['id'] as int?,
-                        child: Text(d['driver_name']),
+                        value: d['id'] as int,
+                        child: Text(d['driver_name'] ?? "-"),
                       );
                     }),
                   ],
@@ -177,62 +223,64 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                   controller: _noBusController,
                   decoration: const InputDecoration(labelText: "Nomor Bus"),
                 ),
-
                 TextField(
                   controller: _platController,
                   decoration: const InputDecoration(labelText: "Plat Nomor"),
                 ),
 
-                // MESIN
-                DropdownButtonFormField<String>(
-                  value: _selectedMesin,
+                // 🔥 MESIN DINAMIS
+                DropdownButtonFormField<int?>(
+                  value: _selectedMesinId,
                   decoration: const InputDecoration(labelText: "Mesin"),
-                  items: _mesinList
-                      .map((m) =>
-                          DropdownMenuItem(value: m, child: Text(m)))
-                      .toList(),
+                  items: _mesinList.map<DropdownMenuItem<int?>>((m) {
+                    return DropdownMenuItem<int?>(
+                      value: m['id'] as int,
+                      child: Text(m['nama_mesin']),
+                    );
+                  }).toList(),
                   onChanged: (val) =>
-                      setDialogState(() => _selectedMesin = val!),
+                      setDialogState(() => _selectedMesinId = val),
                 ),
 
-                // ROUTE
+                TextButton(
+                  onPressed: _showAddMesinDialog,
+                  child: const Text("+ Tambah Mesin"),
+                ),
+
                 DropdownButtonFormField<int?>(
                   value: _selectedRouteId,
-                  decoration: const InputDecoration(labelText: "Rute"),
                   items: _routes.map<DropdownMenuItem<int?>>((r) {
                     return DropdownMenuItem<int?>(
-                      value: r['id'] as int?,
-                      child: Text(
-                        "${r['nama_rute']} (${r['titik_awal']} → ${r['titik_tujuan']})"),
+                      value: r['id'] as int,
+                      child: Text("${r['nama_rute']}"),
                     );
                   }).toList(),
                   onChanged: (val) =>
                       setDialogState(() => _selectedRouteId = val),
                 ),
 
-                // SCHEDULE
                 DropdownButtonFormField<int?>(
                   value: _selectedScheduleId,
-                  decoration: const InputDecoration(labelText: "Jadwal"),
                   items: _schedules.map<DropdownMenuItem<int?>>((s) {
                     return DropdownMenuItem<int?>(
-                      value: s['id'] as int?,
+                      value: s['id'] as int,
                       child: Text(
-                        "${s['route_name']} - ${s['waktu_keberangkatan']}"),
+                        "${s['route_name']} - ${s['waktu_keberangkatan']}",
+                      ),
                     );
                   }).toList(),
                   onChanged: (val) =>
                       setDialogState(() => _selectedScheduleId = val),
                 ),
 
-                // STATUS
                 DropdownButtonFormField<String>(
                   value: _selectedStatus,
-                  decoration: const InputDecoration(labelText: "Status"),
-                  items: ["Aktif", "Non Aktif", "Tidak Ada Driver", "Maintenance"]
-                      .map((s) =>
-                          DropdownMenuItem(value: s, child: Text(s)))
-                      .toList(),
+                  items:
+                      ["Aktif", "Non Aktif", "Tidak Ada Driver", "Maintenance"]
+                          .map(
+                            (s) => DropdownMenuItem(value: s, child: Text(s)),
+                          )
+                          .toList(),
                   onChanged: (val) =>
                       setDialogState(() => _selectedStatus = val!),
                 ),
@@ -241,13 +289,11 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Batal")),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Batal"),
+            ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _saveBus(busId: bus?['id']);
-              },
+              onPressed: () => _saveBus(busId: bus?['id']),
               child: const Text("Simpan"),
             ),
           ],
@@ -256,25 +302,62 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
     );
   }
 
-  // ================= STATUS COLOR =================
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case "Aktif":
-        return Colors.green;
-      case "Maintenance":
-        return Colors.orange;
-      case "Non Aktif":
-        return Colors.grey;
-      case "Tidak Ada Driver":
-        return Colors.red;
-      default:
-        return Colors.black;
-    }
+  // ================= POPUP =================
+  void _showDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSnackBar(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ================= ADD MESIN =================
+  void _showAddMesinDialog() {
+    final controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Tambah Mesin"),
+        content: TextField(controller: controller),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await http.post(
+                Uri.parse("${ApiService.baseUrl}/api/mesin"),
+                headers: {"Content-Type": "application/json"},
+                body: jsonEncode({
+                  "company_id": widget.companyId,
+                  "nama_mesin": controller.text,
+                }),
+              );
+
+              // ignore: use_build_context_synchronously
+              Navigator.pop(context);
+              _fetchMesin();
+              _showDialog("Sukses", "Mesin ditambahkan");
+            },
+            child: const Text("Simpan"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -292,37 +375,21 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final bus = filtered[i];
-                    return Card(
-                      child: ListTile(
-                        title: Text(
-                            "${bus['nomor_bus']} - ${bus['plat_nomor']}"),
-                        subtitle: Text(
-                            "Driver: ${bus['driver_name'] ?? '-'}"),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(bus['status']),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                bus['status'],
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _showForm(bus: bus),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () =>
-                                  _deleteBus(bus['id']),
-                            ),
-                          ],
-                        ),
+                    return ListTile(
+                      title: Text("${bus['nomor_bus']} - ${bus['plat_nomor']}"),
+                      subtitle: Text("Driver: ${bus['driver_name'] ?? '-'}"),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => _showForm(bus: bus),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => _deleteBus(bus['id']),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -331,7 +398,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
         ElevatedButton(
           onPressed: () => _showForm(),
           child: const Text("Tambah Armada"),
-        )
+        ),
       ],
     );
   }

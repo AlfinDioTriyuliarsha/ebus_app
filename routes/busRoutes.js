@@ -34,4 +34,16 @@ router.post("/", async (req, res) => {
     }
 });
 
+// CEK DUPLIKAT PLAT
+const check = await pool.query(
+  "SELECT * FROM buses WHERE plat_nomor = $1 AND company_id = $2",
+  [plat_nomor, company_id]
+);
+
+if (check.rows.length > 0) {
+  return res.status(400).json({
+    error: "Plat nomor sudah digunakan!"
+  });
+}
+
 module.exports = router;
