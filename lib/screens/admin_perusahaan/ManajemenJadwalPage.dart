@@ -15,6 +15,8 @@ class ManajemenJadwalPage extends StatefulWidget {
 class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   List<Map<String, dynamic>> _schedules = [];
   List<Map<String, dynamic>> _busList = [];
+  List<Map<String, dynamic>> _routeList = [];
+
   bool _isLoading = true;
 
   @override
@@ -24,17 +26,16 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   }
 
   Future<void> _initLoad() async {
-    await Future.wait([
-      _fetchBus(),
-      _fetchSchedules(),
-    ]);
+    await Future.wait([_fetchSchedules(), _fetchBus(), _fetchRoutes()]);
   }
 
   // ================= BUS =================
   Future<void> _fetchBus() async {
     try {
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
       );
 
       if (res.statusCode == 200) {
@@ -46,13 +47,29 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     }
   }
 
+  // ================= ROUTE =================
+  Future<void> _fetchRoutes() async {
+    try {
+      final res = await http.get(Uri.parse("${ApiService.baseUrl}/api/routes"));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        _routeList = List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+    } catch (e) {
+      debugPrint("Error route: $e");
+    }
+  }
+
   // ================= GET =================
   Future<void> _fetchSchedules() async {
     setState(() => _isLoading = true);
 
     try {
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}",
+        ),
       );
 
       if (res.statusCode == 200) {
@@ -64,20 +81,19 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       debugPrint("Error jadwal: $e");
     }
 
-    if (mounted) setState(() => _isLoading = false);
+    setState(() => _isLoading = false);
   }
 
   // ================= CREATE / UPDATE =================
   Future<void> _submitSchedule({
     int? id,
     required int busId,
+    required int routeId,
     required String tanggal,
     required String jam,
     required String harga,
   }) async {
     try {
-      final cleanHarga = int.parse(harga.replaceAll(RegExp(r'[^0-9]'), ''));
-
       final url = id == null
           ? "${ApiService.baseUrl}/api/schedules"
           : "${ApiService.baseUrl}/api/schedules/$id";
@@ -85,18 +101,23 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       final body = {
         "company_id": widget.companyId,
         "bus_id": busId,
+        "route_id": routeId,
         "tanggal_berangkat": tanggal,
         "jam_berangkat": jam,
-        "harga_tiket": cleanHarga,
+        "harga_tiket": int.parse(harga.replaceAll(".", "")),
       };
 
       final response = id == null
-          ? await http.post(Uri.parse(url),
+          ? await http.post(
+              Uri.parse(url),
               headers: {"Content-Type": "application/json"},
-              body: jsonEncode(body))
-          : await http.put(Uri.parse(url),
+              body: jsonEncode(body),
+            )
+          : await http.put(
+              Uri.parse(url),
               headers: {"Content-Type": "application/json"},
-              body: jsonEncode(body));
+              body: jsonEncode(body),
+            );
 
       if (!mounted) return;
 
@@ -106,19 +127,22 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(id == null ? "Berhasil tambah" : "Berhasil update")),
+          SnackBar(
+            content: Text(id == null ? "Berhasil tambah" : "Berhasil update"),
+          ),
         );
       } else {
         debugPrint(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal: ${response.statusCode}")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Gagal: ${response.body}")));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -133,10 +157,11 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
 
       if (res.statusCode == 200) {
         await _fetchSchedules();
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Berhasil hapus")),
-        );
+
+        ScaffoldMessenger.of(
+          // ignore: use_build_context_synchronously
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
       }
     } catch (e) {
       debugPrint("Delete error: $e");
@@ -147,6 +172,10 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   void _showDialog({Map<String, dynamic>? data}) {
     int? selectedBus = data?['bus_id'] != null
         ? int.tryParse(data!['bus_id'].toString())
+        : null;
+
+    int? selectedRoute = data?['route_id'] != null
+        ? int.tryParse(data!['route_id'].toString())
         : null;
 
     final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
@@ -163,12 +192,11 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
+                // BUS
                 DropdownButtonFormField<int>(
-                  value: _busList.any((b) => int.parse(b['id'].toString()) == selectedBus)
-                      ? selectedBus
-                      : null,
+                  value: selectedBus,
                   hint: const Text("Pilih Bus"),
-                  items: _busList.map((b) {
+                  items: _busList.map<DropdownMenuItem<int>>((b) {
                     return DropdownMenuItem<int>(
                       value: int.parse(b['id'].toString()),
                       child: Text(b['plat_nomor'] ?? "-"),
@@ -176,6 +204,23 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                   }).toList(),
                   onChanged: (val) {
                     setStateDialog(() => selectedBus = val);
+                  },
+                ),
+
+                const SizedBox(height: 10),
+
+                // ROUTE
+                DropdownButtonFormField<int>(
+                  value: selectedRoute,
+                  hint: const Text("Pilih Rute"),
+                  items: _routeList.map<DropdownMenuItem<int>>((r) {
+                    return DropdownMenuItem<int>(
+                      value: int.parse(r['id'].toString()),
+                      child: Text(r['nama_rute'] ?? "Rute"),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setStateDialog(() => selectedRoute = val);
                   },
                 ),
 
@@ -207,16 +252,8 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                       context: context,
                       initialTime: TimeOfDay.now(),
                     );
-                    if (picked != null) {
-                      final now = DateTime.now();
-                      final dt = DateTime(
-                        now.year,
-                        now.month,
-                        now.day,
-                        picked.hour,
-                        picked.minute,
-                      );
-                      jamCtrl.text = DateFormat('HH:mm:ss').format(dt);
+                    if (picked != null && mounted) {
+                      jamCtrl.text = picked.format(context);
                     }
                   },
                 ),
@@ -224,7 +261,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                 TextField(
                   controller: hargaCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: "Harga (Rp)"),
+                  decoration: const InputDecoration(labelText: "Harga"),
                 ),
               ],
             ),
@@ -237,18 +274,17 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
             ElevatedButton(
               onPressed: () {
                 if (selectedBus == null ||
+                    selectedRoute == null ||
                     tglCtrl.text.isEmpty ||
                     jamCtrl.text.isEmpty ||
                     hargaCtrl.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Semua field wajib diisi")),
-                  );
                   return;
                 }
 
                 _submitSchedule(
                   id: data?['id'],
                   busId: selectedBus!,
+                  routeId: selectedRoute!,
                   tanggal: tglCtrl.text,
                   jam: jamCtrl.text,
                   harga: hargaCtrl.text,
@@ -272,36 +308,34 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _schedules.isEmpty
-              ? const Center(child: Text("Belum ada jadwal"))
-              : ListView.builder(
-                  itemCount: _schedules.length,
-                  itemBuilder: (_, i) {
-                    final s = _schedules[i];
+          : ListView.builder(
+              itemCount: _schedules.length,
+              itemBuilder: (_, i) {
+                final s = _schedules[i];
 
-                    return Card(
-                      child: ListTile(
-                        title: Text("${s['plat_nomor'] ?? '-'}"),
-                        subtitle: Text(
-                          "${s['tanggal_berangkat']} | ${s['jam_berangkat']}\nRp ${s['harga_tiket']}",
+                return Card(
+                  child: ListTile(
+                    title: Text(s['plat_nomor'] ?? "-"),
+                    subtitle: Text(
+                      "${s['tanggal_berangkat']} | ${s['jam_berangkat']}\nRp ${s['harga_tiket']}",
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showDialog(data: s),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _showDialog(data: s),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _deleteSchedule(s['id']),
-                            ),
-                          ],
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deleteSchedule(s['id']),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showDialog(),
         backgroundColor: Colors.orange,
