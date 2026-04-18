@@ -22,32 +22,56 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
     fetchAll();
   }
 
+  // ================= FETCH ALL =================
   Future<void> fetchAll() async {
-    await Future.wait([fetchDrivers(), fetchBuses()]);
+    await fetchDrivers();
+    await fetchBuses();
+
     setState(() => isLoading = false);
   }
 
-  // ================= GET =================
+  // ================= GET DRIVERS =================
   Future<void> fetchDrivers() async {
-    final res = await http.get(
-      Uri.parse(
-        "${ApiService.baseUrl}/api/drivers?company_id=${widget.companyId}",
-      ),
-    );
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/drivers?company_id=${widget.companyId}",
+        ),
+      );
 
-    final data = jsonDecode(res.body);
-    drivers = data['data'];
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        drivers = data;
+      } else {
+        drivers = [];
+        debugPrint("ERROR DRIVER: ${res.statusCode}");
+      }
+    } catch (e) {
+      drivers = [];
+      debugPrint("EXCEPTION DRIVER: $e");
+    }
   }
 
+  // ================= GET BUSES =================
   Future<void> fetchBuses() async {
-    final res = await http.get(
-      Uri.parse(
-        "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-      ),
-    );
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
 
-    final data = jsonDecode(res.body);
-    buses = data['data'];
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        buses = data;
+      } else {
+        buses = [];
+        debugPrint("ERROR BUSES: ${res.statusCode}");
+      }
+    } catch (e) {
+      buses = [];
+      debugPrint("EXCEPTION BUSES: $e");
+    }
   }
 
   // ================= CREATE / UPDATE =================
@@ -124,7 +148,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
     }
   }
 
-  // ================= DIALOG FORM =================
+  // ================= DIALOG =================
   void showForm({Map? data}) {
     final nameCtrl = TextEditingController(text: data?['driver_name']);
     final kontakCtrl = TextEditingController(text: data?['kontak']);
@@ -185,10 +209,8 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
 
                 return Card(
                   child: ListTile(
-                    title: Text(d['driver_name']),
+                    title: Text(d['driver_name'] ?? 'Tidak ada nama'),
                     subtitle: Text(d['kontak'] ?? '-'),
-
-                    // 🔥 ASSIGN BUS
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -197,7 +219,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
                           items: buses.map<DropdownMenuItem<int>>((b) {
                             return DropdownMenuItem<int>(
                               value: b['id'],
-                              child: Text(b['plat_nomor']),
+                              child: Text(b['plat_nomor'] ?? 'No Plat'),
                             );
                           }).toList(),
                           onChanged: (val) {
@@ -206,12 +228,10 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
                             }
                           },
                         ),
-
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           onPressed: () => showForm(data: d),
                         ),
-
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () => deleteDriver(d['id']),
@@ -222,8 +242,6 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
                 );
               },
             ),
-
-      // 🔥 TAMBAH DRIVER
       floatingActionButton: FloatingActionButton(
         onPressed: () => showForm(),
         backgroundColor: Colors.orange,

@@ -12,6 +12,7 @@ const busRoutes = require("./routes/busRoutes");
 const routeRoutes = require("./routes/routeRoutes");
 const scheduleRoutes = require("./routes/scheduleRoutes");
 const mesinRoutes = require("./routes/mesinRoutes");
+const driverRoutes = require('./routes/driverRoutes');
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use("/api/buses", busRoutes);
 app.use("/api/routes", routeRoutes);
 app.use("/api/schedules", scheduleRoutes);
 app.use("/api/mesin", mesinRoutes);
+app.use('/api', driverRoutes);
 
 // 1. Endpoint untuk MENGAMBIL Rute berdasarkan company_id
 app.get('/api/routes', async (req, res) => {
