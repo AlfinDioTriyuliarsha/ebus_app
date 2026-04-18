@@ -12,13 +12,16 @@ router.get("/", async (req, res) => {
                 b.*,
                 r.id as route_id,
                 r.nama_rute,
-                c.company_name
+                c.company_name,
+                d.driver_name
             FROM buses b
             LEFT JOIN routes r ON b.route_id = r.id
             LEFT JOIN companies c ON b.company_id = c.id
+            LEFT JOIN drivers d ON b.driver_id = d.id
         `;
         const values = [];
 
+        // ✅ FIX: hanya filter jika company_id ada
         if (company_id) {
             query += " WHERE b.company_id = $1";
             values.push(company_id);
@@ -89,8 +92,8 @@ router.post("/", async (req, res) => {
     }
 });
 
-// routes/driverRoutes.js
-router.get("/", async (req, res) => {
+// GET DRIVER (SUDAH BENAR, JANGAN DIUBAH)
+router.get("/drivers", async (req, res) => {
     const { company_id } = req.query;
 
     try {

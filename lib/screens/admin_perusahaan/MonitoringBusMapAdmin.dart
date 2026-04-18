@@ -31,7 +31,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     super.initState();
     _fetchBusesByCompany();
     // Refresh otomatis setiap 5 detik agar real-time
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchBusesByCompany());
+    _timer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _fetchBusesByCompany(),
+    );
   }
 
   @override
@@ -43,7 +46,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   Future<void> _fetchBusesByCompany() async {
     try {
       // Endpoint khusus untuk ambil bus per companyId
-      final url = Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/buses");
+      final url = Uri.parse(
+        "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+      );
 
       final response = await http.get(url);
 
@@ -86,28 +91,39 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
         double lat = double.tryParse(bus['latitude'].toString()) ?? 0.0;
         double lng = double.tryParse(bus['longitude'].toString()) ?? 0.0;
 
-        if (lat != 0.0 && lng != 0.0) {
+        // ✅ FIX: validasi koordinat
+        if (lat > -90 && lat < 90 && lng > -180 && lng < 180) {
           markers.add(
             Marker(
               point: LatLng(lat, lng),
               width: 45,
               height: 45,
-              child: const Icon(
-                Icons.directions_bus,
-                color: Colors.orangeAccent, // Kita bedakan warnanya dengan Super Admin
-                size: 35,
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.directions_bus,
+                    color: Colors.orangeAccent,
+                    size: 35,
+                  ),
+                  Text(
+                    bus['plat_nomor'] ?? '',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                ],
               ),
             ),
           );
         }
 
-        // Logic Route jika ada data history koordinat
+        // route tetap
         if (bus['route'] != null && bus['route'] is List) {
           final List<LatLng> routePoints = (bus['route'] as List)
-              .map((p) => LatLng(
-                    double.tryParse(p['lat'].toString()) ?? 0.0,
-                    double.tryParse(p['lng'].toString()) ?? 0.0,
-                  ))
+              .map(
+                (p) => LatLng(
+                  double.tryParse(p['lat'].toString()) ?? 0.0,
+                  double.tryParse(p['lng'].toString()) ?? 0.0,
+                ),
+              )
               .toList();
 
           polylines.add(
@@ -127,7 +143,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _busData.isEmpty) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_isLoading && _busData.isEmpty)
+      // ignore: curly_braces_in_flow_control_structures
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
       appBar: AppBar(
@@ -145,7 +163,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
             ),
             children: [
               TileLayer(
-                urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                urlTemplate:
+                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 subdomains: const ['a', 'b', 'c'],
               ),
               PolylineLayer(polylines: _busRoutes),
@@ -156,14 +175,18 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                   popupDisplayOptions: PopupDisplayOptions(
                     builder: (BuildContext context, Marker marker) {
                       final bus = _busData.firstWhere(
-                        (b) => (double.tryParse(b['latitude'].toString()) == marker.point.latitude),
+                        (b) =>
+                            (double.tryParse(b['latitude'].toString()) ==
+                            marker.point.latitude),
                         orElse: () => {},
                       );
 
                       if (bus.isEmpty) return const SizedBox.shrink();
 
                       return Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(12.0),
                           child: Column(
@@ -171,8 +194,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "🚍 ${bus['plate_number'] ?? 'N/A'}",
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                "🚍 ${bus['plat_nomor'] ?? 'N/A'}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                               const Divider(),
                               Text("Driver: ${bus['driver_name'] ?? '-'}"),
@@ -189,11 +215,20 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
           ),
           if (_error != null)
             Positioned(
-              bottom: 20, left: 20, right: 20,
+              bottom: 20,
+              left: 20,
+              right: 20,
               child: Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(10)),
-                child: Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
         ],
