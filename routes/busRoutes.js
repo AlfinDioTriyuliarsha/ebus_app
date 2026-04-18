@@ -7,15 +7,16 @@ router.get("/", async (req, res) => {
     try {
         const { company_id } = req.query;
 
-        let query = `
+        const query = `
             SELECT 
                 b.*, 
-                r.id AS route_id,
-                r.nama_rute,
-                c.company_name
+                c.company_name,
+                r.id as route_id,
+                CONCAT(r.asal, ' - ', r.tujuan) as nama_rute
             FROM buses b
-            LEFT JOIN routes r ON b.route_id = r.id
             LEFT JOIN companies c ON b.company_id = c.id
+            LEFT JOIN routes r ON b.route_id = r.id
+            ORDER BY b.id ASC
         `;
 
         const values = [];

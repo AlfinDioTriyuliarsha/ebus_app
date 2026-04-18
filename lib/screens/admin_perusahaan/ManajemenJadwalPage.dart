@@ -190,28 +190,32 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
               children: [
                 DropdownButtonFormField<int>(
                   value: selectedBus,
-                  hint: const Text("Pilih Bus"),
                   isExpanded: true,
-                  items: _busList.map<DropdownMenuItem<int>>((b) {
-                    return DropdownMenuItem<int>(
-                      value: int.parse(b['id'].toString()),
-                      child: Text("${b['plat_nomor']}"),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setStateDialog(() {
-                      selectedBus = val;
+                  items: _busList.isEmpty
+                      ? []
+                      : _busList.map<DropdownMenuItem<int>>((b) {
+                          return DropdownMenuItem<int>(
+                            value: int.parse(b['id'].toString()),
+                            child: Text(b['plat_nomor'] ?? "-"),
+                          );
+                        }).toList(),
+                  onChanged: _busList.isEmpty
+                      ? null
+                      : (val) {
+                          setStateDialog(() {
+                            selectedBus = val;
 
-                      final bus = _busList.firstWhere(
-                        (e) => int.parse(e['id'].toString()) == val,
-                      );
+                            final bus = _busList.firstWhere(
+                              (e) => int.parse(e['id'].toString()) == val,
+                              orElse: () => {},
+                            );
 
-                      selectedRoute = bus['route_id'];
+                            selectedRoute = bus['route_id'];
 
-                      debugPrint("BUS DIPILIH: $selectedBus");
-                      debugPrint("ROUTE AUTO: $selectedRoute");
-                    });
-                  },
+                            debugPrint("BUS DIPILIH: $selectedBus");
+                            debugPrint("ROUTE AUTO: $selectedRoute");
+                          });
+                        },
                 ),
 
                 const SizedBox(height: 10),
