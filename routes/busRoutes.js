@@ -141,4 +141,32 @@ router.put("/:id", async (req, res) => {
     }
 });
 
+// SIMULASI GERAK BUS
+router.post("/simulate", async (req, res) => {
+    try {
+        const buses = await pool.query("SELECT * FROM buses WHERE route IS NOT NULL");
+
+        for (let bus of buses.rows) {
+            const route = bus.route;
+            let index = bus.route_index || 0;
+
+            if (route.length === 0) continue;
+
+            index = (index + 1) % route.length;
+
+            const point = route[index];
+
+            await pool.query(
+                "UPDATE buses SET latitude = $1, longitude = $2, route_index = $3 WHERE id = $4",
+                [point.lat, point.lng, index, bus.id]
+            );
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("SIMULATION ERROR:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
