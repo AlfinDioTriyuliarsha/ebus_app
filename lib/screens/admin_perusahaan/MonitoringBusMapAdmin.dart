@@ -20,6 +20,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   List<Marker> _busMarkers = [];
   List<Polyline> _busRoutes = [];
 
+  final Map<int, int> _busIndexTracker = {};
+
   bool _isLoading = true;
   String? _error;
   Timer? _timer;
@@ -87,48 +89,70 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     List<Polyline> polylines = [];
 
     for (var bus in _busData) {
-      if (bus['latitude'] != null && bus['longitude'] != null) {
-        double lat = double.tryParse(bus['latitude'].toString()) ?? 0.0;
-        double lng = double.tryParse(bus['longitude'].toString()) ?? 0.0;
+      if (bus['route'] != null && bus['route'] is List) {
+        final route = bus['route'] as List;
 
-        // ✅ FIX: validasi koordinat
-        if (lat > -90 && lat < 90 && lng > -180 && lng < 180) {
-          markers.add(
-            Marker(
-              point: LatLng(lat, lng),
-              width: 45,
-              height: 45,
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.directions_bus,
-                    color: Colors.orangeAccent,
-                    size: 35,
-                  ),
-                  Text(
-                    bus['plat_nomor'] ?? '',
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                ],
-              ),
+        if (route.isEmpty) continue;
+
+        int busId = bus['id'];
+
+        _busIndexTracker.putIfAbsent(busId, () => 0);
+
+        int index = _busIndexTracker[busId]!;
+
+        final point = route[index];
+
+        double lat = double.tryParse(point['lat'].toString()) ?? 0.0;
+        double lng = double.tryParse(point['lng'].toString()) ?? 0.0;
+
+        // ✅ MARKER BUS
+        markers.add(
+          Marker(
+            point: LatLng(lat, lng),
+            width: 50,
+            height: 50,
+            child: Column(
+              children: [
+                const Icon(Icons.directions_bus, color: Colors.orange, size: 35),
+                Text(bus['plat_nomor'] ?? '', style: const TextStyle(fontSize: 10))
+              ],
             ),
-          );
-        }
+          ),
+        );
 
-        // route tetap
-        if (bus['route'] != null && bus['route'] is List) {
-          final List<LatLng> routePoints = (bus['route'] as List)
-              .map(
-                (p) => LatLng(
-                  double.tryParse(p['lat'].toString()) ?? 0.0,
-                  double.tryParse(p['lng'].toString()) ?? 0.0,
-                ),
-              )
-              .toList();
-
-          polylines.add(
-            Polyline(points: routePoints, strokeWidth: 4, color: Colors.blue),
+        // ✅ ROUTE MERAH
+        final routePoints = route.map<LatLng>((p) {
+          return LatLng(
+            double.tryParse(p['lat'].toString()) ?? 0.0,
+            double.tryParse(p['lng'].toString()) ?? 0.0,
           );
+        }).toList();
+
+        polylines.add(
+          Polyline(points: routePoints, strokeWidth: 4, color: Colors.red),
+        );
+
+        // ✅ GERAK OTOMATIS
+        _busIndexTracker[busId] = (index + 1) % route.length;
+
+        // =====================
+        // 🔥 GEOFENCING
+        // =====================
+        final halte = [
+          LatLng(-6.2000, 106.8166),
+          LatLng(-7.9839, 112.6214),
+        ];
+
+        for (var h in halte) {
+          final distance = const Distance().as(
+            LengthUnit.Meter,
+            LatLng(lat, lng),
+            h,
+          );
+
+          if (distance < 100) {
+            debugPrint("🚨 Bus ${bus['plat_nomor']} masuk halte!");
+          }
         }
       }
     }

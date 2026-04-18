@@ -12,6 +12,7 @@ router.get("/", async (req, res) => {
                 b.*,
                 r.id as route_id,
                 r.nama_rute,
+                r.path as route,
                 c.company_name,
                 d.driver_name
             FROM buses b
