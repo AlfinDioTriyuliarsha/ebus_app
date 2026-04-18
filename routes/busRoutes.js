@@ -2,24 +2,32 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
-// ================= GET BUS + AUTO ROUTE =================
+// GET BUS + ROUTE
 router.get("/", async (req, res) => {
     try {
-        const query = `
+        const { company_id } = req.query;
+
+        let query = `
             SELECT 
-                b.*,
-                c.company_name,
-                r.id as route_id,
-                r.nama_rute
+                b.*, 
+                r.id AS route_id,
+                r.nama_rute,
+                c.company_name
             FROM buses b
+            LEFT JOIN routes r ON b.route_id = r.id
             LEFT JOIN companies c ON b.company_id = c.id
-            LEFT JOIN routes r 
-                ON LOWER(r.asal) = LOWER(b.rute_berangkat)
-                AND LOWER(r.tujuan) = LOWER(b.rute_tujuan)
-            ORDER BY b.id ASC
         `;
 
-        const result = await pool.query(query);
+        const values = [];
+
+        if (company_id) {
+            query += " WHERE b.company_id = $1";
+            values.push(company_id);
+        }
+
+        query += " ORDER BY b.id ASC";
+
+        const result = await pool.query(query, values);
 
         res.json({
             success: true,
@@ -27,6 +35,7 @@ router.get("/", async (req, res) => {
         });
 
     } catch (err) {
+        console.error("ERROR BUS:", err);
         res.status(500).json({
             success: false,
             error: err.message
@@ -34,8 +43,7 @@ router.get("/", async (req, res) => {
     }
 });
 
-
-// ================= POST BUS =================
+// POST BUS
 router.post("/", async (req, res) => {
     const {
         company_id,
@@ -43,13 +51,11 @@ router.post("/", async (req, res) => {
         nomor_bus,
         plat_nomor,
         mesin,
-        rute_berangkat,
-        rute_tujuan,
+        route_id,
         status
     } = req.body;
 
     try {
-        // CEK DUPLIKAT
         const check = await pool.query(
             "SELECT * FROM buses WHERE plat_nomor = $1 AND company_id = $2",
             [plat_nomor, company_id]
@@ -62,22 +68,12 @@ router.post("/", async (req, res) => {
             });
         }
 
-        // INSERT
         const result = await pool.query(
             `INSERT INTO buses 
-            (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8) 
+            (company_id, driver_id, nomor_bus, plat_nomor, mesin, route_id, status) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *`,
-            [
-                company_id,
-                driver_id,
-                nomor_bus,
-                plat_nomor,
-                mesin,
-                rute_berangkat,
-                rute_tujuan,
-                status || 'Aktif'
-            ]
+            [company_id, driver_id, nomor_bus, plat_nomor, mesin, route_id, status || 'Aktif']
         );
 
         res.status(201).json({
@@ -86,6 +82,7 @@ router.post("/", async (req, res) => {
         });
 
     } catch (err) {
+        console.error("ERROR INSERT BUS:", err);
         res.status(500).json({
             success: false,
             error: err.message
