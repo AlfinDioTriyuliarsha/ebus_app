@@ -89,4 +89,35 @@ router.post("/", async (req, res) => {
     }
 });
 
+// routes/driverRoutes.js
+router.get("/", async (req, res) => {
+    const { company_id } = req.query;
+
+    try {
+        const result = await pool.query(
+            "SELECT * FROM drivers WHERE company_id = $1 ORDER BY id ASC",
+            [company_id]
+        );
+
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.put("/assign", async (req, res) => {
+    const { bus_id, driver_id } = req.body;
+
+    try {
+        const result = await pool.query(
+            "UPDATE buses SET driver_id = $1 WHERE id = $2 RETURNING *",
+            [driver_id, bus_id]
+        );
+
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 module.exports = router;
