@@ -106,6 +106,8 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
         "harga_tiket": int.parse(harga.replaceAll(".", "")),
       };
 
+      debugPrint("BODY DIKIRIM: $body");
+
       final response = id == null
           ? await http.post(
               Uri.parse(url),
@@ -132,7 +134,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
           ),
         );
       } else {
-        debugPrint(response.body);
+        debugPrint("ERROR: ${response.body}");
 
         ScaffoldMessenger.of(
           context,
@@ -218,7 +220,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                   items: _routeList.map<DropdownMenuItem<int>>((r) {
                     return DropdownMenuItem<int>(
                       value: int.parse(r['id'].toString()),
-                      child: Text(r['nama_rute'] ?? "-"),
+                      child: Text(r['nama_rute'] ?? "Rute"),
                     );
                   }).toList(),
                   onChanged: (val) {
@@ -280,6 +282,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                     tglCtrl.text.isEmpty ||
                     jamCtrl.text.isEmpty ||
                     hargaCtrl.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Semua field wajib diisi")),
+                  );
                   return;
                 }
 
