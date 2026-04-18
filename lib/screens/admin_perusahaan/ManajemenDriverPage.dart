@@ -41,7 +41,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        drivers = data;
+        drivers = data['data']; // ✅ FIX
       } else {
         drivers = [];
         debugPrint("ERROR DRIVER: ${res.statusCode}");
@@ -63,7 +63,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        buses = data;
+        buses = data['data']; // ✅ FIX
       } else {
         buses = [];
         debugPrint("ERROR BUSES: ${res.statusCode}");
