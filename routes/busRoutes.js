@@ -105,18 +105,35 @@ router.get("/", async (req, res) => {
     }
 });
 
-router.put("/assign", async (req, res) => {
-    const { bus_id, driver_id } = req.body;
+// UPDATE BUS (Assign Driver)
+router.put("/:id", async (req, res) => {
+    const { id } = req.params;
+    const { driver_id } = req.body;
 
     try {
         const result = await pool.query(
             "UPDATE buses SET driver_id = $1 WHERE id = $2 RETURNING *",
-            [driver_id, bus_id]
+            [driver_id, id]
         );
 
-        res.json({ success: true, data: result.rows[0] });
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Bus tidak ditemukan"
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error("ERROR UPDATE BUS:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
 });
 
