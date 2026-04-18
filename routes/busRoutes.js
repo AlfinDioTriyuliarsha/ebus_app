@@ -2,28 +2,54 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
-// GET: Ambil daftar bus
+// ================= GET BUS + AUTO ROUTE =================
 router.get("/", async (req, res) => {
     try {
         const query = `
-            SELECT b.*, c.company_name 
+            SELECT 
+                b.*,
+                c.company_name,
+                r.id as route_id,
+                r.nama_rute
             FROM buses b
             LEFT JOIN companies c ON b.company_id = c.id
+            LEFT JOIN routes r 
+                ON LOWER(r.asal) = LOWER(b.rute_berangkat)
+                AND LOWER(r.tujuan) = LOWER(b.rute_tujuan)
             ORDER BY b.id ASC
         `;
+
         const result = await pool.query(query);
-        res.json({ success: true, data: result.rows });
+
+        res.json({
+            success: true,
+            data: result.rows
+        });
+
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
 });
 
-// POST: Tambah bus baru (Dipanggil oleh Flutter)
+
+// ================= POST BUS =================
 router.post("/", async (req, res) => {
-    const { company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
+    const {
+        company_id,
+        driver_id,
+        nomor_bus,
+        plat_nomor,
+        mesin,
+        rute_berangkat,
+        rute_tujuan,
+        status
+    } = req.body;
 
     try {
-        // ✅ CEK DUPLIKAT PLAT (PINDAH KE SINI)
+        // CEK DUPLIKAT
         const check = await pool.query(
             "SELECT * FROM buses WHERE plat_nomor = $1 AND company_id = $2",
             [plat_nomor, company_id]
@@ -36,18 +62,34 @@ router.post("/", async (req, res) => {
             });
         }
 
-        // ✅ INSERT DATA
+        // INSERT
         const result = await pool.query(
             `INSERT INTO buses 
             (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status || 'Aktif']
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8) 
+            RETURNING *`,
+            [
+                company_id,
+                driver_id,
+                nomor_bus,
+                plat_nomor,
+                mesin,
+                rute_berangkat,
+                rute_tujuan,
+                status || 'Aktif'
+            ]
         );
 
-        res.status(201).json({ success: true, data: result.rows[0] });
+        res.status(201).json({
+            success: true,
+            data: result.rows[0]
+        });
 
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
 });
 

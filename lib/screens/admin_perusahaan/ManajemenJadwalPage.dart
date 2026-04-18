@@ -15,7 +15,6 @@ class ManajemenJadwalPage extends StatefulWidget {
 class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   List<Map<String, dynamic>> _schedules = [];
   List<Map<String, dynamic>> _busList = [];
-  List<Map<String, dynamic>> _routeList = [];
 
   bool _isLoading = true;
 
@@ -26,30 +25,29 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   }
 
   Future<void> _initLoad() async {
-    await Future.wait([_fetchSchedules(), _fetchBus(), _fetchRoutes()]);
+    await Future.wait([_fetchSchedules(), _fetchBus()]);
   }
 
   // ================= BUS =================
   Future<void> _fetchBus() async {
-    final res = await http.get(
-      Uri.parse(
-        "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-      ),
-    );
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
 
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      _busList = List<Map<String, dynamic>>.from(data['data'] ?? []);
-    }
-  }
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
 
-  // ================= ROUTE =================
-  Future<void> _fetchRoutes() async {
-    final res = await http.get(Uri.parse("${ApiService.baseUrl}/api/routes"));
+        setState(() {
+          _busList = List<Map<String, dynamic>>.from(data['data'] ?? []);
+        });
 
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      _routeList = List<Map<String, dynamic>>.from(data['data'] ?? []);
+        debugPrint("BUS DATA: $_busList");
+      }
+    } catch (e) {
+      debugPrint("Error bus: $e");
     }
   }
 
@@ -57,15 +55,22 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   Future<void> _fetchSchedules() async {
     setState(() => _isLoading = true);
 
-    final res = await http.get(
-      Uri.parse(
-        "${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}",
-      ),
-    );
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/schedules?company_id=${widget.companyId}",
+        ),
+      );
 
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      _schedules = List<Map<String, dynamic>>.from(data['data'] ?? []);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+
+        setState(() {
+          _schedules = List<Map<String, dynamic>>.from(data['data'] ?? []);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error jadwal: $e");
     }
 
     setState(() => _isLoading = false);
@@ -80,77 +85,100 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     required String jam,
     required String harga,
   }) async {
-    final url = id == null
-        ? "${ApiService.baseUrl}/api/schedules"
-        : "${ApiService.baseUrl}/api/schedules/$id";
-
-    final body = {
-      "company_id": widget.companyId,
-      "bus_id": busId,
-      "route_id": routeId,
-      "tanggal_berangkat": tanggal,
-      "jam_berangkat": jam,
-      "harga_tiket": int.parse(harga.replaceAll(".", "")),
-    };
-
-    debugPrint("BODY DIKIRIM: $body");
-
-    final response = id == null
-        ? await http.post(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode(body),
-          )
-        : await http.put(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode(body),
-          );
-
-    if (!mounted) return;
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      Navigator.pop(context);
-      await _fetchSchedules();
-
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(id == null ? "Berhasil tambah" : "Berhasil update"),
-        ),
+    try {
+      final selectedBusData = _busList.firstWhere(
+        (b) => int.parse(b['id'].toString()) == busId,
       );
-    } else {
-      debugPrint("ERROR API: ${response.body}");
+
+      final routeId = selectedBusData['route_id'];
+      
+      final url = id == null
+          ? "${ApiService.baseUrl}/api/schedules"
+          : "${ApiService.baseUrl}/api/schedules/$id";
+
+      final body = {
+        "company_id": widget.companyId,
+        "bus_id": busId,
+        "route_id": routeId,
+        "tanggal_berangkat": tanggal,
+        "jam_berangkat": jam,
+        "harga_tiket": int.parse(harga.replaceAll(".", "")),
+      };
+
+      debugPrint("BODY KIRIM: $body");
+
+      final response = id == null
+          ? await http.post(
+              Uri.parse(url),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode(body),
+            )
+          : await http.put(
+              Uri.parse(url),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode(body),
+            );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Navigator.pop(context);
+        await _fetchSchedules();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(id == null ? "Berhasil tambah" : "Berhasil update"),
+          ),
+        );
+      } else {
+        debugPrint("ERROR BACKEND: ${response.body}");
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Gagal: ${response.body}")));
+      }
+    } catch (e) {
+      if (!mounted) return;
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Error: ${response.body}")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
   // ================= DELETE =================
   Future<void> _deleteSchedule(int id) async {
-    final res = await http.delete(
-      Uri.parse("${ApiService.baseUrl}/api/schedules/$id"),
-    );
+    try {
+      final res = await http.delete(
+        Uri.parse("${ApiService.baseUrl}/api/schedules/$id"),
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (res.statusCode == 200) {
-      await _fetchSchedules();
+      if (res.statusCode == 200) {
+        await _fetchSchedules();
 
-      ScaffoldMessenger.of(
-        // ignore: use_build_context_synchronously
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
+        ScaffoldMessenger.of(
+          // ignore: use_build_context_synchronously
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Berhasil hapus")));
+      }
+    } catch (e) {
+      debugPrint("Delete error: $e");
     }
   }
 
   // ================= DIALOG =================
   void _showDialog({Map<String, dynamic>? data}) {
-    int? selectedBus = int.tryParse(data?['bus_id']?.toString() ?? "");
+    int? selectedBus;
+    int? selectedRoute;
 
-    int? selectedRoute = int.tryParse(data?['route_id']?.toString() ?? "");
+    if (data != null) {
+      selectedBus = int.tryParse(data['bus_id'].toString());
+      selectedRoute = int.tryParse(data['route_id'].toString());
+    }
 
     final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
     final jamCtrl = TextEditingController(text: data?['jam_berangkat']);
@@ -166,47 +194,41 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
-                // BUS
                 DropdownButtonFormField<int>(
                   value: selectedBus,
                   hint: const Text("Pilih Bus"),
-                  isExpanded: true,
                   items: _busList.map<DropdownMenuItem<int>>((b) {
-                    final id = int.parse(b['id'].toString());
                     return DropdownMenuItem<int>(
-                      value: id,
+                      value: int.parse(b['id'].toString()),
                       child: Text(b['plat_nomor'] ?? "-"),
                     );
                   }).toList(),
                   onChanged: (val) {
-                    setStateDialog(() => selectedBus = val);
-                  },
-                ),
-
-                const SizedBox(height: 10),
-
-                // ROUTE (FIX UTAMA DI SINI)
-                DropdownButtonFormField<int>(
-                  value: selectedRoute,
-                  hint: const Text("Pilih Rute"),
-                  isExpanded: true,
-                  items: _routeList.map<DropdownMenuItem<int>>((r) {
-                    final id = int.parse(r['id'].toString());
-                    return DropdownMenuItem<int>(
-                      value: id,
-                      child: Text("${r['asal']} → ${r['tujuan']}"),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
                     setStateDialog(() {
-                      selectedRoute = val;
+                      selectedBus = val;
+
+                      // 🔥 AUTO AMBIL ROUTE DARI BUS
+                      final bus = _busList.firstWhere(
+                        (e) => int.parse(e['id'].toString()) == val,
+                        orElse: () => {},
+                      );
+
+                      if (bus.isNotEmpty && bus['route_id'] != null) {
+                        selectedRoute = int.tryParse(
+                          bus['route_id'].toString(),
+                        );
+
+                        debugPrint("AUTO ROUTE: $selectedRoute");
+                      } else {
+                        selectedRoute = null;
+                        debugPrint("❌ Bus tidak punya route_id");
+                      }
                     });
                   },
                 ),
 
                 const SizedBox(height: 10),
 
-                // TANGGAL
                 TextField(
                   controller: tglCtrl,
                   readOnly: true,
@@ -224,7 +246,6 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                   },
                 ),
 
-                // JAM (FORMAT FIX HH:mm:ss)
                 TextField(
                   controller: jamCtrl,
                   readOnly: true,
@@ -234,17 +255,8 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                       context: context,
                       initialTime: TimeOfDay.now(),
                     );
-                    if (picked != null) {
-                      final now = DateTime.now();
-                      final dt = DateTime(
-                        now.year,
-                        now.month,
-                        now.day,
-                        picked.hour,
-                        picked.minute,
-                      );
-
-                      jamCtrl.text = DateFormat('HH:mm:ss').format(dt);
+                    if (picked != null && mounted) {
+                      jamCtrl.text = picked.format(context);
                     }
                   },
                 ),
@@ -270,7 +282,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                     jamCtrl.text.isEmpty ||
                     hargaCtrl.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Semua field wajib diisi!")),
+                    const SnackBar(content: Text("Semua field wajib diisi")),
                   );
                   return;
                 }
