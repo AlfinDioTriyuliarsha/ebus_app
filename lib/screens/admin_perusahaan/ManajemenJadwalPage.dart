@@ -86,12 +86,6 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
     required String harga,
   }) async {
     try {
-      final selectedBusData = _busList.firstWhere(
-        (b) => int.parse(b['id'].toString()) == busId,
-      );
-
-      final routeId = selectedBusData['route_id'];
-      
       final url = id == null
           ? "${ApiService.baseUrl}/api/schedules"
           : "${ApiService.baseUrl}/api/schedules/$id";
@@ -105,7 +99,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
         "harga_tiket": int.parse(harga.replaceAll(".", "")),
       };
 
-      debugPrint("BODY KIRIM: $body");
+      debugPrint("KIRIM: $body");
 
       final response = id == null
           ? await http.post(
@@ -133,7 +127,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
           ),
         );
       } else {
-        debugPrint("ERROR BACKEND: ${response.body}");
+        debugPrint("ERROR: ${response.body}");
 
         ScaffoldMessenger.of(
           context,
@@ -197,32 +191,25 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                 DropdownButtonFormField<int>(
                   value: selectedBus,
                   hint: const Text("Pilih Bus"),
+                  isExpanded: true,
                   items: _busList.map<DropdownMenuItem<int>>((b) {
                     return DropdownMenuItem<int>(
                       value: int.parse(b['id'].toString()),
-                      child: Text(b['plat_nomor'] ?? "-"),
+                      child: Text("${b['plat_nomor']}"),
                     );
                   }).toList(),
                   onChanged: (val) {
                     setStateDialog(() {
                       selectedBus = val;
 
-                      // 🔥 AUTO AMBIL ROUTE DARI BUS
                       final bus = _busList.firstWhere(
                         (e) => int.parse(e['id'].toString()) == val,
-                        orElse: () => {},
                       );
 
-                      if (bus.isNotEmpty && bus['route_id'] != null) {
-                        selectedRoute = int.tryParse(
-                          bus['route_id'].toString(),
-                        );
+                      selectedRoute = bus['route_id'];
 
-                        debugPrint("AUTO ROUTE: $selectedRoute");
-                      } else {
-                        selectedRoute = null;
-                        debugPrint("❌ Bus tidak punya route_id");
-                      }
+                      debugPrint("BUS DIPILIH: $selectedBus");
+                      debugPrint("ROUTE AUTO: $selectedRoute");
                     });
                   },
                 ),
@@ -276,13 +263,9 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
             ),
             ElevatedButton(
               onPressed: () {
-                if (selectedBus == null ||
-                    selectedRoute == null ||
-                    tglCtrl.text.isEmpty ||
-                    jamCtrl.text.isEmpty ||
-                    hargaCtrl.text.isEmpty) {
+                if (selectedBus == null || selectedRoute == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Semua field wajib diisi")),
+                    const SnackBar(content: Text("Bus / Route belum valid")),
                   );
                   return;
                 }
