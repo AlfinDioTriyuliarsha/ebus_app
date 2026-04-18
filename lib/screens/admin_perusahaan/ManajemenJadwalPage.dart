@@ -15,6 +15,7 @@ class ManajemenJadwalPage extends StatefulWidget {
 class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   List<Map<String, dynamic>> _schedules = [];
   List<Map<String, dynamic>> _busList = [];
+  List<Map<String, dynamic>> _routeList = [];
 
   bool _isLoading = true;
 
@@ -25,7 +26,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   }
 
   Future<void> _initLoad() async {
-    await Future.wait([_fetchSchedules(), _fetchBus()]);
+    await Future.wait([_fetchSchedules(), _fetchBus(), _fetchRoutes()]);
   }
 
   // ================= BUS =================
@@ -43,6 +44,20 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       }
     } catch (e) {
       debugPrint("Error bus: $e");
+    }
+  }
+
+  // ================= ROUTE =================
+  Future<void> _fetchRoutes() async {
+    try {
+      final res = await http.get(Uri.parse("${ApiService.baseUrl}/api/routes"));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        _routeList = List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+    } catch (e) {
+      debugPrint("Error route: $e");
     }
   }
 
@@ -72,6 +87,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
   Future<void> _submitSchedule({
     int? id,
     required int busId,
+    required int routeId,
     required String tanggal,
     required String jam,
     required String harga,
@@ -84,6 +100,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
       final body = {
         "company_id": widget.companyId,
         "bus_id": busId,
+        "route_id": routeId,
         "tanggal_berangkat": tanggal,
         "jam_berangkat": jam,
         "harga_tiket": int.parse(harga.replaceAll(".", "")),
@@ -159,6 +176,10 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
         ? int.tryParse(data!['bus_id'].toString())
         : null;
 
+    int? selectedRoute = data?['route_id'] != null
+        ? int.tryParse(data!['route_id'].toString())
+        : null;
+
     final tglCtrl = TextEditingController(text: data?['tanggal_berangkat']);
     final jamCtrl = TextEditingController(text: data?['jam_berangkat']);
     final hargaCtrl = TextEditingController(
@@ -173,6 +194,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
+                // BUS
                 DropdownButtonFormField<int>(
                   value: selectedBus,
                   hint: const Text("Pilih Bus"),
@@ -184,6 +206,23 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                   }).toList(),
                   onChanged: (val) {
                     setStateDialog(() => selectedBus = val);
+                  },
+                ),
+
+                const SizedBox(height: 10),
+
+                // ROUTE
+                DropdownButtonFormField<int>(
+                  value: selectedRoute,
+                  hint: const Text("Pilih Rute"),
+                  items: _routeList.map<DropdownMenuItem<int>>((r) {
+                    return DropdownMenuItem<int>(
+                      value: int.parse(r['id'].toString()),
+                      child: Text(r['nama_rute'] ?? "-"),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setStateDialog(() => selectedRoute = val);
                   },
                 ),
 
@@ -237,6 +276,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
             ElevatedButton(
               onPressed: () {
                 if (selectedBus == null ||
+                    selectedRoute == null ||
                     tglCtrl.text.isEmpty ||
                     jamCtrl.text.isEmpty ||
                     hargaCtrl.text.isEmpty) {
@@ -246,6 +286,7 @@ class _ManajemenJadwalPageState extends State<ManajemenJadwalPage> {
                 _submitSchedule(
                   id: data?['id'],
                   busId: selectedBus!,
+                  routeId: selectedRoute!,
                   tanggal: tglCtrl.text,
                   jam: jamCtrl.text,
                   harga: hargaCtrl.text,
