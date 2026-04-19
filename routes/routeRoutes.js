@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const { Pool } = require("pg");
-const routeService = require("../services/routeService");
 
 // Hubungkan ke database (Gunakan pool yang sama)
 const pool = new Pool({
