@@ -5,7 +5,9 @@ const pool = require("../db");
 // GET BUS + ROUTE
 router.get("/", async (req, res) => {
     try {
-        const result = await pool.query(`
+        const { company_id } = req.query;
+
+        const busResult = await pool.query(`
             SELECT 
                 b.*,
                 r.nama_rute,
@@ -27,23 +29,13 @@ router.get("/", async (req, res) => {
             LEFT JOIN routes r ON b.route_id = r.id
             LEFT JOIN drivers d ON b.driver_id = d.id
 
-            WHERE b.company_id = $1
-        `, [company_id]);
-        const values = [];
-
-        // ✅ FIX: hanya filter jika company_id ada
-        if (company_id) {
-            query += " WHERE b.company_id = $1";
-            values.push(company_id);
-        }
-
-        query += " ORDER BY b.id ASC";
-
-        const result = await pool.query(query, values);
+            WHERE ($1::int IS NULL OR b.company_id = $1)
+            ORDER BY b.id ASC
+        `, [company_id || null]);
 
         res.json({
             success: true,
-            data: result.rows
+            data: busResult.rows
         });
 
     } catch (err) {
