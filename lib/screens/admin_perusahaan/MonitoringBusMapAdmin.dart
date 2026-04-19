@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
-import 'package:latlong2/latlong.dart'; // Pastikan pakai latlong2
+import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
 
 class MonitoringBusMapAdmin extends StatefulWidget {
-  final int companyId; // Menangkap ID perusahaan dari dashboard
+  final int companyId;
+
   const MonitoringBusMapAdmin({super.key, required this.companyId});
 
   @override
@@ -21,6 +22,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   List<Polyline> _busRoutes = [];
 
   final Map<int, int> _busIndexTracker = {};
+  Map<Marker, Map<String, dynamic>> _markerBusMap = {};
 
   bool _isLoading = true;
   String? _error;
@@ -32,9 +34,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   void initState() {
     super.initState();
     _fetchBusesByCompany();
-    // Refresh otomatis setiap 5 detik agar real-time
+
+    // Refresh tiap 2 detik biar gerak halus
     _timer = Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(seconds: 2),
       (_) => _fetchBusesByCompany(),
     );
   }
@@ -47,7 +50,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
 
   Future<void> _fetchBusesByCompany() async {
     try {
-      // Endpoint khusus untuk ambil bus per companyId
       final url = Uri.parse(
         "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
       );
@@ -64,38 +66,34 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
             _isLoading = false;
             _error = null;
           });
+
           _generateMarkersAndRoutes();
         }
       } else {
-        if (mounted) {
-          setState(() {
-            _error = "Server Error: ${response.statusCode}";
-            _isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
         setState(() {
-          _error = "Koneksi Gagal ke API";
+          _error = "Server Error: ${response.statusCode}";
           _isLoading = false;
         });
       }
+    } catch (e) {
+      setState(() {
+        _error = "Koneksi Gagal ke API";
+        _isLoading = false;
+      });
     }
   }
 
   void _generateMarkersAndRoutes() {
     List<Marker> markers = [];
     List<Polyline> polylines = [];
+    Map<Marker, Map<String, dynamic>> markerBusMap = {};
 
     for (var bus in _busData) {
       if (bus['route'] != null && bus['route'] is List) {
         final route = bus['route'] as List;
-
         if (route.isEmpty) continue;
 
         int busId = bus['id'];
-
         _busIndexTracker.putIfAbsent(busId, () => 0);
 
         int index = _busIndexTracker[busId]!;
@@ -105,22 +103,26 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
         double lat = double.tryParse(point['lat'].toString()) ?? 0.0;
         double lng = double.tryParse(point['lng'].toString()) ?? 0.0;
 
-        // ✅ MARKER BUS
-        markers.add(
-          Marker(
-            point: LatLng(lat, lng),
-            width: 50,
-            height: 50,
-            child: Column(
-              children: [
-                const Icon(Icons.directions_bus, color: Colors.orange, size: 35),
-                Text(bus['plat_nomor'] ?? '', style: const TextStyle(fontSize: 10))
-              ],
-            ),
+        // MARKER BUS
+        final marker = Marker(
+          point: LatLng(lat, lng),
+          width: 50,
+          height: 50,
+          child: Column(
+            children: [
+              const Icon(Icons.directions_bus, color: Colors.orange, size: 35),
+              Text(
+                bus['plat_nomor'] ?? '',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ],
           ),
         );
 
-        // ✅ ROUTE MERAH
+        markers.add(marker);
+        markerBusMap[marker] = bus;
+
+        // ROUTE MERAH
         final routePoints = route.map<LatLng>((p) {
           return LatLng(
             double.tryParse(p['lat'].toString()) ?? 0.0,
@@ -129,19 +131,16 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
         }).toList();
 
         polylines.add(
-          Polyline(points: routePoints, strokeWidth: 4, color: Colors.red),
+          Polyline(points: routePoints, strokeWidth: 5, color: Colors.red),
         );
 
-        // ✅ GERAK OTOMATIS
+        // GERAK OTOMATIS
         _busIndexTracker[busId] = (index + 1) % route.length;
 
         // =====================
-        // 🔥 GEOFENCING
+        // GEOFENCING
         // =====================
-        final halte = [
-          LatLng(-6.2000, 106.8166),
-          LatLng(-7.9839, 112.6214),
-        ];
+        final halte = [LatLng(-6.2000, 106.8166), LatLng(-7.9839, 112.6214)];
 
         for (var h in halte) {
           final distance = const Distance().as(
@@ -161,15 +160,16 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
       setState(() {
         _busMarkers = markers;
         _busRoutes = polylines;
+        _markerBusMap = markerBusMap;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _busData.isEmpty)
-      // ignore: curly_braces_in_flow_control_structures
+    if (_isLoading && _busData.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -181,8 +181,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
         children: [
           FlutterMap(
             options: MapOptions(
-              initialCenter: const LatLng(-7.9839, 112.6214), // Default Malang
-              initialZoom: 12,
+              initialCenter: const LatLng(-7.9839, 112.6214),
+              initialZoom: 6,
               onTap: (_, __) => _popupController.hideAllPopups(),
             ),
             children: [
@@ -191,28 +191,25 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 subdomains: const ['a', 'b', 'c'],
               ),
+
               PolylineLayer(polylines: _busRoutes),
+
               PopupMarkerLayerWidget(
                 options: PopupMarkerLayerOptions(
                   popupController: _popupController,
                   markers: _busMarkers,
                   popupDisplayOptions: PopupDisplayOptions(
-                    builder: (BuildContext context, Marker marker) {
-                      final bus = _busData.firstWhere(
-                        (b) =>
-                            (double.tryParse(b['latitude'].toString()) ==
-                            marker.point.latitude),
-                        orElse: () => {},
-                      );
+                    builder: (context, marker) {
+                      final bus = _markerBusMap[marker];
 
-                      if (bus.isEmpty) return const SizedBox.shrink();
+                      if (bus == null) return const SizedBox();
 
                       return Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(12.0),
+                          padding: const EdgeInsets.all(12),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,6 +234,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
               ),
             ],
           ),
+
           if (_error != null)
             Positioned(
               bottom: 20,
