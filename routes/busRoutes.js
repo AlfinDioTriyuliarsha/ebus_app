@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
                         JOIN locations l ON rc.location_id = l.id
                         WHERE rc.route_id = r.id
                     ),
-                    '[]'
+                    '[]'::json
                 ) as route
 
             FROM buses b
