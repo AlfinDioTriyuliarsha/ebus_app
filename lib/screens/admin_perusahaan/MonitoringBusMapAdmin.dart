@@ -6,6 +6,8 @@ import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
+// ignore: library_prefixes
+import 'dart:math' as Math;
 
 class MonitoringBusMapAdmin extends StatefulWidget {
   final int companyId;
@@ -111,6 +113,61 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     return {};
   }
 
+  // ignore: unused_element
+  Future<void> _animateBusSmooth(List<LatLng> route) async {
+    for (int i = 0; i < route.length - 1; i++) {
+      final start = route[i];
+      final end = route[i + 1];
+
+      const steps = 20; // semakin besar = semakin halus
+
+      for (int j = 0; j <= steps; j++) {
+        final lat = start.latitude +
+            (end.latitude - start.latitude) * (j / steps);
+
+        final lng = start.longitude +
+            (end.longitude - start.longitude) * (j / steps);
+
+        final angle = _calculateBearing(start, end);
+
+        setState(() {
+          _busMarkers = [
+            Marker(
+              point: LatLng(lat, lng),
+              width: 60,
+              height: 60,
+              child: Transform.rotate(
+                angle: angle,
+                child: const Icon(
+                  Icons.directions_bus,
+                  color: Colors.green,
+                  size: 40,
+                ),
+              ),
+            )
+          ];
+        });
+
+        await Future.delayed(const Duration(milliseconds: 30));
+      }
+    }
+  }
+
+  double _calculateBearing(LatLng start, LatLng end) {
+    final lat1 = start.latitude * 3.14159 / 180;
+    final lon1 = start.longitude * 3.14159 / 180;
+    final lat2 = end.latitude * 3.14159 / 180;
+    final lon2 = end.longitude * 3.14159 / 180;
+
+    final dLon = lon2 - lon1;
+
+    final y = Math.sin(dLon) * Math.cos(lat2);
+    final x = Math.cos(lat1) * Math.sin(lat2) -
+        Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+    return Math.atan2(y, x);
+  }
+
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
     double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
     double lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
@@ -185,8 +242,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
             point: point,
             width: 50,
             height: 50,
-            child: const Icon(Icons.directions_bus, color: Colors.green, size: 40),
-          )
+            child: const Icon(
+              Icons.directions_bus,
+              color: Colors.green,
+              size: 40,
+            ),
+          ),
         ];
       });
 
@@ -311,7 +372,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
           ),
 
           // ✅ DROPDOWN (ADA "SEMUA")
-            Positioned(
+          Positioned(
             bottom: 20,
             left: 20,
             child: Container(
@@ -340,7 +401,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                           value: bus['id'],
                           child: Text(bus['plat_nomor']),
                         );
-                      // ignore: unnecessary_to_list_in_spreads
+                        // ignore: unnecessary_to_list_in_spreads
                       }).toList(),
                     ],
                     onChanged: (value) {
@@ -349,7 +410,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                       });
 
                       if (value != null) {
-                        final bus = _busData.firstWhere((b) => b['id'] == value);
+                        final bus = _busData.firstWhere(
+                          (b) => b['id'] == value,
+                        );
                         _drawRoute(bus); // 🔥 jalanin route OSRM
                       } else {
                         _generateMarkersAndRoutes(); // tampil semua lagi

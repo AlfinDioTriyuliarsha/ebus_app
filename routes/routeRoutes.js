@@ -154,43 +154,28 @@ router.get("/direction", async (req, res) => {
     try {
         const { start_lat, start_lng, end_lat, end_lng } = req.query;
 
-        if (!start_lat || !start_lng || !end_lat || !end_lng) {
-            return res.status(400).json({
-                success: false,
-                error: "Parameter tidak lengkap"
-            });
-        }
+        const url = `http://router.project-osrm.org/route/v1/driving/`
+            + `${start_lng},${start_lat};${end_lng},${end_lat}`
+            + `?overview=full&geometries=geojson`;
 
-        const response = await axios.post(
-            "https://api.openrouteservice.org/v2/directions/driving-car",
-            {
-                coordinates: [
-                    [parseFloat(start_lng), parseFloat(start_lat)],
-                    [parseFloat(end_lng), parseFloat(end_lat)]
-                ]
-            },
-            {
-                headers: {
-                    Authorization: ORS_API_KEY,
-                    "Content-Type": "application/json"
-                }
-            }
-        );
+        const response = await fetch(url);
+        const data = await response.json();
 
-        const coords = response.data.features[0].geometry.coordinates;
+        const route = data.routes[0];
 
-        const routePoints = coords.map(c => ({
+        const points = route.geometry.coordinates.map(c => ({
             lat: c[1],
             lng: c[0]
         }));
 
         res.json({
             success: true,
-            data: routePoints
+            data: points,
+            distance: route.distance,
+            duration: route.duration
         });
 
     } catch (err) {
-        console.error("DIRECTION ERROR:", err.response?.data || err.message);
         res.status(500).json({
             success: false,
             error: err.message
