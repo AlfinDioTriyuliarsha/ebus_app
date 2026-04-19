@@ -11,6 +11,7 @@ router.get("/", async (req, res) => {
         let { company_id } = req.query;
 
         const values = [];
+
         let query = `
             SELECT 
                 b.*,
@@ -20,21 +21,25 @@ router.get("/", async (req, res) => {
                 c.company_name,
                 d.driver_name,
 
-                COALESCE(
-                    (
-                        SELECT json_agg(
-                            json_build_object(
-                                'lat', l.latitude,
-                                'lng', l.longitude
-                            )
-                            ORDER BY rc.urutan
+                CASE 
+                    WHEN to_regclass('public.route_checkpoints') IS NOT NULL 
+                    THEN (
+                        SELECT COALESCE(
+                            json_agg(
+                                json_build_object(
+                                    'lat', l.latitude,
+                                    'lng', l.longitude
+                                )
+                                ORDER BY rc.urutan
+                            ),
+                            '[]'::json
                         )
                         FROM route_checkpoints rc
                         JOIN locations l ON rc.location_id = l.id
                         WHERE rc.route_id = r.id
-                    ),
-                    '[]'::json
-                ) as route
+                    )
+                    ELSE '[]'::json
+                END as route
 
             FROM buses b
             LEFT JOIN routes r ON b.route_id = r.id
