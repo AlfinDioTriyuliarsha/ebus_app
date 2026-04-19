@@ -174,4 +174,38 @@ router.post("/simulate", async (req, res) => {
     }
 });
 
+// UPDATE GPS BUS (REAL-TIME)
+router.put("/update-location/:id", async (req, res) => {
+    const { id } = req.params;
+    const { latitude, longitude } = req.body;
+
+    try {
+        const result = await pool.query(
+            `UPDATE buses 
+             SET latitude = $1, longitude = $2, updated_at = NOW()
+             WHERE id = $3 RETURNING *`,
+            [latitude, longitude, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Bus tidak ditemukan"
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error("ERROR UPDATE GPS:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
 module.exports = router;
