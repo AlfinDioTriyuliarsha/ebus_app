@@ -15,6 +15,19 @@ router.get("/", async (req, res) => {
                 r.path as route,
                 c.company_name,
                 d.driver_name
+
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'lat', l.latitude,
+                            'lng', l.longitude
+                        ) ORDER BY rc.urutan
+                    )
+                    FROM route_checkpoints rc
+                    JOIN locations l ON rc.location_id = l.id
+                    WHERE rc.route_id = r.id
+                ) as route
+
             FROM buses b
             LEFT JOIN routes r ON b.route_id = r.id
             LEFT JOIN companies c ON b.company_id = c.id
