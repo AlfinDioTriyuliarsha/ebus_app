@@ -2,11 +2,15 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
+
+// =======================
 // GET BUS + ROUTE
+// =======================
 router.get("/", async (req, res) => {
     try {
-        const { company_id } = req.query;
+        let { company_id } = req.query;
 
+        const values = [];
         let query = `
             SELECT 
                 b.*,
@@ -38,14 +42,12 @@ router.get("/", async (req, res) => {
             LEFT JOIN drivers d ON b.driver_id = d.id
         `;
 
-        const values = [];
-
         if (company_id) {
-            query += " WHERE b.company_id = $1";
-            values.push(company_id);
+            values.push(parseInt(company_id));
+            query += ` WHERE b.company_id = $1`;
         }
 
-        query += " ORDER BY b.id ASC";
+        query += ` ORDER BY b.id ASC`;
 
         const result = await pool.query(query, values);
 
@@ -55,7 +57,7 @@ router.get("/", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("ERROR BUS:", err); // ← PENTING
+        console.error("ERROR BUS:", err);
         res.status(500).json({
             success: false,
             error: err.message
@@ -64,7 +66,9 @@ router.get("/", async (req, res) => {
 });
 
 
+// =======================
 // POST BUS
+// =======================
 router.post("/", async (req, res) => {
     const {
         company_id,
@@ -94,7 +98,15 @@ router.post("/", async (req, res) => {
             (company_id, driver_id, nomor_bus, plat_nomor, mesin, route_id, status) 
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *`,
-            [company_id, driver_id, nomor_bus, plat_nomor, mesin, route_id, status || 'Aktif']
+            [
+                company_id,
+                driver_id,
+                nomor_bus,
+                plat_nomor,
+                mesin,
+                route_id,
+                status || "Aktif"
+            ]
         );
 
         res.status(201).json({
@@ -112,7 +124,9 @@ router.post("/", async (req, res) => {
 });
 
 
+// =======================
 // GET DRIVER
+// =======================
 router.get("/drivers", async (req, res) => {
     const { company_id } = req.query;
 
@@ -122,18 +136,24 @@ router.get("/drivers", async (req, res) => {
             [company_id]
         );
 
-        res.json({ success: true, data: result.rows });
+        res.json({
+            success: true,
+            data: result.rows
+        });
+
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-        if (company_id) {
-        query += " WHERE b.company_id = $1";
-        values.push(parseInt(company_id));
+        console.error("ERROR DRIVERS:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
 });
 
 
+// =======================
 // UPDATE BUS (Assign Driver)
+// =======================
 router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const { driver_id } = req.body;
@@ -166,7 +186,9 @@ router.put("/:id", async (req, res) => {
 });
 
 
+// =======================
 // SIMULASI GERAK BUS
+// =======================
 router.post("/simulate", async (req, res) => {
     try {
         const buses = await pool.query(`
@@ -181,7 +203,6 @@ router.post("/simulate", async (req, res) => {
             if (!route || route.length === 0) continue;
 
             let index = bus.route_index || 0;
-
             index = (index + 1) % route.length;
 
             const point = route[index];
@@ -193,6 +214,7 @@ router.post("/simulate", async (req, res) => {
         }
 
         res.json({ success: true });
+
     } catch (err) {
         console.error("SIMULATION ERROR:", err);
         res.status(500).json({ error: err.message });
@@ -200,7 +222,9 @@ router.post("/simulate", async (req, res) => {
 });
 
 
+// =======================
 // UPDATE GPS REAL-TIME
+// =======================
 router.put("/update-location/:id", async (req, res) => {
     const { id } = req.params;
     const { latitude, longitude } = req.body;
