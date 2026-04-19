@@ -13,6 +13,7 @@ const routeRoutes = require("./routes/routeRoutes");
 const scheduleRoutes = require("./routes/scheduleRoutes");
 const mesinRoutes = require("./routes/mesinRoutes");
 const driverRoutes = require("./routes/driverRoutes");
+require('dotenv').config();
 
 const app = express();
 

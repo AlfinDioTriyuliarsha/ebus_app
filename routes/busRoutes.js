@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
                 b.*,
                 r.id as route_id,
                 r.nama_rute,
-                r.path as route_path,
+                route_checkpoints,
                 c.company_name,
                 d.driver_name,
 

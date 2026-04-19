@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { Pool } = require("pg");
+const { generateRoute } = require("../services/routeService");
 
 // Hubungkan ke database (Gunakan pool yang sama)
 const pool = new Pool({
@@ -46,6 +47,37 @@ router.post("/", async (req, res) => {
     } catch (err) {
         console.error("DB Error:", err.message);
         res.status(500).json({ status: "error", message: err.message });
+    }
+});
+
+// CREATE ROUTE OTOMATIS
+router.post("/auto-route", async (req, res) => {
+    try {
+        const { nama_rute, start, end } = req.body;
+
+        // start & end format:
+        // { lat: -7.98, lng: 112.62 }
+
+        const routePoints = await generateRoute(start, end);
+
+        const result = await pool.query(
+            `INSERT INTO routes (nama_rute, path)
+             VALUES ($1, $2)
+             RETURNING *`,
+            [nama_rute, JSON.stringify(routePoints)]
+        );
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error("AUTO ROUTE ERROR:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
 });
 
