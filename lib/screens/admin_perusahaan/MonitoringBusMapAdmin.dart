@@ -31,6 +31,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   final MapController _mapController = MapController();
 
   int? selectedBusId; // null = semua bus
+  double distance = 0;
+  double duration = 0;
 
   @override
   void initState() {
@@ -81,6 +83,114 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
         _error = "Koneksi Gagal ke API";
         _isLoading = false;
       });
+    }
+  }
+
+  Future<Map<String, dynamic>> getRouteDetail(LatLng start, LatLng end) async {
+    final url = Uri.parse(
+      "${ApiService.baseUrl}/api/routes/direction"
+      "?start_lat=${start.latitude}"
+      "&start_lng=${start.longitude}"
+      "&end_lat=${end.latitude}"
+      "&end_lng=${end.longitude}",
+    );
+
+    final res = await http.get(url);
+    final data = jsonDecode(res.body);
+
+    if (data['success'] == true) {
+      final List points = data['data'];
+
+      return {
+        "points": points.map((e) => LatLng(e['lat'], e['lng'])).toList(),
+        "distance": data['distance'] ?? 0,
+        "duration": data['duration'] ?? 0,
+      };
+    }
+
+    return {};
+  }
+
+  Future<void> _drawRoute(Map<String, dynamic> bus) async {
+    double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+    double lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
+
+    if (lat == 0 || lng == 0) return;
+
+    final start = LatLng(lat, lng);
+
+    // 🔥 sementara pakai tujuan dummy (bisa kamu ganti dari DB nanti)
+    final end = LatLng(-7.9839, 112.6214);
+
+    final result = await getRouteDetail(start, end);
+
+    final List<LatLng> routePoints = result['points'] ?? [];
+
+    distance = result['distance'] ?? 0;
+    duration = result['duration'] ?? 0;
+
+    List<Marker> markers = [];
+
+    // 🚍 marker bus
+    markers.add(
+      Marker(
+        point: start,
+        width: 50,
+        height: 50,
+        child: const Icon(Icons.directions_bus, color: Colors.green, size: 40),
+      ),
+    );
+
+    // 🟢 START
+    markers.add(
+      Marker(
+        point: start,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_on, color: Colors.green),
+      ),
+    );
+
+    // 🔴 END
+    markers.add(
+      Marker(
+        point: end,
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.flag, color: Colors.red),
+      ),
+    );
+
+    setState(() {
+      _busMarkers = markers;
+
+      _busRoutes = [
+        Polyline(
+          points: routePoints,
+          strokeWidth: 6,
+          color: Colors.red, // 🔥 penting
+        ),
+      ];
+    });
+
+    // 🔥 ANIMASI BUS
+    _animateBus(routePoints);
+  }
+
+  void _animateBus(List<LatLng> route) async {
+    for (var point in route) {
+      setState(() {
+        _busMarkers = [
+          Marker(
+            point: point,
+            width: 50,
+            height: 50,
+            child: const Icon(Icons.directions_bus, color: Colors.green, size: 40),
+          )
+        ];
+      });
+
+      await Future.delayed(const Duration(milliseconds: 200));
     }
   }
 
@@ -201,41 +311,60 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
           ),
 
           // ✅ DROPDOWN (ADA "SEMUA")
-          Positioned(
-            top: 20,
-            right: 20,
+            Positioned(
+            bottom: 20,
+            left: 20,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                boxShadow: const [
-                  BoxShadow(blurRadius: 5, color: Colors.black26),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 5)],
               ),
-              child: DropdownButton<int?>(
-                value: selectedBusId,
-                hint: const Text("Semua Bus"),
-                underline: const SizedBox(),
-                items: [
-                  const DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text("Semua Bus"),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 🔽 DROPDOWN
+                  DropdownButton<int>(
+                    value: selectedBusId,
+                    hint: const Text("Pilih Bus"),
+                    underline: const SizedBox(),
+                    items: [
+                      const DropdownMenuItem<int>(
+                        value: null,
+                        child: Text("Semua Bus"),
+                      ),
+                      ..._busData.map((bus) {
+                        return DropdownMenuItem<int>(
+                          value: bus['id'],
+                          child: Text(bus['plat_nomor']),
+                        );
+                      // ignore: unnecessary_to_list_in_spreads
+                      }).toList(),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedBusId = value;
+                      });
+
+                      if (value != null) {
+                        final bus = _busData.firstWhere((b) => b['id'] == value);
+                        _drawRoute(bus); // 🔥 jalanin route OSRM
+                      } else {
+                        _generateMarkersAndRoutes(); // tampil semua lagi
+                      }
+                    },
                   ),
-                  ..._busData.map((bus) {
-                    return DropdownMenuItem<int?>(
-                      value: bus['id'],
-                      child: Text(bus['plat_nomor'] ?? ''),
-                    );
-                  // ignore: unnecessary_to_list_in_spreads
-                  }).toList(),
+
+                  const SizedBox(height: 8),
+
+                  // 📏 INFO JARAK
+                  Text("Jarak: ${(distance / 1000).toStringAsFixed(1)} km"),
+
+                  // ⏱ ETA
+                  Text("ETA: ${(duration / 60).toStringAsFixed(0)} menit"),
                 ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedBusId = value;
-                  });
-                  _generateMarkersAndRoutes();
-                },
               ),
             ),
           ),
