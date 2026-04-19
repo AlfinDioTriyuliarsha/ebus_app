@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { Pool } = require("pg");
-const { generateRoute } = require("../services/routeService");
+const routeService = require("../services/routeService");
 
 // Hubungkan ke database (Gunakan pool yang sama)
 const pool = new Pool({
@@ -77,6 +77,36 @@ router.post("/auto-route", async (req, res) => {
         res.status(500).json({
             success: false,
             error: err.message
+        });
+    }
+});
+
+router.get("/direction", async (req, res) => {
+    try {
+        const { start_lat, start_lng, end_lat, end_lng } = req.query;
+
+        if (!start_lat || !start_lng || !end_lat || !end_lng) {
+            return res.status(400).json({
+                success: false,
+                error: "Parameter tidak lengkap",
+            });
+        }
+
+        const route = await routeService.getRoute(
+            { lat: start_lat, lng: start_lng },
+            { lat: end_lat, lng: end_lng }
+        );
+
+        res.json({
+            success: true,
+            data: route,
+        });
+
+    } catch (err) {
+        console.error("ROUTE ERROR:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message,
         });
     }
 });
