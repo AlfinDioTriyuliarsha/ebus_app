@@ -1,14 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const { Pool } = require("pg");
+const axios = require("axios");
 
-// ❌ HAPUS INI (BIKIN ERROR)
-// const routeService = require("../services/routeService");
-
+// =======================
+// DATABASE
+// =======================
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
+
+// =======================
+// API KEY (WAJIB ADA DI ENV)
+// =======================
+const ORS_API_KEY = process.env.ORS_API_KEY;
 
 
 // =======================
@@ -82,7 +88,7 @@ router.post("/", async (req, res) => {
 
 
 // =======================
-// AUTO ROUTE (DUMMY VERSION - NO ERROR)
+// AUTO ROUTE (REAL ROAD)
 // =======================
 router.post("/auto-route", async (req, res) => {
     try {
@@ -95,15 +101,29 @@ router.post("/auto-route", async (req, res) => {
             });
         }
 
-        // 🔥 DUMMY ROUTE (biar tidak error dulu)
-        const routePoints = [
-            start,
+        // 🔥 PANGGIL OPENROUTESERVICE
+        const response = await axios.post(
+            "https://api.openrouteservice.org/v2/directions/driving-car",
             {
-                lat: (start.lat + end.lat) / 2,
-                lng: (start.lng + end.lng) / 2
+                coordinates: [
+                    [start.lng, start.lat],
+                    [end.lng, end.lat]
+                ]
             },
-            end
-        ];
+            {
+                headers: {
+                    Authorization: ORS_API_KEY,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        const coords = response.data.features[0].geometry.coordinates;
+
+        const routePoints = coords.map(c => ({
+            lat: c[1],
+            lng: c[0]
+        }));
 
         const result = await pool.query(
             `INSERT INTO routes (nama_rute, path)
@@ -118,7 +138,7 @@ router.post("/auto-route", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("AUTO ROUTE ERROR:", err);
+        console.error("AUTO ROUTE ERROR:", err.response?.data || err.message);
         res.status(500).json({
             success: false,
             error: err.message
@@ -128,13 +148,54 @@ router.post("/auto-route", async (req, res) => {
 
 
 // =======================
-// DIRECTION (NONAKTIF DULU)
+// DIRECTION (REAL GOOGLE MAP STYLE)
 // =======================
 router.get("/direction", async (req, res) => {
-    return res.status(501).json({
-        success: false,
-        error: "Fitur direction belum aktif (routeService belum dibuat)"
-    });
+    try {
+        const { start_lat, start_lng, end_lat, end_lng } = req.query;
+
+        if (!start_lat || !start_lng || !end_lat || !end_lng) {
+            return res.status(400).json({
+                success: false,
+                error: "Parameter tidak lengkap"
+            });
+        }
+
+        const response = await axios.post(
+            "https://api.openrouteservice.org/v2/directions/driving-car",
+            {
+                coordinates: [
+                    [parseFloat(start_lng), parseFloat(start_lat)],
+                    [parseFloat(end_lng), parseFloat(end_lat)]
+                ]
+            },
+            {
+                headers: {
+                    Authorization: ORS_API_KEY,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        const coords = response.data.features[0].geometry.coordinates;
+
+        const routePoints = coords.map(c => ({
+            lat: c[1],
+            lng: c[0]
+        }));
+
+        res.json({
+            success: true,
+            data: routePoints
+        });
+
+    } catch (err) {
+        console.error("DIRECTION ERROR:", err.response?.data || err.message);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
 });
 
 
