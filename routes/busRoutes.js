@@ -5,16 +5,11 @@ const pool = require("../db");
 // GET BUS + ROUTE
 router.get("/", async (req, res) => {
     try {
-        const { company_id } = req.query;
-
-        let query = `
+        const result = await pool.query(`
             SELECT 
                 b.*,
-                r.id as route_id,
                 r.nama_rute,
-                r.path as route,
-                c.company_name,
-                d.driver_name
+                d.driver_name,
 
                 (
                     SELECT json_agg(
@@ -30,9 +25,10 @@ router.get("/", async (req, res) => {
 
             FROM buses b
             LEFT JOIN routes r ON b.route_id = r.id
-            LEFT JOIN companies c ON b.company_id = c.id
             LEFT JOIN drivers d ON b.driver_id = d.id
-        `;
+
+            WHERE b.company_id = $1
+        `, [company_id]);
         const values = [];
 
         // ✅ FIX: hanya filter jika company_id ada
