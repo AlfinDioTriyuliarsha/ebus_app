@@ -122,11 +122,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
       const steps = 20; // semakin besar = semakin halus
 
       for (int j = 0; j <= steps; j++) {
-        final lat = start.latitude +
-            (end.latitude - start.latitude) * (j / steps);
+        final lat =
+            start.latitude + (end.latitude - start.latitude) * (j / steps);
 
-        final lng = start.longitude +
-            (end.longitude - start.longitude) * (j / steps);
+        final lng =
+            start.longitude + (end.longitude - start.longitude) * (j / steps);
 
         final angle = _calculateBearing(start, end);
 
@@ -144,7 +144,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                   size: 40,
                 ),
               ),
-            )
+            ),
           ];
         });
 
@@ -162,7 +162,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     final dLon = lon2 - lon1;
 
     final y = Math.sin(dLon) * Math.cos(lat2);
-    final x = Math.cos(lat1) * Math.sin(lat2) -
+    final x =
+        Math.cos(lat1) * Math.sin(lat2) -
         Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
 
     return Math.atan2(y, x);
@@ -231,29 +232,30 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     });
 
     // 🔥 ANIMASI BUS
-    _animateBus(routePoints);
+    _animateBusSmooth(routePoints);
   }
 
-  void _animateBus(List<LatLng> route) async {
-    for (var point in route) {
-      setState(() {
-        _busMarkers = [
-          Marker(
-            point: point,
-            width: 50,
-            height: 50,
-            child: const Icon(
-              Icons.directions_bus,
-              color: Colors.green,
-              size: 40,
-            ),
-          ),
-        ];
-      });
+  // // ignore: unused_element
+  // void _animateBus(List<LatLng> route) async {
+  //   for (var point in route) {
+  //     setState(() {
+  //       _busMarkers = [
+  //         Marker(
+  //           point: point,
+  //           width: 50,
+  //           height: 50,
+  //           child: const Icon(
+  //             Icons.directions_bus,
+  //             color: Colors.green,
+  //             size: 40,
+  //           ),
+  //         ),
+  //       ];
+  //     });
 
-      await Future.delayed(const Duration(milliseconds: 200));
-    }
-  }
+  //     await Future.delayed(const Duration(milliseconds: 200));
+  //   }
+  // }
 
   void _generateMarkersAndRoutes() {
     List<Marker> markers = [];
