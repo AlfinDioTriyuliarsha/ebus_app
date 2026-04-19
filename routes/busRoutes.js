@@ -126,6 +126,10 @@ router.get("/drivers", async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
+        if (company_id) {
+        query += " WHERE b.company_id = $1";
+        values.push(parseInt(company_id));
+    }
 });
 
 
