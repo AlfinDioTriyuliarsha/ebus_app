@@ -16,16 +16,20 @@ router.get("/", async (req, res) => {
                 c.company_name,
                 d.driver_name,
 
-                (
-                    SELECT json_agg(
-                        json_build_object(
-                            'lat', l.latitude,
-                            'lng', l.longitude
-                        ) ORDER BY rc.urutan
-                    )
-                    FROM route_checkpoints rc
-                    JOIN locations l ON rc.location_id = l.id
-                    WHERE rc.route_id = r.id
+                COALESCE(
+                    (
+                        SELECT json_agg(
+                            json_build_object(
+                                'lat', l.latitude,
+                                'lng', l.longitude
+                            )
+                            ORDER BY rc.urutan
+                        )
+                        FROM route_checkpoints rc
+                        JOIN locations l ON rc.location_id = l.id
+                        WHERE rc.route_id = r.id
+                    ),
+                    '[]'
                 ) as route
 
             FROM buses b
@@ -36,7 +40,6 @@ router.get("/", async (req, res) => {
 
         const values = [];
 
-        // filter jika ada company_id
         if (company_id) {
             query += " WHERE b.company_id = $1";
             values.push(company_id);
@@ -52,7 +55,7 @@ router.get("/", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("ERROR BUS:", err);
+        console.error("ERROR BUS:", err); // ← PENTING
         res.status(500).json({
             success: false,
             error: err.message
