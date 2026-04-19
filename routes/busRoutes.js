@@ -7,10 +7,12 @@ router.get("/", async (req, res) => {
     try {
         const { company_id } = req.query;
 
-        const busResult = await pool.query(`
+        let query = `
             SELECT 
                 b.*,
+                r.id as route_id,
                 r.nama_rute,
+                c.company_name,
                 d.driver_name,
 
                 (
@@ -27,15 +29,25 @@ router.get("/", async (req, res) => {
 
             FROM buses b
             LEFT JOIN routes r ON b.route_id = r.id
+            LEFT JOIN companies c ON b.company_id = c.id
             LEFT JOIN drivers d ON b.driver_id = d.id
+        `;
 
-            WHERE ($1::int IS NULL OR b.company_id = $1)
-            ORDER BY b.id ASC
-        `, [company_id || null]);
+        const values = [];
+
+        // filter company
+        if (company_id) {
+            query += " WHERE b.company_id = $1";
+            values.push(company_id);
+        }
+
+        query += " ORDER BY b.id ASC";
+
+        const result = await pool.query(query, values);
 
         res.json({
             success: true,
-            data: busResult.rows
+            data: result.rows
         });
 
     } catch (err) {
@@ -46,6 +58,7 @@ router.get("/", async (req, res) => {
         });
     }
 });
+
 
 // POST BUS
 router.post("/", async (req, res) => {
@@ -94,7 +107,8 @@ router.post("/", async (req, res) => {
     }
 });
 
-// GET DRIVER (SUDAH BENAR, JANGAN DIUBAH)
+
+// GET DRIVER
 router.get("/drivers", async (req, res) => {
     const { company_id } = req.query;
 
@@ -109,6 +123,7 @@ router.get("/drivers", async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
 
 // UPDATE BUS (Assign Driver)
 router.put("/:id", async (req, res) => {
@@ -141,6 +156,7 @@ router.put("/:id", async (req, res) => {
         });
     }
 });
+
 
 // SIMULASI GERAK BUS
 router.post("/simulate", async (req, res) => {
@@ -175,7 +191,8 @@ router.post("/simulate", async (req, res) => {
     }
 });
 
-// UPDATE GPS BUS (REAL-TIME)
+
+// UPDATE GPS REAL-TIME
 router.put("/update-location/:id", async (req, res) => {
     const { id } = req.params;
     const { latitude, longitude } = req.body;
