@@ -17,29 +17,9 @@ router.get("/", async (req, res) => {
                 b.*,
                 r.id as route_id,
                 r.nama_rute,
-                route_checkpoints,
+                r.path as route, -- 🔥 langsung pakai ini
                 c.company_name,
-                d.driver_name,
-
-                CASE 
-                    WHEN to_regclass('public.route_checkpoints') IS NOT NULL 
-                    THEN (
-                        SELECT COALESCE(
-                            json_agg(
-                                json_build_object(
-                                    'lat', l.latitude,
-                                    'lng', l.longitude
-                                )
-                                ORDER BY rc.urutan
-                            ),
-                            '[]'::json
-                        )
-                        FROM route_checkpoints rc
-                        JOIN locations l ON rc.location_id = l.id
-                        WHERE rc.route_id = r.id
-                    )
-                    ELSE '[]'::json
-                END as route
+                d.driver_name
 
             FROM buses b
             LEFT JOIN routes r ON b.route_id = r.id
