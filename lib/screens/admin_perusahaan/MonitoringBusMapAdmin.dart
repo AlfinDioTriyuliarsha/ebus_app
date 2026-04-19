@@ -30,7 +30,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   final PopupController _popupController = PopupController();
   final MapController _mapController = MapController();
 
-  int? selectedBusId;
+  int? selectedBusId; // null = semua bus
 
   @override
   void initState() {
@@ -90,7 +90,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     _markerBusMap.clear();
 
     for (var bus in _busData) {
-      // FILTER: hanya tampilkan bus yang dipilih
+      // ✅ FILTER BUS
       if (selectedBusId != null && bus['id'] != selectedBusId) continue;
 
       double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0.0;
@@ -113,25 +113,49 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
       markers.add(marker);
       _markerBusMap[marker] = bus;
 
-      // ✅ DRAW ROUTE (Polyline)
-      if (bus['route'] != null && bus['route'] is List) {
-        List<LatLng> routePoints = [];
+      // =========================
+      // 🔥 HANDLE ROUTE
+      // =========================
+      List routeData = [];
 
-        for (var point in bus['route']) {
-          double rLat = double.tryParse(point['lat'].toString()) ?? 0.0;
-          double rLng = double.tryParse(point['lng'].toString()) ?? 0.0;
-
-          routePoints.add(LatLng(rLat, rLng));
-        }
-
-        if (routePoints.isNotEmpty) {
-          polylines.add(
-            Polyline(points: routePoints, strokeWidth: 4, color: Colors.blue),
-          );
+      if (bus['route'] != null) {
+        routeData = bus['route'];
+      } else if (bus['route_path'] != null) {
+        try {
+          routeData = jsonDecode(bus['route_path']);
+        } catch (e) {
+          debugPrint("❌ route_path gagal decode");
         }
       }
 
-      // ✅ AUTO FOCUS KE BUS YANG DIPILIH
+      if (routeData.isEmpty) {
+        debugPrint("⚠️ Bus ${bus['plat_nomor']} tidak punya route");
+      }
+
+      List<LatLng> routePoints = [];
+
+      for (var point in routeData) {
+        double rLat = double.tryParse(point['lat'].toString()) ?? 0.0;
+        double rLng = double.tryParse(point['lng'].toString()) ?? 0.0;
+
+        if (rLat != 0 && rLng != 0) {
+          routePoints.add(LatLng(rLat, rLng));
+        }
+      }
+
+      if (routePoints.isNotEmpty) {
+        polylines.add(
+          Polyline(
+            points: routePoints,
+            strokeWidth: 4,
+            color: selectedBusId == null
+                ? Colors.blue.withOpacity(0.4)
+                : Colors.red,
+          ),
+        );
+      }
+
+      // AUTO FOCUS
       if (selectedBusId != null) {
         _mapController.move(LatLng(lat, lng), 15);
       }
@@ -162,7 +186,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
             options: MapOptions(
               initialCenter: const LatLng(-7.9839, 112.6214),
               initialZoom: 6,
-              onTap: (_, __) => _popupController.hideAllPopups(),
             ),
             children: [
               TileLayer(
@@ -173,48 +196,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
 
               PolylineLayer(polylines: _busRoutes),
 
-              PopupMarkerLayerWidget(
-                options: PopupMarkerLayerOptions(
-                  popupController: _popupController,
-                  markers: _busMarkers,
-                  popupDisplayOptions: PopupDisplayOptions(
-                    builder: (context, marker) {
-                      final bus = _markerBusMap[marker];
-                      if (bus == null) return const SizedBox();
-
-                      return Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "🚍 ${bus['plat_nomor']}",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const Divider(),
-                              Text("Driver: ${bus['driver_name'] ?? '-'}"),
-                              Text("Status: ${bus['status'] ?? '-'}"),
-                              Text("Rute: ${bus['nama_rute'] ?? '-'}"),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
+              MarkerLayer(markers: _busMarkers),
             ],
           ),
 
-          // ✅ DROPDOWN PILIH BUS
+          // ✅ DROPDOWN (ADA "SEMUA")
           Positioned(
             top: 20,
             right: 20,
@@ -227,16 +213,23 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                   BoxShadow(blurRadius: 5, color: Colors.black26),
                 ],
               ),
-              child: DropdownButton<int>(
+              child: DropdownButton<int?>(
                 value: selectedBusId,
-                hint: const Text("Pilih Bus"),
+                hint: const Text("Semua Bus"),
                 underline: const SizedBox(),
-                items: _busData.map((bus) {
-                  return DropdownMenuItem<int>(
-                    value: bus['id'],
-                    child: Text(bus['plat_nomor'] ?? ''),
-                  );
-                }).toList(),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text("Semua Bus"),
+                  ),
+                  ..._busData.map((bus) {
+                    return DropdownMenuItem<int?>(
+                      value: bus['id'],
+                      child: Text(bus['plat_nomor'] ?? ''),
+                    );
+                  // ignore: unnecessary_to_list_in_spreads
+                  }).toList(),
+                ],
                 onChanged: (value) {
                   setState(() {
                     selectedBusId = value;
