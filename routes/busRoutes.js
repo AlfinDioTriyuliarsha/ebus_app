@@ -12,6 +12,7 @@ router.get("/", async (req, res) => {
                 b.*,
                 r.id as route_id,
                 r.nama_rute,
+                r.path as route_path,
                 c.company_name,
                 d.driver_name,
 
@@ -35,7 +36,7 @@ router.get("/", async (req, res) => {
 
         const values = [];
 
-        // filter company
+        // filter jika ada company_id
         if (company_id) {
             query += " WHERE b.company_id = $1";
             values.push(company_id);
