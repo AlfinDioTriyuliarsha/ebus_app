@@ -6,18 +6,20 @@ import 'package:ebus_app/screens/super_admin_dashboard.dart';
 import 'package:ebus_app/screens/admin_perusahaan_dashboard.dart';
 import 'package:ebus_app/screens/agen_dashboard.dart';
 import 'package:ebus_app/screens/penumpang_dashboard.dart';
-import 'package:ebus_app/screens/driverdashboard.dart';
+import 'package:ebus_app/screens/DriverDashboard.dart';
 
 class DashboardScreen extends StatelessWidget {
   final String role;
   final String email;
   final int userId;
+  final int busId;
 
   const DashboardScreen({
     super.key,
     required this.role,
     required this.email,
     required this.userId,
+    this.busId = 0, // Default 0 jika tidak
   });
 
   static Future<void> handleLogout(BuildContext context) async {
@@ -61,7 +63,7 @@ class DashboardScreen extends StatelessWidget {
         dashboard = AdminPerusahaanDashboard(
           email: email,
           companyId: userId,
-          userId: userId, 
+          userId: userId,
         );
         break;
       case "agen":
@@ -79,7 +81,7 @@ class DashboardScreen extends StatelessWidget {
       case "driver":
         dashboard = DriverDashboard(
           email: email,
-          // userId: userId,
+          busId: 1, // sementara
         );
         break;
       default:
