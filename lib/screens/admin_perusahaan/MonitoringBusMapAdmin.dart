@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+// ignore: library_prefixes
+import 'dart:math' as Math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
-// ignore: library_prefixes
-import 'dart:math' as Math;
 
 class MonitoringBusMapAdmin extends StatefulWidget {
   final int companyId;
@@ -19,17 +19,18 @@ class MonitoringBusMapAdmin extends StatefulWidget {
 
 class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   List<Map<String, dynamic>> _busData = [];
-  List<Marker> _busMarkers = [];
-  List<Polyline> _busRoutes = [];
 
-  // ignore: prefer_final_fields
-  bool _isLoading = true;
+  List<Marker> _markers = [];
+  List<Polyline> _polylines = [];
+
   Timer? _timer;
 
   final MapController _mapController = MapController();
 
   int? selectedBusId;
-  bool isTrackingMode = false;
+
+  List<LatLng> _currentRoute = [];
+  bool _isAnimating = false;
 
   double distance = 0;
   double duration = 0;
@@ -37,11 +38,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   @override
   void initState() {
     super.initState();
-    _fetchBusesByCompany();
+    _fetchBuses();
 
     _timer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => _fetchBusesByCompany(),
+      const Duration(seconds: 3),
+      (_) {
+        if (selectedBusId == null) {
+          _fetchBuses(); // hanya realtime kalau "semua bus"
+        }
+      },
     );
   }
 
@@ -52,32 +57,33 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   }
 
   // =========================
-  // FETCH DATA
+  // FETCH BUS
   // =========================
-  Future<void> _fetchBusesByCompany() async {
-    final url = Uri.parse(
-      "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+  Future<void> _fetchBuses() async {
+    final res = await http.get(
+      Uri.parse("${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}"),
     );
 
-    final res = await http.get(url);
-    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body)['data'];
 
-    _busData = List<Map<String, dynamic>>.from(data['data'] ?? []);
+      setState(() {
+        _busData = List<Map<String, dynamic>>.from(data);
+      });
 
-    if (!isTrackingMode) {
-      _generateMarkers();
+      _generateRealtimeMarkers();
     }
   }
 
   // =========================
-  // MARKER SEMUA BUS
+  // REALTIME MARKER (SEMUA BUS)
   // =========================
-  void _generateMarkers() {
+  void _generateRealtimeMarkers() {
     List<Marker> markers = [];
 
     for (var bus in _busData) {
-      double lat = double.tryParse(bus['latitude'].toString()) ?? 0;
-      double lng = double.tryParse(bus['longitude'].toString()) ?? 0;
+      double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+      double lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
 
       if (lat == 0 || lng == 0) continue;
 
@@ -89,7 +95,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
           child: Column(
             children: [
               const Icon(Icons.directions_bus, color: Colors.green),
-              Text(bus['plat_nomor'], style: const TextStyle(fontSize: 10)),
+              Text(bus['plat_nomor'] ?? '', style: const TextStyle(fontSize: 10)),
             ],
           ),
         ),
@@ -97,70 +103,66 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     }
 
     setState(() {
-      _busMarkers = markers;
-      _busRoutes = [];
+      _markers = markers;
+      _polylines = []; // kosongin kalau mode realtime
     });
   }
 
   // =========================
   // GET ROUTE OSRM
   // =========================
-  Future<Map<String, dynamic>> getRoute(LatLng start, LatLng end) async {
+  Future<void> _drawRoute(Map<String, dynamic> bus) async {
+    double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+    double lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
+
+    if (lat == 0 || lng == 0) return;
+
+    final start = LatLng(lat, lng);
+
+    // contoh tujuan (ambil dari DB nanti)
+    final end = LatLng(-7.9839, 112.6214);
+
     final url = Uri.parse(
-      "${ApiService.baseUrl}/api/routes/direction"
-      "?start_lat=${start.latitude}"
-      "&start_lng=${start.longitude}"
-      "&end_lat=${end.latitude}"
-      "&end_lng=${end.longitude}",
+      "https://router.project-osrm.org/route/v1/driving/"
+      "$lng,$lat;${end.longitude},${end.latitude}"
+      "?overview=full&geometries=geojson",
     );
 
     final res = await http.get(url);
     final data = jsonDecode(res.body);
 
-    return {
-      "points": (data['data'] as List)
-          .map((e) => LatLng(e['lat'], e['lng']))
-          .toList(),
-      "distance": data['distance'],
-      "duration": data['duration'],
-    };
-  }
+    final coords = data['routes'][0]['geometry']['coordinates'];
 
-  // =========================
-  // DRAW ROUTE
-  // =========================
-  Future<void> _drawRoute(Map<String, dynamic> bus) async {
-    _timer?.cancel(); // 🔥 STOP REFRESH
+    List<LatLng> route = coords
+        .map<LatLng>((c) => LatLng(c[1], c[0]))
+        .toList();
 
-    isTrackingMode = true;
-
-    final start = LatLng(
-      double.parse(bus['latitude'].toString()),
-      double.parse(bus['longitude'].toString()),
-    );
-
-    final end = LatLng(-7.9839, 112.6214);
-
-    final result = await getRoute(start, end);
-
-    final List<LatLng> routePoints = result['points'];
-
-    distance = result['distance'];
-    duration = result['duration'];
+    distance = data['routes'][0]['distance'];
+    duration = data['routes'][0]['duration'];
 
     setState(() {
-      _busRoutes = [
-        Polyline(points: routePoints, strokeWidth: 6, color: Colors.red),
+      _currentRoute = route;
+      _polylines = [
+        Polyline(
+          points: route,
+          strokeWidth: 6,
+          color: Colors.red,
+        ),
       ];
     });
 
-    _animateBus(routePoints);
+    _mapController.move(start, 14);
+
+    _animateBus(route);
   }
 
   // =========================
-  // ANIMASI SMOOTH + ROTASI
+  // SMOOTH ANIMATION
   // =========================
   Future<void> _animateBus(List<LatLng> route) async {
+    if (_isAnimating) return;
+    _isAnimating = true;
+
     for (int i = 0; i < route.length - 1; i++) {
       final start = route[i];
       final end = route[i + 1];
@@ -168,16 +170,13 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
       const steps = 25;
 
       for (int j = 0; j <= steps; j++) {
-        final lat =
-            start.latitude + (end.latitude - start.latitude) * (j / steps);
-
-        final lng =
-            start.longitude + (end.longitude - start.longitude) * (j / steps);
+        final lat = start.latitude + (end.latitude - start.latitude) * (j / steps);
+        final lng = start.longitude + (end.longitude - start.longitude) * (j / steps);
 
         final angle = _bearing(start, end);
 
         setState(() {
-          _busMarkers = [
+          _markers = [
             Marker(
               point: LatLng(lat, lng),
               width: 60,
@@ -194,15 +193,20 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
           ];
         });
 
-        await Future.delayed(const Duration(milliseconds: 30));
+        await Future.delayed(const Duration(milliseconds: 40));
       }
     }
+
+    _isAnimating = false;
   }
 
-  double _bearing(LatLng a, LatLng b) {
-    final lat1 = a.latitude * Math.pi / 180;
-    final lat2 = b.latitude * Math.pi / 180;
-    final dLon = (b.longitude - a.longitude) * Math.pi / 180;
+  double _bearing(LatLng start, LatLng end) {
+    final lat1 = start.latitude * Math.pi / 180;
+    final lon1 = start.longitude * Math.pi / 180;
+    final lat2 = end.latitude * Math.pi / 180;
+    final lon2 = end.longitude * Math.pi / 180;
+
+    final dLon = lon2 - lon1;
 
     final y = Math.sin(dLon) * Math.cos(lat2);
     final x =
@@ -218,7 +222,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Monitoring Armada")),
+      appBar: AppBar(
+        title: const Text("Monitoring Armada"),
+        backgroundColor: const Color(0xFF001F3F),
+      ),
       body: Stack(
         children: [
           FlutterMap(
@@ -233,8 +240,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 subdomains: const ['a', 'b', 'c'],
               ),
-              PolylineLayer(polylines: _busRoutes),
-              MarkerLayer(markers: _busMarkers),
+              PolylineLayer(polylines: _polylines),
+              MarkerLayer(markers: _markers),
             ],
           ),
 
@@ -243,24 +250,34 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
             left: 20,
             child: Container(
               padding: const EdgeInsets.all(10),
-              color: Colors.white,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Column(
                 children: [
                   DropdownButton<int>(
                     value: selectedBusId,
                     hint: const Text("Pilih Bus"),
-                    items: _busData.map((bus) {
-                      return DropdownMenuItem<int>(
-                        value: bus['id'],
-                        child: Text(bus['plat_nomor']),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      selectedBusId = value;
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text("Semua")),
+                      ..._busData.map((b) => DropdownMenuItem(
+                            value: b['id'],
+                            child: Text(b['plat_nomor']),
+                          ))
+                    ],
+                    onChanged: (val) {
+                      setState(() {
+                        selectedBusId = val;
+                      });
 
-                      final bus = _busData.firstWhere((b) => b['id'] == value);
-
-                      _drawRoute(bus);
+                      if (val == null) {
+                        _fetchBuses();
+                      } else {
+                        final bus =
+                            _busData.firstWhere((b) => b['id'] == val);
+                        _drawRoute(bus);
+                      }
                     },
                   ),
                   Text("Jarak: ${(distance / 1000).toStringAsFixed(1)} km"),
@@ -268,7 +285,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                 ],
               ),
             ),
-          ),
+          )
         ],
       ),
     );
