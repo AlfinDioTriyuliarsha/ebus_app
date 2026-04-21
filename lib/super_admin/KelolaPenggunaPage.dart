@@ -94,7 +94,7 @@ class _KelolaPenggunaPageState extends State<KelolaPenggunaPage> {
         "email": email.trim(),
         "role": role,
       };
-      
+
       // Tambahkan password jika diisi
       if (password != null && password.isNotEmpty) {
         bodyData["password"] = password.trim();
@@ -103,7 +103,8 @@ class _KelolaPenggunaPageState extends State<KelolaPenggunaPage> {
       final response = await http.put(
         Uri.parse("$baseUrl/$id"),
         headers: {
-          "Content-Type": "application/json", // WAJIB ADA agar Express bisa baca req.body
+          "Content-Type":
+              "application/json", // WAJIB ADA agar Express bisa baca req.body
         },
         body: jsonEncode(bodyData), // Encode ke JSON string
       );
@@ -246,7 +247,7 @@ class _KelolaPenggunaPageState extends State<KelolaPenggunaPage> {
                     value: "penumpang",
                     child: Text("Penumpang"),
                   ),
-                  DropdownMenuItem(value: "keluarga", child: Text("Keluarga")),
+                  DropdownMenuItem(value: "driver", child: Text("Driver")),
                 ],
                 onChanged: (val) => role = val!,
                 decoration: const InputDecoration(labelText: "Role"),
@@ -315,7 +316,7 @@ class _KelolaPenggunaPageState extends State<KelolaPenggunaPage> {
                     value: "penumpang",
                     child: Text("Penumpang"),
                   ),
-                  DropdownMenuItem(value: "keluarga", child: Text("Keluarga")),
+                  DropdownMenuItem(value: "driver", child: Text("Driver")),
                 ],
                 onChanged: (val) => role = val!,
                 decoration: const InputDecoration(labelText: "Role"),

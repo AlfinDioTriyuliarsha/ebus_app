@@ -49166,7 +49166,7 @@ case"agen":s=new A.Oe(r.d,q)
 break
 case"penumpang":s=new A.TW(r.d,q)
 break
-case"keluarga":s=new A.Sr(r.d,q)
+case"driver":s=new A.Sr(r.d,q)
 break
 default:s=A.he(A.lp(q,q,B.a27),q,A.e3(A.av("\u26a0\ufe0f Role tidak dikenali: "+p,q,q,q,q,q,q,q),q,q),q,q)}return s}}
 A.rQ.prototype={
@@ -49230,7 +49230,7 @@ $0(){return this.a.r=!1},
 $S:0}
 A.Sr.prototype={
 G(a){var s=null
-return A.he(A.lp(s,s,B.a2g),s,A.e3(A.av("Selamat datang Keluarga\n"+this.c,s,s,s,B.nx,B.bB,s,s),s,s),s,s)}}
+return A.he(A.lp(s,s,B.a2g),s,A.e3(A.av("Selamat datang Driver\n"+this.c,s,s,s,B.nx,B.bB,s,s),s,s),s,s)}}
 A.tl.prototype={
 a1(){var s=$.af(),r=new A.Ry("1020065400092-kt41fl3pb6950jfmbbf7cuvqr9hb29s6.apps.googleusercontent.com",A.k3(!1,t.z1))
 r.AG()
@@ -110020,8 +110020,8 @@ B.a1k=new A.aL("Agen",null,null,null,null,null,null,null,null,null)
 B.J9=new A.cJ("agen",B.a1k,B.bi,null,t.b7)
 B.a1t=new A.aL("Penumpang",null,null,null,null,null,null,null,null,null)
 B.Jb=new A.cJ("penumpang",B.a1t,B.bi,null,t.b7)
-B.a1F=new A.aL("Keluarga",null,null,null,null,null,null,null,null,null)
-B.J4=new A.cJ("keluarga",B.a1F,B.bi,null,t.b7)
+B.a1F=new A.aL("Driver",null,null,null,null,null,null,null,null,null)
+B.J4=new A.cJ("driver",B.a1F,B.bi,null,t.b7)
 B.qS=s([B.J6,B.Ja,B.J9,B.Jb,B.J4],t.FG)
 B.Gd=new A.rd(0,"auto")
 B.Ge=new A.rd(1,"full")
@@ -112054,7 +112054,7 @@ B.a__=new A.p(!0,B.ci,null,null,null,null,null,B.av,null,null,null,null,null,nul
 B.a2b=new A.aL("BELUM PUNYA AKUN? DAFTAR DISINI",null,B.a__,null,null,null,null,null,null,null)
 B.CH=new A.aL("Tambah Mesin",null,null,null,null,null,null,null,null,null)
 B.a2f=new A.aL("Hapus",null,B.hg,null,null,null,null,null,null,null)
-B.a2g=new A.aL("Keluarga Dashboard",null,null,null,null,null,null,null,null,null)
+B.a2g=new A.aL("Driver Dashboard",null,null,null,null,null,null,null,null,null)
 B.a2j=new A.aL("Bus",null,null,null,null,null,null,null,null,null)
 B.a2l=new A.aL("Hapus Agent?",null,null,null,null,null,null,null,null,null)
 B.a2m=new A.aL("Lupa Password",null,null,null,null,null,null,null,null,null)

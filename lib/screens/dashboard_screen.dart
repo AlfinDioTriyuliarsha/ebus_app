@@ -6,7 +6,7 @@ import 'package:ebus_app/screens/super_admin_dashboard.dart';
 import 'package:ebus_app/screens/admin_perusahaan_dashboard.dart';
 import 'package:ebus_app/screens/agen_dashboard.dart';
 import 'package:ebus_app/screens/penumpang_dashboard.dart';
-import 'package:ebus_app/screens/keluarga_dashboard.dart';
+import 'package:ebus_app/screens/driverdashboard.dart';
 
 class DashboardScreen extends StatelessWidget {
   final String role;
@@ -76,8 +76,8 @@ class DashboardScreen extends StatelessWidget {
           // userId: userId,
         );
         break;
-      case "keluarga":
-        dashboard = KeluargaDashboard(
+      case "driver":
+        dashboard = DriverDashboard(
           email: email,
           // userId: userId,
         );

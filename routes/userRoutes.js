@@ -83,7 +83,7 @@ router.post("/login", async (req, res) => {
     if (deviceType === "mobile" && (role === "super_admin" || role === "admin_perusahaan")) {
       return res.status(403).json({ success: false, message: "Role ini hanya untuk Web" });
     }
-    if (deviceType === "web" && (role === "agen" || role === "penumpang" || role === "keluarga")) {
+    if (deviceType === "web" && (role === "agen" || role === "penumpang" || role === "driver")) {
       return res.status(403).json({ success: false, message: "Role ini hanya untuk Mobile" });
     }
 
