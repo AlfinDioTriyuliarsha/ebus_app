@@ -12,7 +12,7 @@ const pool = new Pool({
 });
 
 // =======================
-// API KEY (WAJIB ADA DI ENV)
+// API KEY
 // =======================
 const ORS_API_KEY = process.env.ORS_API_KEY;
 
@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
             [company_id]
         );
 
-        res.status(200).json({
+        res.json({
             success: true,
             data: result.rows
         });
@@ -88,21 +88,21 @@ router.post("/", async (req, res) => {
 
 
 // =======================
-// AUTO ROUTE (REAL ROAD)
+// AUTO ROUTE (FIXED)
 // =======================
 router.post("/auto-route", async (req, res) => {
     try {
-        const { nama_rute, start, end } = req.body;
+        const { company_id, nama_rute, start, end } = req.body;
 
-        if (!start || !end) {
+        if (!company_id || !start || !end) {
             return res.status(400).json({
                 success: false,
-                error: "Start dan End wajib diisi"
+                error: "company_id, start, end wajib"
             });
         }
 
-        // 🔥 PANGGIL OPENROUTESERVICE
-        const response = await axios.post(
+        // 🔥 HIT API ORS
+        const ors = await axios.post(
             "https://api.openrouteservice.org/v2/directions/driving-car",
             {
                 coordinates: [
@@ -118,18 +118,24 @@ router.post("/auto-route", async (req, res) => {
             }
         );
 
-        const coords = response.data.features[0].geometry.coordinates;
+        const coords = ors.data.features[0].geometry.coordinates;
 
-        const routePoints = coords.map(c => ({
+        const path = coords.map(c => ({
             lat: c[1],
             lng: c[0]
         }));
 
+        // 🔥 SIMPAN KE DB
         const result = await pool.query(
-            `INSERT INTO routes (nama_rute, path)
-             VALUES ($1, $2)
-             RETURNING *`,
-            [nama_rute, JSON.stringify(routePoints)]
+            `INSERT INTO routes 
+            (company_id, nama_rute, path) 
+            VALUES ($1, $2, $3)
+            RETURNING *`,
+            [
+                company_id,
+                nama_rute || "Auto Route",
+                JSON.stringify(path)
+            ]
         );
 
         res.json({
@@ -139,16 +145,17 @@ router.post("/auto-route", async (req, res) => {
 
     } catch (err) {
         console.error("AUTO ROUTE ERROR:", err.response?.data || err.message);
+
         res.status(500).json({
             success: false,
-            error: err.message
+            error: err.response?.data || err.message
         });
     }
 });
 
 
 // =======================
-// DIRECTION (REAL GOOGLE MAP STYLE)
+// OSRM DIRECTION
 // =======================
 router.get("/direction", async (req, res) => {
     try {
@@ -158,10 +165,8 @@ router.get("/direction", async (req, res) => {
             + `${start_lng},${start_lat};${end_lng},${end_lat}`
             + `?overview=full&geometries=geojson`;
 
-        const response = await fetch(url);
-        const data = await response.json();
-
-        const route = data.routes[0];
+        const response = await axios.get(url);
+        const route = response.data.routes[0];
 
         const points = route.geometry.coordinates.map(c => ({
             lat: c[1],
@@ -176,12 +181,13 @@ router.get("/direction", async (req, res) => {
         });
 
     } catch (err) {
+        console.error("OSRM ERROR:", err.message);
+
         res.status(500).json({
             success: false,
             error: err.message
         });
     }
 });
-
 
 module.exports = router;

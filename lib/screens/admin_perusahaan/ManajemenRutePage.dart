@@ -66,6 +66,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     });
   }
 
+  // ignore: unused_element
   Future<void> _fetchCities(int id) async {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
@@ -74,6 +75,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     cities = jsonDecode(res.body);
   }
 
+  // ignore: unused_element
   Future<void> _fetchTerminals(int id) async {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
@@ -82,6 +84,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     terminals = jsonDecode(res.body);
   }
 
+  // ignore: unused_element
   Future<void> _fetchCheckpoints(int id) async {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
@@ -91,26 +94,39 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
   }
 
   // ================= STORE AUTO =================
+  // ignore: unused_element
   Future<void> _storeAutoRoute() async {
     if (startTerminal == null || endCheckpoint == null) return;
 
-    final path = [
-      {"lat": startTerminal!['latitude'], "lng": startTerminal!['longitude']},
-      {"lat": endCheckpoint!['latitude'], "lng": endCheckpoint!['longitude']},
-    ];
+    try {
+      final res = await http.post(
+        Uri.parse("${ApiService.baseUrl}/api/routes/auto-route"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "company_id": widget.companyId,
+          "nama_rute":
+              "${startTerminal!['name']} - ${endCheckpoint!['name']}",
+          "start": {
+            "lat": startTerminal!['latitude'],
+            "lng": startTerminal!['longitude']
+          },
+          "end": {
+            "lat": endCheckpoint!['latitude'],
+            "lng": endCheckpoint!['longitude']
+          }
+        }),
+      );
 
-    await http.post(
-      Uri.parse("${ApiService.baseUrl}/api/routes"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "company_id": widget.companyId,
-        "nama_rute": "${startTerminal!['name']} - ${endCheckpoint!['name']}",
-        "path": path,
-      }),
-    );
+      print(res.body);
 
-    if (mounted) Navigator.pop(context);
-    _fetchRoutes();
+      if (res.statusCode == 200) {
+        // ignore: use_build_context_synchronously
+        Navigator.pop(context);
+        _fetchRoutes();
+      }
+    } catch (e) {
+      print("AUTO ROUTE ERROR: $e");
+    }
   }
 
   // ================= STORE MANUAL =================
@@ -207,17 +223,62 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
   void _showAutoDialog() {
     showDialog(
       context: context,
-      builder: (_) {
+      builder: (context) {
+        // ignore: no_leading_underscores_for_local_identifiers
+        int? _provinceId = provinceId;
+        // ignore: no_leading_underscores_for_local_identifiers
+        int? _cityId = cityId;
+        // ignore: no_leading_underscores_for_local_identifiers
+        Map? _startTerminal;
+        // ignore: no_leading_underscores_for_local_identifiers
+        Map? _endCheckpoint;
+
+        // ignore: no_leading_underscores_for_local_identifiers
+        List _cities = [];
+        // ignore: no_leading_underscores_for_local_identifiers
+        List _terminals = [];
+        // ignore: no_leading_underscores_for_local_identifiers
+        List _checkpoints = [];
+
         return StatefulBuilder(
           builder: (context, setStateDialog) {
+            Future<void> fetchCities(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
+              );
+              setStateDialog(() {
+                _cities = jsonDecode(res.body);
+              });
+            }
+
+            Future<void> fetchTerminals(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
+              );
+              setStateDialog(() {
+                _terminals = jsonDecode(res.body);
+              });
+            }
+
+            Future<void> fetchCheckpoints(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
+              );
+              setStateDialog(() {
+                _checkpoints = jsonDecode(res.body);
+              });
+            }
+
             return AlertDialog(
               title: const Text("Auto Route"),
               content: SingleChildScrollView(
                 child: Column(
                   children: [
+
+                    // ================= PROVINSI =================
                     DropdownButtonFormField<int>(
-                      value: provinceId,
-                      hint: const Text("Provinsi"),
+                      value: _provinceId,
+                      hint: const Text("Pilih Provinsi"),
                       items: provinces.map<DropdownMenuItem<int>>((p) {
                         return DropdownMenuItem(
                           value: p['id'],
@@ -226,91 +287,106 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       }).toList(),
                       onChanged: (val) async {
                         setStateDialog(() {
-                          provinceId = val;
-                          cityId = null;
-                          cities = [];
-                          terminals = [];
-                          checkpoints = [];
+                          _provinceId = val;
+                          _cityId = null;
+                          _cities = [];
                         });
-
-                        await _fetchCities(val!);
-                        setStateDialog(() {});
+                        await fetchCities(val!);
                       },
                     ),
 
                     const SizedBox(height: 10),
 
+                    // ================= KOTA =================
                     DropdownButtonFormField<int>(
-                      value: cityId,
-                      hint: const Text("Kota"),
-                      items: cities.map<DropdownMenuItem<int>>((c) {
+                      value: _cityId,
+                      hint: const Text("Pilih Kota"),
+                      items: _cities.map<DropdownMenuItem<int>>((c) {
                         return DropdownMenuItem(
                           value: c['id'],
                           child: Text(c['name']),
                         );
                       }).toList(),
-                      onChanged: cities.isEmpty
-                          ? null
-                          : (val) async {
-                              setStateDialog(() {
-                                cityId = val;
-                                terminals = [];
-                                checkpoints = [];
-                                startTerminal = null;
-                                endCheckpoint = null;
-                              });
+                      onChanged: (val) async {
+                        setStateDialog(() {
+                          _cityId = val;
+                        });
 
-                              await _fetchTerminals(val!);
-                              await _fetchCheckpoints(val);
-
-                              setStateDialog(() {});
-                            },
+                        await fetchTerminals(val!);
+                        await fetchCheckpoints(val);
+                      },
                     ),
 
                     const SizedBox(height: 10),
 
+                    // ================= TERMINAL =================
                     DropdownButtonFormField<Map>(
-                      value: startTerminal,
-                      hint: const Text("Terminal"),
-                      items: terminals.map<DropdownMenuItem<Map>>((t) {
+                      hint: const Text("Terminal Awal"),
+                      items: _terminals.map<DropdownMenuItem<Map>>((t) {
                         return DropdownMenuItem(
                           value: t,
                           child: Text(t['name']),
                         );
                       }).toList(),
-                      onChanged: terminals.isEmpty
-                          ? null
-                          : (val) {
-                              setStateDialog(() => startTerminal = val);
-                            },
+                      onChanged: (val) {
+                        setStateDialog(() => _startTerminal = val);
+                      },
                     ),
 
                     const SizedBox(height: 10),
 
+                    // ================= CHECKPOINT =================
                     DropdownButtonFormField<Map>(
-                      value: endCheckpoint,
-                      hint: const Text("Checkpoint"),
-                      items: checkpoints.map<DropdownMenuItem<Map>>((c) {
+                      hint: const Text("Checkpoint Tujuan"),
+                      items: _checkpoints.map<DropdownMenuItem<Map>>((c) {
                         return DropdownMenuItem(
                           value: c,
                           child: Text(c['name']),
                         );
                       }).toList(),
-                      onChanged: checkpoints.isEmpty
-                          ? null
-                          : (val) {
-                              setStateDialog(() => endCheckpoint = val);
-                            },
+                      onChanged: (val) {
+                        setStateDialog(() => _endCheckpoint = val);
+                      },
                     ),
 
                     const SizedBox(height: 20),
 
                     ElevatedButton(
-                      onPressed:
-                          (startTerminal == null || endCheckpoint == null)
-                          ? null
-                          : _storeAutoRoute,
-                      child: const Text("Simpan"),
+                      onPressed: () async {
+                        if (_startTerminal == null || _endCheckpoint == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Lengkapi semua pilihan")),
+                          );
+                          return;
+                        }
+
+                        final path = [
+                          {
+                            "lat": _startTerminal!['latitude'],
+                            "lng": _startTerminal!['longitude']
+                          },
+                          {
+                            "lat": _endCheckpoint!['latitude'],
+                            "lng": _endCheckpoint!['longitude']
+                          },
+                        ];
+
+                        await http.post(
+                          Uri.parse("${ApiService.baseUrl}/api/routes"),
+                          headers: {"Content-Type": "application/json"},
+                          body: jsonEncode({
+                            "company_id": widget.companyId,
+                            "nama_rute":
+                                "${_startTerminal!['name']} - ${_endCheckpoint!['name']}",
+                            "path": path,
+                          }),
+                        );
+
+                        // ignore: use_build_context_synchronously
+                        Navigator.pop(context);
+                        _fetchRoutes();
+                      },
+                      child: const Text("Simpan Route"),
                     ),
                   ],
                 ),
