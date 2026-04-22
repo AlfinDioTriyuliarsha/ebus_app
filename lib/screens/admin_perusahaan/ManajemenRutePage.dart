@@ -60,7 +60,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/provinces"),
     );
-    provinces = jsonDecode(res.body);
+
+    setState(() {
+      provinces = jsonDecode(res.body);
+    });
   }
 
   Future<void> _fetchCities(int id) async {
@@ -214,61 +217,105 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
   void _showAutoDialog() {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Auto Route"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButton(
-              hint: const Text("Provinsi"),
-              value: provinceId,
-              items: provinces.map<DropdownMenuItem>((p) {
-                return DropdownMenuItem(value: p['id'], child: Text(p['name']));
-              }).toList(),
-              onChanged: (val) {
-                setState(() => provinceId = val);
-                _fetchCities(val);
-              },
-            ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Auto Route"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
 
-            DropdownButton(
-              hint: const Text("Kota"),
-              value: cityId,
-              items: cities.map<DropdownMenuItem>((c) {
-                return DropdownMenuItem(value: c['id'], child: Text(c['name']));
-              }).toList(),
-              onChanged: (val) {
-                setState(() => cityId = val);
-                _fetchTerminals(val);
-                _fetchCheckpoints(val);
-              },
-            ),
+                    // ================= PROVINSI =================
+                    DropdownButtonFormField<int>(
+                      value: provinceId,
+                      hint: const Text("Pilih Provinsi"),
+                      items: provinces.map<DropdownMenuItem<int>>((p) {
+                        return DropdownMenuItem(
+                          value: p['id'],
+                          child: Text(p['name']),
+                        );
+                      }).toList(),
+                      onChanged: (val) async {
+                        setStateDialog(() {
+                          provinceId = val;
+                          cityId = null;
+                          cities = [];
+                        });
+                        await _fetchCities(val!);
+                      },
+                    ),
 
-            DropdownButton(
-              hint: const Text("Terminal"),
-              items: terminals.map<DropdownMenuItem>((t) {
-                return DropdownMenuItem(value: t, child: Text(t['name']));
-              }).toList(),
-              onChanged: (val) => setState(() => startTerminal = val),
-            ),
+                    const SizedBox(height: 10),
 
-            DropdownButton(
-              hint: const Text("Checkpoint"),
-              items: checkpoints.map<DropdownMenuItem>((c) {
-                return DropdownMenuItem(value: c, child: Text(c['name']));
-              }).toList(),
-              onChanged: (val) => setState(() => endCheckpoint = val),
-            ),
+                    // ================= KOTA =================
+                    DropdownButtonFormField<int>(
+                      value: cityId,
+                      hint: const Text("Pilih Kota"),
+                      items: cities.map<DropdownMenuItem<int>>((c) {
+                        return DropdownMenuItem(
+                          value: c['id'],
+                          child: Text(c['name']),
+                        );
+                      }).toList(),
+                      onChanged: (val) async {
+                        setStateDialog(() {
+                          cityId = val;
+                        });
 
-            const SizedBox(height: 10),
+                        await _fetchTerminals(val!);
+                        await _fetchCheckpoints(val);
+                      },
+                    ),
 
-            ElevatedButton(
-              onPressed: _storeAutoRoute,
-              child: const Text("Simpan"),
-            ),
-          ],
-        ),
-      ),
+                    const SizedBox(height: 10),
+
+                    // ================= TERMINAL =================
+                    DropdownButtonFormField<Map>(
+                      hint: const Text("Terminal Awal"),
+                      items: terminals.map<DropdownMenuItem<Map>>((t) {
+                        return DropdownMenuItem(
+                          value: t,
+                          child: Text(t['name']),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setStateDialog(() => startTerminal = val);
+                      },
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ================= CHECKPOINT =================
+                    DropdownButtonFormField<Map>(
+                      hint: const Text("Checkpoint Tujuan"),
+                      items: checkpoints.map<DropdownMenuItem<Map>>((c) {
+                        return DropdownMenuItem(
+                          value: c,
+                          child: Text(c['name']),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setStateDialog(() => endCheckpoint = val);
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    ElevatedButton(
+                      onPressed: () {
+                        _storeAutoRoute();
+                      },
+                      child: const Text("Simpan Route"),
+                    )
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
