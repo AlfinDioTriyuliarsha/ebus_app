@@ -277,4 +277,33 @@ router.put("/update-location/:id", async (req, res) => {
     }
 });
 
+// =======================
+// GET BUS BY DRIVER
+// =======================
+router.get("/driver/:driver_id", async (req, res) => {
+  const { driver_id } = req.params;
+
+  try {
+    const result = await pool.query(
+      "SELECT id as bus_id FROM buses WHERE driver_id = $1",
+      [driver_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({
+        success: false,
+        message: "Driver belum punya bus"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

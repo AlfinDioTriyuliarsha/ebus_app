@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
+import 'package:latlong2/latlong.dart';
 
 class DriverTrackingPage extends StatefulWidget {
   final int busId;
@@ -42,20 +43,13 @@ class _DriverTrackingPageState extends State<DriverTrackingPage> {
     });
 
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      try {
-        Position pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
+      Position pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
 
-        await _sendToServer(pos.latitude, pos.longitude);
+      final snapped = await snapToRoad(LatLng(pos.latitude, pos.longitude));
 
-        setState(() {
-          status =
-              "Lat: ${pos.latitude.toStringAsFixed(5)}, Lng: ${pos.longitude.toStringAsFixed(5)}";
-        });
-      } catch (e) {
-        setState(() => status = "Gagal ambil GPS");
-      }
+      await _sendToServer(snapped.latitude, snapped.longitude);
     });
   }
 
@@ -78,16 +72,27 @@ class _DriverTrackingPageState extends State<DriverTrackingPage> {
     try {
       await http.put(
         Uri.parse(
-            "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}"),
+          "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+        ),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "latitude": lat,
-          "longitude": lng,
-        }),
+        body: jsonEncode({"latitude": lat, "longitude": lng}),
       );
     } catch (e) {
       setState(() => status = "Gagal kirim ke server");
     }
+  }
+
+  Future<LatLng> snapToRoad(LatLng pos) async {
+    final url = Uri.parse(
+      "https://router.project-osrm.org/nearest/v1/driving/${pos.longitude},${pos.latitude}",
+    );
+
+    final res = await http.get(url);
+    final data = jsonDecode(res.body);
+
+    final snapped = data['waypoints'][0]['location'];
+
+    return LatLng(snapped[1], snapped[0]);
   }
 
   @override

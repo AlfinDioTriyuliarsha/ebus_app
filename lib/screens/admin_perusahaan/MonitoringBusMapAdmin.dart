@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 // ignore: library_prefixes
 import 'dart:math' as Math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -24,29 +25,24 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   List<Polyline> _polylines = [];
 
   Timer? _timer;
-
   final MapController _mapController = MapController();
 
   int? selectedBusId;
 
-  List<LatLng> _currentRoute = [];
-  bool _isAnimating = false;
-
   double distance = 0;
   double duration = 0;
+
+  bool _isAnimating = false;
 
   @override
   void initState() {
     super.initState();
+
     _fetchBuses();
 
     _timer = Timer.periodic(
-      const Duration(seconds: 3),
-      (_) {
-        if (selectedBusId == null) {
-          _fetchBuses(); // hanya realtime kalau "semua bus"
-        }
-      },
+      const Duration(seconds: 2),
+      (_) => _fetchBusesRealtime(),
     );
   }
 
@@ -57,26 +53,62 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   }
 
   // =========================
-  // FETCH BUS
+  // FETCH AWAL
   // =========================
   Future<void> _fetchBuses() async {
-    final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}"),
-    );
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
 
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body)['data'];
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
 
-      setState(() {
-        _busData = List<Map<String, dynamic>>.from(data);
-      });
+        setState(() {
+          _busData = List<Map<String, dynamic>>.from(data);
+        });
 
-      _generateRealtimeMarkers();
+        _generateRealtimeMarkers();
+      }
+    } catch (e) {
+      debugPrint("ERROR FETCH BUS: $e");
     }
   }
 
   // =========================
-  // REALTIME MARKER (SEMUA BUS)
+  // FETCH REALTIME (TIAP 2 DETIK)
+  // =========================
+  Future<void> _fetchBusesRealtime() async {
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
+
+        setState(() {
+          _busData = List<Map<String, dynamic>>.from(data);
+        });
+
+        if (selectedBusId == null) {
+          _generateRealtimeMarkers();
+        } else {
+          final bus = _busData.firstWhere((b) => b['id'] == selectedBusId);
+          _drawRoute(bus);
+        }
+      }
+    } catch (e) {
+      debugPrint("ERROR REALTIME: $e");
+    }
+  }
+
+  // =========================
+  // MARKER SEMUA BUS
   // =========================
   void _generateRealtimeMarkers() {
     List<Marker> markers = [];
@@ -95,7 +127,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
           child: Column(
             children: [
               const Icon(Icons.directions_bus, color: Colors.green),
-              Text(bus['plat_nomor'] ?? '', style: const TextStyle(fontSize: 10)),
+              Text(
+                bus['plat_nomor'] ?? '',
+                style: const TextStyle(fontSize: 10),
+              ),
             ],
           ),
         ),
@@ -104,12 +139,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
 
     setState(() {
       _markers = markers;
-      _polylines = []; // kosongin kalau mode realtime
+      _polylines = [];
     });
   }
 
   // =========================
-  // GET ROUTE OSRM
+  // DRAW ROUTE (1 BUS)
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
     double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
@@ -119,8 +154,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
 
     final start = LatLng(lat, lng);
 
-    // contoh tujuan (ambil dari DB nanti)
-    final end = LatLng(-7.9839, 112.6214);
+    final end = LatLng(-7.9839, 112.6214); // contoh tujuan
 
     final url = Uri.parse(
       "https://router.project-osrm.org/route/v1/driving/"
@@ -133,22 +167,13 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
 
     final coords = data['routes'][0]['geometry']['coordinates'];
 
-    List<LatLng> route = coords
-        .map<LatLng>((c) => LatLng(c[1], c[0]))
-        .toList();
+    List<LatLng> route = coords.map<LatLng>((c) => LatLng(c[1], c[0])).toList();
 
     distance = data['routes'][0]['distance'];
     duration = data['routes'][0]['duration'];
 
     setState(() {
-      _currentRoute = route;
-      _polylines = [
-        Polyline(
-          points: route,
-          strokeWidth: 6,
-          color: Colors.red,
-        ),
-      ];
+      _polylines = [Polyline(points: route, strokeWidth: 6, color: Colors.red)];
     });
 
     _mapController.move(start, 14);
@@ -157,7 +182,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   }
 
   // =========================
-  // SMOOTH ANIMATION
+  // ANIMASI BUS
   // =========================
   Future<void> _animateBus(List<LatLng> route) async {
     if (_isAnimating) return;
@@ -167,11 +192,13 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
       final start = route[i];
       final end = route[i + 1];
 
-      const steps = 25;
+      const steps = 20;
 
       for (int j = 0; j <= steps; j++) {
-        final lat = start.latitude + (end.latitude - start.latitude) * (j / steps);
-        final lng = start.longitude + (end.longitude - start.longitude) * (j / steps);
+        final lat =
+            start.latitude + (end.latitude - start.latitude) * (j / steps);
+        final lng =
+            start.longitude + (end.longitude - start.longitude) * (j / steps);
 
         final angle = _bearing(start, end);
 
@@ -185,8 +212,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                 angle: angle,
                 child: const Icon(
                   Icons.directions_bus,
-                  color: Colors.green,
                   size: 40,
+                  color: Colors.green,
                 ),
               ),
             ),
@@ -200,6 +227,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     _isAnimating = false;
   }
 
+  // =========================
+  // HITUNG ARAH
+  // =========================
   double _bearing(LatLng start, LatLng end) {
     final lat1 = start.latitude * Math.pi / 180;
     final lon1 = start.longitude * Math.pi / 180;
@@ -261,10 +291,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                     hint: const Text("Pilih Bus"),
                     items: [
                       const DropdownMenuItem(value: null, child: Text("Semua")),
-                      ..._busData.map((b) => DropdownMenuItem(
-                            value: b['id'],
-                            child: Text(b['plat_nomor']),
-                          ))
+                      ..._busData.map(
+                        (b) => DropdownMenuItem(
+                          value: b['id'],
+                          child: Text(b['plat_nomor']),
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       setState(() {
@@ -272,10 +304,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                       });
 
                       if (val == null) {
-                        _fetchBuses();
+                        _generateRealtimeMarkers();
                       } else {
-                        final bus =
-                            _busData.firstWhere((b) => b['id'] == val);
+                        final bus = _busData.firstWhere((b) => b['id'] == val);
                         _drawRoute(bus);
                       }
                     },
@@ -285,7 +316,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
     );
