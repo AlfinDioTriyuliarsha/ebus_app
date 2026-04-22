@@ -66,16 +66,10 @@ router.post("/", async (req, res) => {
     try {
         const result = await pool.query(
             `INSERT INTO routes 
-            (company_id, nama_rute, titik_awal, titik_tujuan, path) 
+            (company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi) 
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *`,
-            [
-                company_id,
-                nama_rute || "Auto Route",
-                `${start.lat},${start.lng}`,   // ✅ FIX
-                `${end.lat},${end.lng}`,       // ✅ FIX
-                JSON.stringify(path)
-            ]
+            [company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi]
         );
 
         res.status(201).json({
@@ -171,12 +165,14 @@ router.post("/auto-route", async (req, res) => {
         // ================= SIMPAN =================
         const result = await pool.query(
             `INSERT INTO routes 
-            (company_id, nama_rute, path) 
-            VALUES ($1, $2, $3)
+            (company_id, nama_rute, titik_awal, titik_tujuan, path) 
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING *`,
             [
                 company_id,
                 nama_rute || "Auto Route",
+                JSON.stringify(start),   // ✅ isi titik_awal
+                JSON.stringify(end),     // ✅ isi titik_tujuan
                 JSON.stringify(path)
             ]
         );
