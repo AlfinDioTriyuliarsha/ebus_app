@@ -15,16 +15,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
   List<Map<String, dynamic>> _routes = [];
   bool _isLoading = true;
 
-  // AUTO ROUTE DATA
   List provinces = [];
-  List cities = [];
-  List terminals = [];
-  List checkpoints = [];
-
-  int? provinceId;
-  int? cityId;
-  Map? startTerminal;
-  Map? endCheckpoint;
 
   @override
   void initState() {
@@ -55,7 +46,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     }
   }
 
-  // ================= FETCH LOCATION =================
+  // ================= FETCH PROVINCES =================
   Future<void> _fetchProvinces() async {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/provinces"),
@@ -66,79 +57,13 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     });
   }
 
-  // ignore: unused_element
-  Future<void> _fetchCities(int id) async {
-    final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
-    );
-
-    cities = jsonDecode(res.body);
-  }
-
-  // ignore: unused_element
-  Future<void> _fetchTerminals(int id) async {
-    final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
-    );
-
-    terminals = jsonDecode(res.body);
-  }
-
-  // ignore: unused_element
-  Future<void> _fetchCheckpoints(int id) async {
-    final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
-    );
-
-    checkpoints = jsonDecode(res.body);
-  }
-
-  // ================= STORE AUTO =================
-  // ignore: unused_element
-  Future<void> _storeAutoRoute() async {
-    if (startTerminal == null || endCheckpoint == null) return;
-
-    try {
-      final res = await http.post(
-        Uri.parse("${ApiService.baseUrl}/api/routes/auto-route"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "company_id": widget.companyId,
-          "nama_rute":
-              "${startTerminal!['name']} - ${endCheckpoint!['name']}",
-          "start": {
-            "lat": startTerminal!['latitude'],
-            "lng": startTerminal!['longitude']
-          },
-          "end": {
-            "lat": endCheckpoint!['latitude'],
-            "lng": endCheckpoint!['longitude']
-          }
-        }),
-      );
-
-      print(res.body);
-
-      if (res.statusCode == 200) {
-        // ignore: use_build_context_synchronously
-        Navigator.pop(context);
-        _fetchRoutes();
-      }
-    } catch (e) {
-      print("AUTO ROUTE ERROR: $e");
-    }
-  }
-
   // ================= STORE MANUAL =================
   Future<void> _storeManualRoute(
-    String nama,
-    String asal,
-    String tujuan,
-  ) async {
+      String nama, String asal, String tujuan) async {
     if (nama.isEmpty || asal.isEmpty || tujuan.isEmpty) return;
 
-    await http.post(
-      Uri.parse("${ApiService.baseUrl}/api/routes"),
+    final res = await http.post(
+      Uri.parse("${ApiService.baseUrl}/api/routes"), // ✅ FIX
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "company_id": widget.companyId,
@@ -148,11 +73,42 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
       }),
     );
 
+    print("STATUS: ${res.statusCode}");
+    print("BODY: ${res.body}");
+
     if (mounted) Navigator.pop(context);
     _fetchRoutes();
   }
 
-  // ================= PILIH MODE =================
+  // ================= STORE AUTO =================
+  Future<void> _storeAutoRoute(
+      Map startTerminal, Map endCheckpoint) async {
+    final res = await http.post(
+      Uri.parse("${ApiService.baseUrl}/api/routes/auto-route"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "company_id": widget.companyId,
+        "nama_rute":
+            "${startTerminal['name']} - ${endCheckpoint['name']}",
+        "start": {
+          "lat": startTerminal['latitude'],
+          "lng": startTerminal['longitude']
+        },
+        "end": {
+          "lat": endCheckpoint['latitude'],
+          "lng": endCheckpoint['longitude']
+        }
+      }),
+    );
+
+    print("AUTO STATUS: ${res.statusCode}");
+    print("AUTO BODY: ${res.body}");
+
+    if (mounted) Navigator.pop(context);
+    _fetchRoutes();
+  }
+
+  // ================= DIALOG PILIH MODE =================
   void _showAddDialog() {
     showDialog(
       context: context,
@@ -224,10 +180,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     showDialog(
       context: context,
       builder: (context) {
-        // ignore: no_leading_underscores_for_local_identifiers
-        int? _provinceId = provinceId;
-        // ignore: no_leading_underscores_for_local_identifiers
-        int? _cityId = cityId;
+        // ignore: unused_local_variable, no_leading_underscores_for_local_identifiers
+        int? _provinceId;
+        // ignore: unused_local_variable, no_leading_underscores_for_local_identifiers
+        int? _cityId;
         // ignore: no_leading_underscores_for_local_identifiers
         Map? _startTerminal;
         // ignore: no_leading_underscores_for_local_identifiers
@@ -274,10 +230,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               content: SingleChildScrollView(
                 child: Column(
                   children: [
-
-                    // ================= PROVINSI =================
                     DropdownButtonFormField<int>(
-                      value: _provinceId,
                       hint: const Text("Pilih Provinsi"),
                       items: provinces.map<DropdownMenuItem<int>>((p) {
                         return DropdownMenuItem(
@@ -288,7 +241,6 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       onChanged: (val) async {
                         setStateDialog(() {
                           _provinceId = val;
-                          _cityId = null;
                           _cities = [];
                         });
                         await fetchCities(val!);
@@ -297,9 +249,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                     const SizedBox(height: 10),
 
-                    // ================= KOTA =================
                     DropdownButtonFormField<int>(
-                      value: _cityId,
                       hint: const Text("Pilih Kota"),
                       items: _cities.map<DropdownMenuItem<int>>((c) {
                         return DropdownMenuItem(
@@ -308,10 +258,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                         );
                       }).toList(),
                       onChanged: (val) async {
-                        setStateDialog(() {
-                          _cityId = val;
-                        });
-
+                        setStateDialog(() => _cityId = val);
                         await fetchTerminals(val!);
                         await fetchCheckpoints(val);
                       },
@@ -319,7 +266,6 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                     const SizedBox(height: 10),
 
-                    // ================= TERMINAL =================
                     DropdownButtonFormField<Map>(
                       hint: const Text("Terminal Awal"),
                       items: _terminals.map<DropdownMenuItem<Map>>((t) {
@@ -328,14 +274,12 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           child: Text(t['name']),
                         );
                       }).toList(),
-                      onChanged: (val) {
-                        setStateDialog(() => _startTerminal = val);
-                      },
+                      onChanged: (val) =>
+                          setStateDialog(() => _startTerminal = val),
                     ),
 
                     const SizedBox(height: 10),
 
-                    // ================= CHECKPOINT =================
                     DropdownButtonFormField<Map>(
                       hint: const Text("Checkpoint Tujuan"),
                       items: _checkpoints.map<DropdownMenuItem<Map>>((c) {
@@ -344,9 +288,8 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           child: Text(c['name']),
                         );
                       }).toList(),
-                      onChanged: (val) {
-                        setStateDialog(() => _endCheckpoint = val);
-                      },
+                      onChanged: (val) =>
+                          setStateDialog(() => _endCheckpoint = val),
                     ),
 
                     const SizedBox(height: 20),
@@ -360,31 +303,8 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           return;
                         }
 
-                        final path = [
-                          {
-                            "lat": _startTerminal!['latitude'],
-                            "lng": _startTerminal!['longitude']
-                          },
-                          {
-                            "lat": _endCheckpoint!['latitude'],
-                            "lng": _endCheckpoint!['longitude']
-                          },
-                        ];
-
-                        await http.post(
-                          Uri.parse("${ApiService.baseUrl}/api/routes"),
-                          headers: {"Content-Type": "application/json"},
-                          body: jsonEncode({
-                            "company_id": widget.companyId,
-                            "nama_rute":
-                                "${_startTerminal!['name']} - ${_endCheckpoint!['name']}",
-                            "path": path,
-                          }),
-                        );
-
-                        // ignore: use_build_context_synchronously
-                        Navigator.pop(context);
-                        _fetchRoutes();
+                        await _storeAutoRoute(
+                            _startTerminal!, _endCheckpoint!);
                       },
                       child: const Text("Simpan Route"),
                     ),
@@ -410,7 +330,8 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Manajemen Rute", style: TextStyle(fontSize: 20)),
+                const Text("Manajemen Rute",
+                    style: TextStyle(fontSize: 20)),
                 ElevatedButton(
                   onPressed: _showAddDialog,
                   child: const Text("Tambah Rute"),
