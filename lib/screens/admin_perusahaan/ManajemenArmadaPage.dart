@@ -181,7 +181,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       _selectedDriverId = bus['driver_id'];
       _selectedStatus = bus['status'];
       _selectedMesinId = bus['mesin_id'];
-      _selectedRouteId = bus['route_id'];
+      _selectedRouteId = int.tryParse(bus['route_id'].toString());
       _selectedScheduleId = bus['schedule_id'];
     } else {
       _noBusController.clear();
@@ -249,15 +249,21 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                 DropdownButtonFormField<int?>(
                   value: _selectedRouteId,
                   items: _routes.map<DropdownMenuItem<int?>>((r) {
+                    final id = int.parse(r['id'].toString());
+
                     return DropdownMenuItem<int?>(
-                      value: r['id'] as int,
+                      value: id,
                       child: Text(
                         "${r['nama_rute']} (${r['titik_awal']} → ${r['titik_tujuan']})",
                       ),
                     );
                   }).toList(),
-                  onChanged: (val) =>
-                      setDialogState(() => _selectedRouteId = val),
+                  onChanged: (val) {
+                    print("ROUTE DIPILIH: $val"); // 🔥 DEBUG DI SINI
+                    setDialogState(() {
+                      _selectedRouteId = val;
+                    });
+                  },
                 ),
 
                 DropdownButtonFormField<int?>(
