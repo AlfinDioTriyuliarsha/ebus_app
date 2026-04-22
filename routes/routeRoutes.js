@@ -129,17 +129,44 @@ router.post("/auto-route", async (req, res) => {
 
         console.log("ORS RESPONSE:", ors.data);
 
-        // ================= VALIDASI =================
+        // ================= VALIDASI ORS =================
         if (
             !ors.data ||
             !ors.data.features ||
             ors.data.features.length === 0
         ) {
-            return res.status(400).json({
-                success: false,
-                error: "Route tidak ditemukan dari ORS"
+            console.log("ORS GAGAL, PAKAI GARIS LURUS");
+
+            const path = [
+                { lat: start.lat, lng: start.lng },
+                { lat: end.lat, lng: end.lng }
+            ];
+
+            const result = await pool.query(
+                `INSERT INTO routes (company_id, nama_rute, path)
+                VALUES ($1, $2, $3)
+                RETURNING *`,
+                [
+                    company_id,
+                    nama_rute || "Fallback Route",
+                    JSON.stringify(path)
+                ]
+            );
+
+            return res.json({
+                success: true,
+                warning: "ORS gagal, pakai garis lurus",
+                data: result.rows[0]
             });
         }
+
+        // ================= NORMAL =================
+        const coords = ors.data.features[0].geometry.coordinates;
+
+        const path = coords.map(c => ({
+            lat: c[1],
+            lng: c[0]
+        }));
 
         const coords = ors.data.features[0].geometry.coordinates;
 
