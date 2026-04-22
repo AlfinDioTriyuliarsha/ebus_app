@@ -88,13 +88,13 @@ router.post("/", async (req, res) => {
 
 
 // =======================
-// AUTO ROUTE (FIXED)
+// AUTO ROUTE (FIX FINAL)
 // =======================
 router.post("/auto-route", async (req, res) => {
     try {
         const { company_id, nama_rute, start, end } = req.body;
 
-        console.log("BODY MASUK:", req.body);
+        console.log("BODY:", req.body);
 
         if (!company_id || !start || !end) {
             return res.status(400).json({
@@ -106,74 +106,61 @@ router.post("/auto-route", async (req, res) => {
         if (!ORS_API_KEY) {
             return res.status(500).json({
                 success: false,
-                error: "ORS API KEY tidak ditemukan di ENV"
+                error: "ORS API KEY tidak ada"
             });
         }
 
-        // ================= CALL ORS =================
-        const ors = await axios.post(
-            "https://api.openrouteservice.org/v2/directions/driving-car",
-            {
-                coordinates: [
-                    [start.lng, start.lat],
-                    [end.lng, end.lat]
-                ]
-            },
-            {
-                headers: {
-                    Authorization: ORS_API_KEY,
-                    "Content-Type": "application/json"
+        let path = [];
+
+        try {
+            const ors = await axios.post(
+                "https://api.openrouteservice.org/v2/directions/driving-car",
+                {
+                    coordinates: [
+                        [start.lng, start.lat],
+                        [end.lng, end.lat]
+                    ]
+                },
+                {
+                    headers: {
+                        Authorization: ORS_API_KEY,
+                        "Content-Type": "application/json"
+                    }
                 }
+            );
+
+            // ✅ VALIDASI RESPONSE ORS
+            if (
+                ors.data &&
+                ors.data.features &&
+                ors.data.features.length > 0
+            ) {
+                console.log("ORS BERHASIL");
+
+                const coords = ors.data.features[0].geometry.coordinates;
+
+                path = coords.map(c => ({
+                    lat: c[1],
+                    lng: c[0]
+                }));
+            } else {
+                console.log("ORS GAGAL → fallback garis lurus");
+
+                path = [
+                    { lat: start.lat, lng: start.lng },
+                    { lat: end.lat, lng: end.lng }
+                ];
             }
-        );
 
-        console.log("ORS RESPONSE:", ors.data);
+        } catch (err) {
+            console.log("ORS ERROR → fallback:", err.response?.data || err.message);
 
-        // ================= VALIDASI ORS =================
-        if (
-            !ors.data ||
-            !ors.data.features ||
-            ors.data.features.length === 0
-        ) {
-            console.log("ORS GAGAL, PAKAI GARIS LURUS");
-
-            const path = [
+            // ✅ fallback kalau ORS gagal
+            path = [
                 { lat: start.lat, lng: start.lng },
                 { lat: end.lat, lng: end.lng }
             ];
-
-            const result = await pool.query(
-                `INSERT INTO routes (company_id, nama_rute, path)
-                VALUES ($1, $2, $3)
-                RETURNING *`,
-                [
-                    company_id,
-                    nama_rute || "Fallback Route",
-                    JSON.stringify(path)
-                ]
-            );
-
-            return res.json({
-                success: true,
-                warning: "ORS gagal, pakai garis lurus",
-                data: result.rows[0]
-            });
         }
-
-        // ================= NORMAL =================
-        const coords = ors.data.features[0].geometry.coordinates;
-
-        const path = coords.map(c => ({
-            lat: c[1],
-            lng: c[0]
-        }));
-
-        const coords = ors.data.features[0].geometry.coordinates;
-
-        const path = coords.map(c => ({
-            lat: c[1],
-            lng: c[0]
-        }));
 
         // ================= SIMPAN =================
         const result = await pool.query(
@@ -194,11 +181,11 @@ router.post("/auto-route", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("AUTO ROUTE ERROR FULL:", err.response?.data || err);
+        console.error("AUTO ROUTE ERROR:", err.message);
 
         res.status(500).json({
             success: false,
-            error: err.response?.data || err.message
+            error: err.message
         });
     }
 });
