@@ -175,24 +175,21 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
   // ================= FORM =================
   void _showForm({Map? bus}) {
-    if (bus != null) {
-      _noBusController.text = bus['nomor_bus'];
-      _platController.text = bus['plat_nomor'];
-      _selectedDriverId = bus['driver_id'];
-      _selectedStatus = bus['status'];
-      _selectedMesinId = bus['mesin_id'];
-      _selectedRouteId = int.tryParse(bus['route_id'].toString());
-      _selectedScheduleId = bus['schedule_id'];
-    } else {
-      _noBusController.clear();
-      _platController.clear();
-      _selectedDriverId = null;
-      _selectedStatus = "Aktif";
-      _selectedRouteId = null;
-      _selectedScheduleId = null;
-      _selectedMesinId = null;
-    }
 
+  if (bus != null) {
+    _noBusController.text = bus['nomor_bus'];
+    _platController.text = bus['plat_nomor'];
+
+    _selectedDriverId ??= bus['driver_id'];
+    _selectedRouteId ??= int.tryParse(bus['route_id'].toString());
+    _selectedScheduleId ??= bus['schedule_id'];
+    _selectedMesinId ??= bus['mesin'];
+
+    _selectedStatus = bus['status'];
+  } else {
+    _selectedRouteId = null;
+  }
+  
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(

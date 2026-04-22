@@ -161,7 +161,8 @@ router.put("/:id", async (req, res) => {
                 mesin = $4,
                 route_id = $5,
                 schedule_id = $6,
-                status = $7
+                status = $7,
+                updated_at = NOW()
             WHERE id = $8
             RETURNING *`,
             [
