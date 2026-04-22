@@ -15,96 +15,192 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
   List<Map<String, dynamic>> _routes = [];
   bool _isLoading = true;
 
+  // AUTO ROUTE DATA
+  List provinces = [];
+  List cities = [];
+  List terminals = [];
+  List checkpoints = [];
+
+  int? provinceId;
+  int? cityId;
+  Map? startTerminal;
+  Map? endCheckpoint;
+
   @override
   void initState() {
     super.initState();
     _fetchRoutes();
+    _fetchProvinces();
   }
 
-  // Fungsi ambil data
+  // ======================
+  // FETCH ROUTES
+  // ======================
   Future<void> _fetchRoutes() async {
     setState(() => _isLoading = true);
-    try {
-      final response = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}"),
-      );
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        setState(() {
-          _routes = List<Map<String, dynamic>>.from(decoded['data'] ?? []);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-    }
+
+    final response = await http.get(
+      Uri.parse(
+        "${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}",
+      ),
+    );
+
+    final decoded = jsonDecode(response.body);
+
+    setState(() {
+      _routes = List<Map<String, dynamic>>.from(decoded['data'] ?? []);
+      _isLoading = false;
+    });
   }
 
-  // Fungsi simpan data ke Node.js
-  Future<void> _storeRoute(String nama, String asal, String tujuan, String jarak) async {
-    // Validasi input di Flutter
-    if (nama.isEmpty || asal.isEmpty || tujuan.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Semua field harus diisi!")),
-      );
-      return;
-    }
-
-    try {
-      final response = await http.post(
-        Uri.parse("${ApiService.baseUrl}/api/routes"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "company_id": widget.companyId,
-          "nama_rute": nama,
-          "titik_awal": asal,
-          "titik_tujuan": tujuan,
-          "jarak_estimasi": jarak,
-        }),
-      );
-
-      print("Response Status: ${response.statusCode}");
-      print("Response Body: ${response.body}");
-
-      if (response.statusCode == 201) {
-        // Pastikan konteks masih ada
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop(); // Pakai rootNavigator untuk menutup Dialog
-          _fetchRoutes(); // Panggil ulang fungsi ambil data supaya list terupdate
-        }
-      }
-    } catch (e) {
-      print("Error simpan: $e");
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
-    }
+  // ======================
+  // AUTO ROUTE FETCH
+  // ======================
+  Future<void> _fetchProvinces() async {
+    final res = await http.get(
+      Uri.parse("${ApiService.baseUrl}/api/location/provinces"),
+    );
+    provinces = jsonDecode(res.body);
   }
 
+  Future<void> _fetchCities(int id) async {
+    final res = await http.get(
+      Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
+    );
+    setState(() => cities = jsonDecode(res.body));
+  }
+
+  Future<void> _fetchTerminals(int id) async {
+    final res = await http.get(
+      Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
+    );
+    setState(() => terminals = jsonDecode(res.body));
+  }
+
+  Future<void> _fetchCheckpoints(int id) async {
+    final res = await http.get(
+      Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
+    );
+    setState(() => checkpoints = jsonDecode(res.body));
+  }
+
+  // ======================
+  // STORE AUTO ROUTE
+  // ======================
+  Future<void> _storeAutoRoute() async {
+    if (startTerminal == null || endCheckpoint == null) return;
+
+    final path = [
+      {"lat": startTerminal!['latitude'], "lng": startTerminal!['longitude']},
+      {"lat": endCheckpoint!['latitude'], "lng": endCheckpoint!['longitude']},
+    ];
+
+    await http.post(
+      Uri.parse("${ApiService.baseUrl}/api/routes"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "company_id": widget.companyId,
+        "nama_rute": "${startTerminal!['name']} - ${endCheckpoint!['name']}",
+        "path": path,
+      }),
+    );
+
+    // ignore: use_build_context_synchronously
+    Navigator.pop(context);
+    _fetchRoutes();
+  }
+
+  // ======================
+  // STORE MANUAL ROUTE
+  // ======================
+  Future<void> _storeManualRoute(
+    String nama,
+    String asal,
+    String tujuan,
+  ) async {
+    await http.post(
+      Uri.parse("${ApiService.baseUrl}/api/routes"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "company_id": widget.companyId,
+        "nama_rute": nama,
+        "titik_awal": asal,
+        "titik_tujuan": tujuan,
+      }),
+    );
+
+    // ignore: use_build_context_synchronously
+    Navigator.pop(context);
+    _fetchRoutes();
+  }
+
+  // ======================
+  // DIALOG PILIH MODE
+  // ======================
   void _showAddDialog() {
-    final namaCtrl = TextEditingController();
-    final asalCtrl = TextEditingController();
-    final tujuanCtrl = TextEditingController();
-    final jarakCtrl = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Tambah Rute Baru"),
+        title: const Text("Pilih Mode Input"),
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showManualDialog();
+              },
+              child: const Text("Manual"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showAutoDialog();
+              },
+              child: const Text("Otomatis"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ======================
+  // DIALOG MANUAL
+  // ======================
+  void _showManualDialog() {
+    final namaCtrl = TextEditingController();
+    final asalCtrl = TextEditingController();
+    final tujuanCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Tambah Manual"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: namaCtrl, decoration: const InputDecoration(labelText: "Nama Rute")),
-            TextField(controller: asalCtrl, decoration: const InputDecoration(labelText: "Titik Awal")),
-            TextField(controller: tujuanCtrl, decoration: const InputDecoration(labelText: "Titik Tujuan")),
-            TextField(controller: jarakCtrl, decoration: const InputDecoration(labelText: "Estimasi Jarak")),
+            TextField(
+              controller: namaCtrl,
+              decoration: const InputDecoration(labelText: "Nama"),
+            ),
+            TextField(
+              controller: asalCtrl,
+              decoration: const InputDecoration(labelText: "Asal"),
+            ),
+            TextField(
+              controller: tujuanCtrl,
+              decoration: const InputDecoration(labelText: "Tujuan"),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
-            onPressed: () => _storeRoute(namaCtrl.text, asalCtrl.text, tujuanCtrl.text, jarakCtrl.text),
+            onPressed: () => _storeManualRoute(
+              namaCtrl.text,
+              asalCtrl.text,
+              tujuanCtrl.text,
+            ),
             child: const Text("Simpan"),
           ),
         ],
@@ -112,24 +208,88 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     );
   }
 
+  // ======================
+  // DIALOG AUTO
+  // ======================
+  void _showAutoDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Auto Route"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButton(
+              hint: const Text("Provinsi"),
+              value: provinceId,
+              items: provinces.map<DropdownMenuItem>((p) {
+                return DropdownMenuItem(value: p['id'], child: Text(p['name']));
+              }).toList(),
+              onChanged: (val) {
+                setState(() => provinceId = val);
+                _fetchCities(val);
+              },
+            ),
+
+            DropdownButton(
+              hint: const Text("Kota"),
+              value: cityId,
+              items: cities.map<DropdownMenuItem>((c) {
+                return DropdownMenuItem(value: c['id'], child: Text(c['name']));
+              }).toList(),
+              onChanged: (val) {
+                setState(() => cityId = val);
+                _fetchTerminals(val);
+                _fetchCheckpoints(val);
+              },
+            ),
+
+            DropdownButton(
+              hint: const Text("Terminal"),
+              items: terminals.map<DropdownMenuItem>((t) {
+                return DropdownMenuItem(value: t, child: Text(t['name']));
+              }).toList(),
+              onChanged: (val) => setState(() => startTerminal = val),
+            ),
+
+            DropdownButton(
+              hint: const Text("Checkpoint"),
+              items: checkpoints.map<DropdownMenuItem>((c) {
+                return DropdownMenuItem(value: c, child: Text(c['name']));
+              }).toList(),
+              onChanged: (val) => setState(() => endCheckpoint = val),
+            ),
+
+            const SizedBox(height: 10),
+
+            ElevatedButton(
+              onPressed: _storeAutoRoute,
+              child: const Text("Simpan"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ======================
+  // UI
+  // ======================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
       body: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             color: Colors.white,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Manajemen Rute", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                ElevatedButton.icon(
+                const Text("Manajemen Rute", style: TextStyle(fontSize: 20)),
+                ElevatedButton(
                   onPressed: _showAddDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Tambah Rute"),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+                  child: const Text("Tambah Rute"),
                 ),
               ],
             ),
@@ -137,22 +297,13 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _routes.isEmpty
-                    ? const Center(child: Text("Data Rute masih kosong."))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _routes.length,
-                        itemBuilder: (context, index) {
-                          final r = _routes[index];
-                          return Card(
-                            child: ListTile(
-                              leading: const Icon(Icons.map, color: Colors.blue),
-                              title: Text(r['nama_rute']),
-                              subtitle: Text("${r['titik_awal']} -> ${r['titik_tujuan']}"),
-                            ),
-                          );
-                        },
-                      ),
+                : ListView.builder(
+                    itemCount: _routes.length,
+                    itemBuilder: (_, i) {
+                      final r = _routes[i];
+                      return ListTile(title: Text(r['nama_rute'] ?? ''));
+                    },
+                  ),
           ),
         ],
       ),
