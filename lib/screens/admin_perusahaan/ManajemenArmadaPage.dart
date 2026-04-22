@@ -134,7 +134,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       "driver_id": _selectedDriverId,
       "nomor_bus": _noBusController.text,
       "plat_nomor": _platController.text,
-      "mesin_id": _selectedMesinId,
+      "mesin": _selectedMesinId,
       "route_id": _selectedRouteId,
       "schedule_id": _selectedScheduleId,
       "status": _selectedStatus,
