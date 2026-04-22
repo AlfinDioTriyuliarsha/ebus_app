@@ -94,6 +94,8 @@ router.post("/auto-route", async (req, res) => {
     try {
         const { company_id, nama_rute, start, end } = req.body;
 
+        console.log("BODY MASUK:", req.body);
+
         if (!company_id || !start || !end) {
             return res.status(400).json({
                 success: false,
@@ -101,7 +103,14 @@ router.post("/auto-route", async (req, res) => {
             });
         }
 
-        // 🔥 HIT API ORS
+        if (!ORS_API_KEY) {
+            return res.status(500).json({
+                success: false,
+                error: "ORS API KEY tidak ditemukan di ENV"
+            });
+        }
+
+        // ================= CALL ORS =================
         const ors = await axios.post(
             "https://api.openrouteservice.org/v2/directions/driving-car",
             {
@@ -118,6 +127,20 @@ router.post("/auto-route", async (req, res) => {
             }
         );
 
+        console.log("ORS RESPONSE:", ors.data);
+
+        // ================= VALIDASI =================
+        if (
+            !ors.data ||
+            !ors.data.features ||
+            ors.data.features.length === 0
+        ) {
+            return res.status(400).json({
+                success: false,
+                error: "Route tidak ditemukan dari ORS"
+            });
+        }
+
         const coords = ors.data.features[0].geometry.coordinates;
 
         const path = coords.map(c => ({
@@ -125,7 +148,7 @@ router.post("/auto-route", async (req, res) => {
             lng: c[0]
         }));
 
-        // 🔥 SIMPAN KE DB
+        // ================= SIMPAN =================
         const result = await pool.query(
             `INSERT INTO routes 
             (company_id, nama_rute, path) 
@@ -144,7 +167,7 @@ router.post("/auto-route", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("AUTO ROUTE ERROR:", err.response?.data || err.message);
+        console.error("AUTO ROUTE ERROR FULL:", err.response?.data || err);
 
         res.status(500).json({
             success: false,
