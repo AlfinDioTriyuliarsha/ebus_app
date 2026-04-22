@@ -33,29 +33,29 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     _fetchProvinces();
   }
 
-  // ======================
-  // FETCH ROUTES
-  // ======================
+  // ================= FETCH ROUTES =================
   Future<void> _fetchRoutes() async {
     setState(() => _isLoading = true);
 
-    final response = await http.get(
-      Uri.parse(
-        "${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}",
-      ),
-    );
+    try {
+      final response = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}",
+        ),
+      );
 
-    final decoded = jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
 
-    setState(() {
-      _routes = List<Map<String, dynamic>>.from(decoded['data'] ?? []);
-      _isLoading = false;
-    });
+      setState(() {
+        _routes = List<Map<String, dynamic>>.from(decoded['data'] ?? []);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
   }
 
-  // ======================
-  // AUTO ROUTE FETCH
-  // ======================
+  // ================= FETCH LOCATION =================
   Future<void> _fetchProvinces() async {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/provinces"),
@@ -70,26 +70,27 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
     );
-    setState(() => cities = jsonDecode(res.body));
+
+    cities = jsonDecode(res.body);
   }
 
   Future<void> _fetchTerminals(int id) async {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
     );
-    setState(() => terminals = jsonDecode(res.body));
+
+    terminals = jsonDecode(res.body);
   }
 
   Future<void> _fetchCheckpoints(int id) async {
     final res = await http.get(
       Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
     );
-    setState(() => checkpoints = jsonDecode(res.body));
+
+    checkpoints = jsonDecode(res.body);
   }
 
-  // ======================
-  // STORE AUTO ROUTE
-  // ======================
+  // ================= STORE AUTO =================
   Future<void> _storeAutoRoute() async {
     if (startTerminal == null || endCheckpoint == null) return;
 
@@ -108,19 +109,18 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
       }),
     );
 
-    // ignore: use_build_context_synchronously
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
     _fetchRoutes();
   }
 
-  // ======================
-  // STORE MANUAL ROUTE
-  // ======================
+  // ================= STORE MANUAL =================
   Future<void> _storeManualRoute(
     String nama,
     String asal,
     String tujuan,
   ) async {
+    if (nama.isEmpty || asal.isEmpty || tujuan.isEmpty) return;
+
     await http.post(
       Uri.parse("${ApiService.baseUrl}/api/routes"),
       headers: {"Content-Type": "application/json"},
@@ -132,19 +132,16 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
       }),
     );
 
-    // ignore: use_build_context_synchronously
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
     _fetchRoutes();
   }
 
-  // ======================
-  // DIALOG PILIH MODE
-  // ======================
+  // ================= PILIH MODE =================
   void _showAddDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Pilih Mode Input"),
+      builder: (_) => AlertDialog(
+        title: const Text("Pilih Mode"),
         content: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
@@ -160,7 +157,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                 Navigator.pop(context);
                 _showAutoDialog();
               },
-              child: const Text("Otomatis"),
+              child: const Text("Auto"),
             ),
           ],
         ),
@@ -168,13 +165,11 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     );
   }
 
-  // ======================
-  // DIALOG MANUAL
-  // ======================
+  // ================= MANUAL =================
   void _showManualDialog() {
-    final namaCtrl = TextEditingController();
-    final asalCtrl = TextEditingController();
-    final tujuanCtrl = TextEditingController();
+    final nama = TextEditingController();
+    final asal = TextEditingController();
+    final tujuan = TextEditingController();
 
     showDialog(
       context: context,
@@ -184,26 +179,23 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: namaCtrl,
-              decoration: const InputDecoration(labelText: "Nama"),
+              controller: nama,
+              decoration: const InputDecoration(labelText: "Nama Rute"),
             ),
             TextField(
-              controller: asalCtrl,
+              controller: asal,
               decoration: const InputDecoration(labelText: "Asal"),
             ),
             TextField(
-              controller: tujuanCtrl,
+              controller: tujuan,
               decoration: const InputDecoration(labelText: "Tujuan"),
             ),
           ],
         ),
         actions: [
           ElevatedButton(
-            onPressed: () => _storeManualRoute(
-              namaCtrl.text,
-              asalCtrl.text,
-              tujuanCtrl.text,
-            ),
+            onPressed: () =>
+                _storeManualRoute(nama.text, asal.text, tujuan.text),
             child: const Text("Simpan"),
           ),
         ],
@@ -211,26 +203,21 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     );
   }
 
-  // ======================
-  // DIALOG AUTO
-  // ======================
+  // ================= AUTO =================
   void _showAutoDialog() {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (_) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
               title: const Text("Auto Route"),
               content: SingleChildScrollView(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-
-                    // ================= PROVINSI =================
                     DropdownButtonFormField<int>(
                       value: provinceId,
-                      hint: const Text("Pilih Provinsi"),
+                      hint: const Text("Provinsi"),
                       items: provinces.map<DropdownMenuItem<int>>((p) {
                         return DropdownMenuItem(
                           value: p['id'],
@@ -242,73 +229,89 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           provinceId = val;
                           cityId = null;
                           cities = [];
+                          terminals = [];
+                          checkpoints = [];
                         });
+
                         await _fetchCities(val!);
+                        setStateDialog(() {});
                       },
                     ),
 
                     const SizedBox(height: 10),
 
-                    // ================= KOTA =================
                     DropdownButtonFormField<int>(
                       value: cityId,
-                      hint: const Text("Pilih Kota"),
+                      hint: const Text("Kota"),
                       items: cities.map<DropdownMenuItem<int>>((c) {
                         return DropdownMenuItem(
                           value: c['id'],
                           child: Text(c['name']),
                         );
                       }).toList(),
-                      onChanged: (val) async {
-                        setStateDialog(() {
-                          cityId = val;
-                        });
+                      onChanged: cities.isEmpty
+                          ? null
+                          : (val) async {
+                              setStateDialog(() {
+                                cityId = val;
+                                terminals = [];
+                                checkpoints = [];
+                                startTerminal = null;
+                                endCheckpoint = null;
+                              });
 
-                        await _fetchTerminals(val!);
-                        await _fetchCheckpoints(val);
-                      },
+                              await _fetchTerminals(val!);
+                              await _fetchCheckpoints(val);
+
+                              setStateDialog(() {});
+                            },
                     ),
 
                     const SizedBox(height: 10),
 
-                    // ================= TERMINAL =================
                     DropdownButtonFormField<Map>(
-                      hint: const Text("Terminal Awal"),
+                      value: startTerminal,
+                      hint: const Text("Terminal"),
                       items: terminals.map<DropdownMenuItem<Map>>((t) {
                         return DropdownMenuItem(
                           value: t,
                           child: Text(t['name']),
                         );
                       }).toList(),
-                      onChanged: (val) {
-                        setStateDialog(() => startTerminal = val);
-                      },
+                      onChanged: terminals.isEmpty
+                          ? null
+                          : (val) {
+                              setStateDialog(() => startTerminal = val);
+                            },
                     ),
 
                     const SizedBox(height: 10),
 
-                    // ================= CHECKPOINT =================
                     DropdownButtonFormField<Map>(
-                      hint: const Text("Checkpoint Tujuan"),
+                      value: endCheckpoint,
+                      hint: const Text("Checkpoint"),
                       items: checkpoints.map<DropdownMenuItem<Map>>((c) {
                         return DropdownMenuItem(
                           value: c,
                           child: Text(c['name']),
                         );
                       }).toList(),
-                      onChanged: (val) {
-                        setStateDialog(() => endCheckpoint = val);
-                      },
+                      onChanged: checkpoints.isEmpty
+                          ? null
+                          : (val) {
+                              setStateDialog(() => endCheckpoint = val);
+                            },
                     ),
 
                     const SizedBox(height: 20),
 
                     ElevatedButton(
-                      onPressed: () {
-                        _storeAutoRoute();
-                      },
-                      child: const Text("Simpan Route"),
-                    )
+                      onPressed:
+                          (startTerminal == null || endCheckpoint == null)
+                          ? null
+                          : _storeAutoRoute,
+                      child: const Text("Simpan"),
+                    ),
                   ],
                 ),
               ),
@@ -319,9 +322,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     );
   }
 
-  // ======================
-  // UI
-  // ======================
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -348,7 +349,12 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                     itemCount: _routes.length,
                     itemBuilder: (_, i) {
                       final r = _routes[i];
-                      return ListTile(title: Text(r['nama_rute'] ?? ''));
+                      return ListTile(
+                        title: Text(r['nama_rute'] ?? ''),
+                        subtitle: Text(
+                          "${r['titik_awal'] ?? ''} → ${r['titik_tujuan'] ?? ''}",
+                        ),
+                      );
                     },
                   ),
           ),
