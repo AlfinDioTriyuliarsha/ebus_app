@@ -66,10 +66,16 @@ router.post("/", async (req, res) => {
     try {
         const result = await pool.query(
             `INSERT INTO routes 
-            (company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi) 
+            (company_id, nama_rute, titik_awal, titik_tujuan, path) 
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *`,
-            [company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi]
+            [
+                company_id,
+                nama_rute || "Auto Route",
+                `${start.lat},${start.lng}`,   // ✅ FIX
+                `${end.lat},${end.lng}`,       // ✅ FIX
+                JSON.stringify(path)
+            ]
         );
 
         res.status(201).json({
