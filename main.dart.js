@@ -48434,7 +48434,7 @@ break}j=a==null
 o=p.a
 n=j?u.y+o.c+"/buses":u.y+o.c+"/buses/"+A.k(a)
 o=t.N
-m=B.v.ev(A.a3(["driver_id",p.as,"nomor_bus",p.z.a.a,"plat_nomor",k.a.a,"mesin_id",p.ay,"route_id",p.at,"schedule_id",p.ax,"status",p.ch],o,t.X),null)
+m=B.v.ev(A.a3(["driver_id",p.as,"nomor_bus",p.z.a.a,"plat_nomor",k.a.a,"mesin",p.ay,"route_id",p.at,"schedule_id",p.ax,"status",p.ch],o,t.X),null)
 s=j?3:5
 break
 case 3:s=6
