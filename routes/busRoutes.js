@@ -172,8 +172,8 @@ router.put("/company/:company_id/buses/:id", async (req, res) => {
             RETURNING *`,
             [
                 driver_id || null,
-                nomor_bus || null,
-                plat_nomor || null,
+                nomor_bus,
+                plat_nomor,
                 mesin_id || null,
                 route_id || null,
                 schedule_id || null,
@@ -181,13 +181,6 @@ router.put("/company/:company_id/buses/:id", async (req, res) => {
                 id
             ]
         );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: "Bus tidak ditemukan"
-            });
-        }
 
         res.json({
             success: true,
@@ -265,7 +258,7 @@ router.post("/simulate", async (req, res) => {
 
 
 // =======================
-// UPDATE GPS REAL-TIME
+// UPDATE GPS (FIX DUPLIKAT)
 // =======================
 router.put("/update-location/:id", async (req, res) => {
     const { id } = req.params;
@@ -281,10 +274,17 @@ router.put("/update-location/:id", async (req, res) => {
     try {
         const result = await pool.query(
             `UPDATE buses 
-             SET latitude = $1, longitude = $2, updated_at = NOW()
-             WHERE id = $3 RETURNING *`,
+             SET latitude=$1, longitude=$2, updated_at=NOW()
+             WHERE id=$3 RETURNING *`,
             [latitude, longitude, id]
         );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Bus tidak ditemukan"
+            });
+        }
 
         res.json({
             success: true,
@@ -305,29 +305,29 @@ router.put("/update-location/:id", async (req, res) => {
 // GET BUS BY DRIVER
 // =======================
 router.get("/driver/:driver_id", async (req, res) => {
-  const { driver_id } = req.params;
+    const { driver_id } = req.params;
 
-  try {
-    const result = await pool.query(
-      "SELECT id as bus_id FROM buses WHERE driver_id = $1",
-      [driver_id]
-    );
+    try {
+        const result = await pool.query(
+            "SELECT id as bus_id FROM buses WHERE driver_id = $1",
+            [driver_id]
+        );
 
-    if (result.rows.length === 0) {
-      return res.json({
-        success: false,
-        message: "Driver belum punya bus"
-      });
+        if (result.rows.length === 0) {
+            return res.json({
+                success: false,
+                message: "Driver belum punya bus"
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-
-    res.json({
-      success: true,
-      data: result.rows[0]
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
 module.exports = router;
