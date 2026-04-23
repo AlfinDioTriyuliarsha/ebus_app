@@ -117,6 +117,11 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
   // ================= SAVE =================
   Future<void> _saveBus({int? busId}) async {
+    if (_platController.text.isEmpty || _noBusController.text.isEmpty) {
+      _showDialog("Error", "Nomor bus & plat wajib diisi!");
+      return;
+    }
+
     if (_isPlatDuplicate(_platController.text, currentId: busId)) {
       _showDialog("Error", "Plat nomor sudah digunakan!");
       return;
@@ -126,42 +131,63 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
         ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
         : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
 
-    final body = jsonEncode({
-      "driver_id": _selectedDriverId,
+    // ✅ FILTER NULL (INI KUNCI UTAMA)
+    Map<String, dynamic> bodyMap = {
       "nomor_bus": _noBusController.text,
       "plat_nomor": _platController.text,
-      "mesin_id": _selectedMesinId, // ✅ FIX (bukan "mesin")
-      "route_id": _selectedRouteId,
-      "schedule_id": _selectedScheduleId,
       "status": _selectedStatus,
-    });
+    };
 
-    print("DATA DIKIRIM: $body"); // 🔥 DEBUG
-    print("Driver ID: $_selectedDriverId");
-    print("Route ID: $_selectedRouteId");
-    print("Schedule ID: $_selectedScheduleId");
-    print("Mesin ID: $_selectedMesinId");
+    if (_selectedDriverId != null) {
+      bodyMap["driver_id"] = _selectedDriverId;
+    }
 
-    final res = busId == null
-        ? await http.post(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: body,
-          )
-        : await http.put(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: body,
-          );
+    if (_selectedRouteId != null) {
+      bodyMap["route_id"] = _selectedRouteId;
+    }
 
-    // ignore: use_build_context_synchronously
-    Navigator.pop(context);
+    if (_selectedScheduleId != null) {
+      bodyMap["schedule_id"] = _selectedScheduleId;
+    }
 
-    if (res.statusCode == 200 || res.statusCode == 201) {
-      _fetchData();
-      _showDialog("Sukses", "Data armada berhasil disimpan");
-    } else {
-      _showDialog("Error", "Gagal menyimpan data");
+    if (_selectedMesinId != null) {
+      bodyMap["mesin_id"] = _selectedMesinId;
+    }
+
+    final body = jsonEncode(bodyMap);
+
+    // 🔥 DEBUG WAJIB
+    print("=================================");
+    print("URL: $url");
+    print("BODY: $body");
+    print("=================================");
+
+    try {
+      final res = busId == null
+          ? await http.post(
+              Uri.parse(url),
+              headers: {"Content-Type": "application/json"},
+              body: body,
+            )
+          : await http.put(
+              Uri.parse(url),
+              headers: {"Content-Type": "application/json"},
+              body: body,
+            );
+
+      print("STATUS CODE: ${res.statusCode}");
+      print("RESPONSE: ${res.body}");
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        if (mounted) Navigator.pop(context);
+        await _fetchData();
+        _showDialog("Sukses", "Data armada berhasil disimpan");
+      } else {
+        _showDialog("Error", "Gagal menyimpan:\n${res.body}");
+      }
+    } catch (e) {
+      print("ERROR: $e");
+      _showDialog("Error", "Terjadi error:\n$e");
     }
   }
 

@@ -8,28 +8,26 @@ const pool = require("../db");
 // =======================
 router.get("/", async (req, res) => {
     try {
-        let { company_id } = req.query;
-
-        const values = [];
+        const { company_id } = req.query;
 
         let query = `
             SELECT 
                 b.*,
-                r.id as route_id,
                 r.nama_rute,
-                r.path as route, -- 🔥 langsung pakai ini
+                r.path,
                 c.company_name,
                 d.driver_name
-
             FROM buses b
             LEFT JOIN routes r ON b.route_id = r.id
             LEFT JOIN companies c ON b.company_id = c.id
             LEFT JOIN drivers d ON b.driver_id = d.id
         `;
 
+        const values = [];
+
         if (company_id) {
-            values.push(parseInt(company_id));
             query += ` WHERE b.company_id = $1`;
+            values.push(company_id);
         }
 
         query += ` ORDER BY b.id ASC`;
@@ -42,11 +40,8 @@ router.get("/", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("ERROR BUS:", err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
+        console.error("GET BUS ERROR:", err);
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
@@ -54,42 +49,57 @@ router.get("/", async (req, res) => {
 // =======================
 // POST BUS
 // =======================
-router.post("/", async (req, res) => {
+router.post("/company/:company_id/buses", async (req, res) => {
+    const { company_id } = req.params;
+
     const {
-        company_id,
         driver_id,
         nomor_bus,
         plat_nomor,
-        mesin,
+        mesin_id,
         route_id,
+        schedule_id,
         status
     } = req.body;
 
     try {
+        console.log("DATA MASUK:", req.body);
+
+        // VALIDASI
+        if (!nomor_bus || !plat_nomor) {
+            return res.status(400).json({
+                success: false,
+                error: "Nomor bus & plat wajib"
+            });
+        }
+
+        // CEK DUPLIKAT
         const check = await pool.query(
-            "SELECT * FROM buses WHERE plat_nomor = $1 AND company_id = $2",
+            "SELECT * FROM buses WHERE plat_nomor=$1 AND company_id=$2",
             [plat_nomor, company_id]
         );
 
         if (check.rows.length > 0) {
             return res.status(400).json({
                 success: false,
-                error: "Plat nomor sudah digunakan!"
+                error: "Plat nomor sudah digunakan"
             });
         }
 
+        // INSERT
         const result = await pool.query(
             `INSERT INTO buses 
-            (company_id, driver_id, nomor_bus, plat_nomor, mesin, route_id, status) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            (company_id, driver_id, nomor_bus, plat_nomor, mesin_id, route_id, schedule_id, status)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
             RETURNING *`,
             [
                 company_id,
-                driver_id,
+                driver_id || null,
                 nomor_bus,
                 plat_nomor,
-                mesin,
-                route_id,
+                mesin_id || null,
+                route_id || null,
+                schedule_id || null,
                 status || "Aktif"
             ]
         );
@@ -100,14 +110,13 @@ router.post("/", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("ERROR INSERT BUS:", err);
+        console.error("INSERT ERROR:", err);
         res.status(500).json({
             success: false,
             error: err.message
         });
     }
 });
-
 
 // =======================
 // GET DRIVER
@@ -139,14 +148,14 @@ router.get("/drivers", async (req, res) => {
 // =======================
 // UPDATE BUS (Assign Driver)
 // =======================
-router.put("/:id", async (req, res) => {
+router.put("/company/:company_id/buses/:id", async (req, res) => {
     const { id } = req.params;
 
     const {
         driver_id,
         nomor_bus,
         plat_nomor,
-        mesin,
+        mesin_id,
         route_id,
         schedule_id,
         status
@@ -155,23 +164,23 @@ router.put("/:id", async (req, res) => {
     try {
         const result = await pool.query(
             `UPDATE buses SET
-                driver_id = $1,
-                nomor_bus = $2,
-                plat_nomor = $3,
-                mesin = $4,
-                route_id = $5,
-                schedule_id = $6,
-                status = $7,
-                updated_at = NOW()
-            WHERE id = $8
+                driver_id=$1,
+                nomor_bus=$2,
+                plat_nomor=$3,
+                mesin_id=$4,
+                route_id=$5,
+                schedule_id=$6,
+                status=$7,
+                updated_at=NOW()
+            WHERE id=$8
             RETURNING *`,
             [
-                driver_id,
+                driver_id || null,
                 nomor_bus,
                 plat_nomor,
-                mesin,
-                route_id,
-                schedule_id,
+                mesin_id || null,
+                route_id || null,
+                schedule_id || null,
                 status,
                 id
             ]
@@ -183,7 +192,7 @@ router.put("/:id", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("ERROR UPDATE BUS:", err);
+        console.error("UPDATE ERROR:", err);
         res.status(500).json({
             success: false,
             error: err.message
@@ -191,6 +200,28 @@ router.put("/:id", async (req, res) => {
     }
 });
 
+// =======================
+// DELETE BUS
+// =======================
+router.delete("/company/:company_id/buses/:id", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        await pool.query("DELETE FROM buses WHERE id=$1", [id]);
+
+        res.json({
+            success: true,
+            message: "Bus berhasil dihapus"
+        });
+
+    } catch (err) {
+        console.error("DELETE ERROR:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
 
 // =======================
 // SIMULASI GERAK BUS
