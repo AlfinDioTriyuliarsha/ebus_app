@@ -29,6 +29,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   int? _selectedRouteId;
   int? _selectedScheduleId;
   int? _selectedMesinId;
+  // ignore: prefer_final_fields
   String _selectedStatus = "Aktif";
 
   @override
@@ -115,7 +116,14 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   }
 
   // ================= SAVE =================
-  Future<void> _saveBus({int? busId}) async {
+  Future<void> _saveBus({
+    int? busId,
+    int? driverId,
+    int? routeId,
+    int? scheduleId,
+    int? mesinId,
+    String? status,
+  }) async {
     if (_platController.text.isEmpty || _noBusController.text.isEmpty) {
       _showDialog("Error", "Semua field wajib diisi");
       return;
@@ -131,14 +139,16 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
         : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
 
     final body = jsonEncode({
-      "driver_id": _selectedDriverId,
+      "driver_id": driverId,
       "nomor_bus": _noBusController.text,
       "plat_nomor": _platController.text,
-      "mesin": _selectedMesinId,
-      "route_id": _selectedRouteId,
-      "schedule_id": _selectedScheduleId,
-      "status": _selectedStatus,
+      "mesin": mesinId,
+      "route_id": routeId,
+      "schedule_id": scheduleId,
+      "status": status,
     });
+
+    print("DATA DIKIRIM: $body"); // 🔥 DEBUG
 
     final res = busId == null
         ? await http.post(
@@ -175,21 +185,17 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
   // ================= FORM =================
   void _showForm({Map? bus}) {
+    int? localDriverId = bus?['driver_id'];
+    int? localRouteId = bus != null
+        ? int.tryParse(bus['route_id'].toString())
+        : null;
+    int? localScheduleId = bus?['schedule_id'];
+    int? localMesinId = bus?['mesin'];
+    String localStatus = bus?['status'] ?? "Aktif";
 
-  if (bus != null) {
-    _noBusController.text = bus['nomor_bus'];
-    _platController.text = bus['plat_nomor'];
+    _noBusController.text = bus?['nomor_bus'] ?? "";
+    _platController.text = bus?['plat_nomor'] ?? "";
 
-    _selectedDriverId ??= bus['driver_id'];
-    _selectedRouteId ??= int.tryParse(bus['route_id'].toString());
-    _selectedScheduleId ??= bus['schedule_id'];
-    _selectedMesinId ??= bus['mesin'];
-
-    _selectedStatus = bus['status'];
-  } else {
-    _selectedRouteId = null;
-  }
-  
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -198,22 +204,24 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
+                // DRIVER
                 DropdownButtonFormField<int?>(
-                  value: _selectedDriverId,
+                  value: localDriverId,
                   items: [
                     const DropdownMenuItem<int?>(
                       value: null,
                       child: Text("Tanpa Driver"),
                     ),
-                    ..._availableDrivers.map<DropdownMenuItem<int?>>((d) {
+                    ..._availableDrivers.map((d) {
                       return DropdownMenuItem<int?>(
-                        value: d['id'] as int,
+                        value: d['id'],
                         child: Text(d['driver_name'] ?? "-"),
                       );
                     }),
                   ],
-                  onChanged: (val) =>
-                      setDialogState(() => _selectedDriverId = val),
+                  onChanged: (val) {
+                    setDialogState(() => localDriverId = val);
+                  },
                 ),
 
                 TextField(
@@ -225,27 +233,25 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                   decoration: const InputDecoration(labelText: "Plat Nomor"),
                 ),
 
+                // MESIN
                 DropdownButtonFormField<int?>(
-                  value: _selectedMesinId,
+                  value: localMesinId,
                   decoration: const InputDecoration(labelText: "Mesin"),
-                  items: _mesinList.map<DropdownMenuItem<int?>>((m) {
+                  items: _mesinList.map((m) {
                     return DropdownMenuItem<int?>(
-                      value: m['id'] as int,
+                      value: m['id'],
                       child: Text(m['nama_mesin']),
                     );
                   }).toList(),
-                  onChanged: (val) =>
-                      setDialogState(() => _selectedMesinId = val),
+                  onChanged: (val) {
+                    setDialogState(() => localMesinId = val);
+                  },
                 ),
 
-                TextButton(
-                  onPressed: _showMesinCRUDDialog,
-                  child: const Text("+ Kelola Mesin"),
-                ),
-
+                // ROUTE (🔥 INI YANG FIX)
                 DropdownButtonFormField<int?>(
-                  value: _selectedRouteId,
-                  items: _routes.map<DropdownMenuItem<int?>>((r) {
+                  value: localRouteId,
+                  items: _routes.map((r) {
                     final id = int.parse(r['id'].toString());
 
                     return DropdownMenuItem<int?>(
@@ -256,37 +262,41 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                     );
                   }).toList(),
                   onChanged: (val) {
-                    print("ROUTE DIPILIH: $val"); // 🔥 DEBUG DI SINI
+                    print("ROUTE DIPILIH: $val");
                     setDialogState(() {
-                      _selectedRouteId = val;
+                      localRouteId = val;
                     });
                   },
                 ),
 
+                // SCHEDULE
                 DropdownButtonFormField<int?>(
-                  value: _selectedScheduleId,
-                  items: _schedules.map<DropdownMenuItem<int?>>((s) {
+                  value: localScheduleId,
+                  items: _schedules.map((s) {
                     return DropdownMenuItem<int?>(
-                      value: s['id'] as int,
+                      value: s['id'],
                       child: Text(
                         "${s['route_name']} - ${s['waktu_keberangkatan']}",
                       ),
                     );
                   }).toList(),
-                  onChanged: (val) =>
-                      setDialogState(() => _selectedScheduleId = val),
+                  onChanged: (val) {
+                    setDialogState(() => localScheduleId = val);
+                  },
                 ),
 
+                // STATUS
                 DropdownButtonFormField<String>(
-                  value: _selectedStatus,
+                  value: localStatus,
                   items:
                       ["Aktif", "Non Aktif", "Tidak Ada Driver", "Maintenance"]
                           .map(
                             (s) => DropdownMenuItem(value: s, child: Text(s)),
                           )
                           .toList(),
-                  onChanged: (val) =>
-                      setDialogState(() => _selectedStatus = val!),
+                  onChanged: (val) {
+                    setDialogState(() => localStatus = val!);
+                  },
                 ),
               ],
             ),
@@ -297,7 +307,14 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
               child: const Text("Batal"),
             ),
             ElevatedButton(
-              onPressed: () => _saveBus(busId: bus?['id']),
+              onPressed: () => _saveBus(
+                busId: bus?['id'],
+                driverId: localDriverId,
+                routeId: localRouteId,
+                scheduleId: localScheduleId,
+                mesinId: localMesinId,
+                status: localStatus,
+              ),
               child: const Text("Simpan"),
             ),
           ],
@@ -338,54 +355,53 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
     );
   }
 
+  // ignore: unused_element
   void _showMesinCRUDDialog() {
-  showDialog(
-    context: context,
-    builder: (_) => StatefulBuilder(
-      builder: (context, setStateDialog) => AlertDialog(
-        title: const Text("Manajemen Mesin"),
-        content: SizedBox(
-          width: 300,
-          height: 300,
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _mesinList.length,
-                  itemBuilder: (context, i) {
-                    final mesin = _mesinList[i];
-                    return ListTile(
-                      title: Text(mesin['nama_mesin']),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () =>
-                                _showEditMesinDialog(mesin),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () =>
-                                _deleteMesin(mesin['id']),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: const Text("Manajemen Mesin"),
+          content: SizedBox(
+            width: 300,
+            height: 300,
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _mesinList.length,
+                    itemBuilder: (context, i) {
+                      final mesin = _mesinList[i];
+                      return ListTile(
+                        title: Text(mesin['nama_mesin']),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _showEditMesinDialog(mesin),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteMesin(mesin['id']),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              ElevatedButton(
-                onPressed: _showAddMesinDialog,
-                child: const Text("Tambah Mesin"),
-              )
-            ],
+                ElevatedButton(
+                  onPressed: _showAddMesinDialog,
+                  child: const Text("Tambah Mesin"),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // ================= ADD MESIN =================
   void _showAddMesinDialog() {
@@ -428,48 +444,44 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   }
 
   void _showEditMesinDialog(Map mesin) {
-  final controller = TextEditingController(text: mesin['nama_mesin']);
+    final controller = TextEditingController(text: mesin['nama_mesin']);
 
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text("Edit Mesin"),
-      content: TextField(controller: controller),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Batal"),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            await http.put(
-              Uri.parse("${ApiService.baseUrl}/api/mesin/${mesin['id']}"),
-              headers: {"Content-Type": "application/json"},
-              body: jsonEncode({
-                "nama_mesin": controller.text,
-              }),
-            );
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Edit Mesin"),
+        content: TextField(controller: controller),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await http.put(
+                Uri.parse("${ApiService.baseUrl}/api/mesin/${mesin['id']}"),
+                headers: {"Content-Type": "application/json"},
+                body: jsonEncode({"nama_mesin": controller.text}),
+              );
 
-            // ignore: use_build_context_synchronously
-            Navigator.pop(context);
-            _fetchMesin();
-            _showDialog("Sukses", "Mesin diperbarui");
-          },
-          child: const Text("Update"),
-        ),
-      ],
-    ),
-  );
-}
+              // ignore: use_build_context_synchronously
+              Navigator.pop(context);
+              _fetchMesin();
+              _showDialog("Sukses", "Mesin diperbarui");
+            },
+            child: const Text("Update"),
+          ),
+        ],
+      ),
+    );
+  }
 
-Future<void> _deleteMesin(int id) async {
-  await http.delete(
-    Uri.parse("${ApiService.baseUrl}/api/mesin/$id"),
-  );
+  Future<void> _deleteMesin(int id) async {
+    await http.delete(Uri.parse("${ApiService.baseUrl}/api/mesin/$id"));
 
-  _fetchMesin();
-  _showDialog("Sukses", "Mesin dihapus");
-}
+    _fetchMesin();
+    _showDialog("Sukses", "Mesin dihapus");
+  }
 
   @override
   Widget build(BuildContext context) {
