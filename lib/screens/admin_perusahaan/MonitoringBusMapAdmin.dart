@@ -147,33 +147,30 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   // DRAW ROUTE (1 BUS)
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
-    double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
-    double lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
+    final routeData = bus['route'];
 
-    if (lat == 0 || lng == 0) return;
+    if (routeData == null || routeData.isEmpty) return;
 
-    final start = LatLng(lat, lng);
+    List<LatLng> route = [];
 
-    final end = LatLng(-7.9839, 112.6214); // contoh tujuan
+    try {
+      route = List.from(routeData)
+          .map<LatLng>((p) => LatLng(
+                double.parse(p['lat'].toString()),
+                double.parse(p['lng'].toString()),
+              ))
+          .toList();
+    } catch (e) {
+      debugPrint("ERROR PARSE ROUTE: $e");
+      return;
+    }
 
-    final url = Uri.parse(
-      "https://router.project-osrm.org/route/v1/driving/"
-      "$lng,$lat;${end.longitude},${end.latitude}"
-      "?overview=full&geometries=geojson",
-    );
-
-    final res = await http.get(url);
-    final data = jsonDecode(res.body);
-
-    final coords = data['routes'][0]['geometry']['coordinates'];
-
-    List<LatLng> route = coords.map<LatLng>((c) => LatLng(c[1], c[0])).toList();
-
-    distance = data['routes'][0]['distance'];
-    duration = data['routes'][0]['duration'];
+    final start = route.first;
 
     setState(() {
-      _polylines = [Polyline(points: route, strokeWidth: 6, color: Colors.red)];
+      _polylines = [
+        Polyline(points: route, strokeWidth: 6, color: Colors.red)
+      ];
     });
 
     _mapController.move(start, 14);
@@ -303,11 +300,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                         selectedBusId = val;
                       });
 
-                      if (val == null) {
+                      if (selectedBusId == null) {
                         _generateRealtimeMarkers();
                       } else {
-                        final bus = _busData.firstWhere((b) => b['id'] == val);
-                        _drawRoute(bus);
+                        final bus = _busData.firstWhere((b) => b['id'] == selectedBusId);
+                        _drawRoute(bus); // ✔ ini akan pakai route terbaru
                       }
                     },
                   ),
