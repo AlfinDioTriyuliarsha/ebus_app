@@ -217,7 +217,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                   ),
                   ..._availableDrivers.map<DropdownMenuItem<int?>>((d) {
                     return DropdownMenuItem<int?>(
-                      value: d['id'],
+                      value: int.parse(d['id'].toString()),
                       child: Text(d['driver_name'] ?? "-"),
                     );
                   }),
@@ -241,8 +241,9 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                 value: _selectedMesinId,
                 hint: const Text("Pilih Mesin"),
                 items: _mesinList.map<DropdownMenuItem<int?>>((m) {
+                  final id = int.parse(m['id'].toString()); // 🔥 FIX
                   return DropdownMenuItem<int?>(
-                    value: m['id'],
+                    value: id,
                     child: Text(m['nama_mesin']),
                   );
                 }).toList(),
@@ -279,8 +280,9 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                 value: _selectedScheduleId,
                 hint: const Text("Pilih Jadwal"),
                 items: _schedules.map<DropdownMenuItem<int?>>((s) {
+                  final id = int.parse(s['id'].toString()); // 🔥 FIX
                   return DropdownMenuItem<int?>(
-                    value: s['id'],
+                    value: id,
                     child: Text(
                       "${s['route_name']} - ${s['waktu_keberangkatan']}",
                     ),
