@@ -137,6 +137,10 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
     });
 
     print("DATA DIKIRIM: $body"); // 🔥 DEBUG
+    print("Driver ID: $_selectedDriverId");
+    print("Route ID: $_selectedRouteId");
+    print("Schedule ID: $_selectedScheduleId");
+    print("Mesin ID: $_selectedMesinId");
 
     final res = busId == null
         ? await http.post(
@@ -177,17 +181,14 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       _noBusController.text = bus['nomor_bus'] ?? '';
       _platController.text = bus['plat_nomor'] ?? '';
 
-      // ✅ WAJIB overwrite, jangan pakai ??=
       _selectedDriverId = bus['driver_id'];
       _selectedRouteId = bus['route_id'] != null
           ? int.tryParse(bus['route_id'].toString())
           : null;
       _selectedScheduleId = bus['schedule_id'];
-      _selectedMesinId = bus['mesin_id']; // ⚠️ penting (bukan 'mesin')
-
+      _selectedMesinId = bus['mesin_id'];
       _selectedStatus = bus['status'] ?? "Aktif";
     } else {
-      // ✅ RESET TOTAL
       _noBusController.clear();
       _platController.clear();
 
@@ -200,124 +201,121 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(bus == null ? "Tambah Armada" : "Edit Armada"),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                DropdownButtonFormField<int?>(
-                  value: _selectedDriverId,
-                  hint: const Text("Pilih Driver"),
-                  items: [
-                    const DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text("Tanpa Driver"),
+      builder: (context) => AlertDialog(
+        title: Text(bus == null ? "Tambah Armada" : "Edit Armada"),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              // DRIVER
+              DropdownButtonFormField<int?>(
+                value: _selectedDriverId,
+                hint: const Text("Pilih Driver"),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text("Tanpa Driver"),
+                  ),
+                  ..._availableDrivers.map<DropdownMenuItem<int?>>((d) {
+                    return DropdownMenuItem<int?>(
+                      value: d['id'],
+                      child: Text(d['driver_name'] ?? "-"),
+                    );
+                  }),
+                ],
+                onChanged: (val) {
+                  setState(() => _selectedDriverId = val);
+                },
+              ),
+
+              TextField(
+                controller: _noBusController,
+                decoration: const InputDecoration(labelText: "Nomor Bus"),
+              ),
+              TextField(
+                controller: _platController,
+                decoration: const InputDecoration(labelText: "Plat Nomor"),
+              ),
+
+              // MESIN
+              DropdownButtonFormField<int?>(
+                value: _selectedMesinId,
+                hint: const Text("Pilih Mesin"),
+                items: _mesinList.map<DropdownMenuItem<int?>>((m) {
+                  return DropdownMenuItem<int?>(
+                    value: m['id'],
+                    child: Text(m['nama_mesin']),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  setState(() => _selectedMesinId = val);
+                },
+              ),
+
+              TextButton(
+                onPressed: _showMesinCRUDDialog,
+                child: const Text("+ Kelola Mesin"),
+              ),
+
+              // ROUTE
+              DropdownButtonFormField<int?>(
+                value: _selectedRouteId,
+                hint: const Text("Pilih Rute"),
+                items: _routes.map<DropdownMenuItem<int?>>((r) {
+                  final id = int.parse(r['id'].toString());
+                  return DropdownMenuItem<int?>(
+                    value: id,
+                    child: Text(
+                      "${r['nama_rute']} (${r['titik_awal']} → ${r['titik_tujuan']})",
                     ),
-                    ..._availableDrivers.map<DropdownMenuItem<int?>>((d) {
-                      return DropdownMenuItem<int?>(
-                        value: d['id'],
-                        child: Text(d['driver_name'] ?? "-"),
-                      );
-                    }),
-                  ],
-                  onChanged: (val) {
-                    setDialogState(() => _selectedDriverId = val);
-                  },
-                ),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  setState(() => _selectedRouteId = val);
+                },
+              ),
 
-                TextField(
-                  controller: _noBusController,
-                  decoration: const InputDecoration(labelText: "Nomor Bus"),
-                ),
-                TextField(
-                  controller: _platController,
-                  decoration: const InputDecoration(labelText: "Plat Nomor"),
-                ),
+              // SCHEDULE
+              DropdownButtonFormField<int?>(
+                value: _selectedScheduleId,
+                hint: const Text("Pilih Jadwal"),
+                items: _schedules.map<DropdownMenuItem<int?>>((s) {
+                  return DropdownMenuItem<int?>(
+                    value: s['id'],
+                    child: Text(
+                      "${s['route_name']} - ${s['waktu_keberangkatan']}",
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  setState(() => _selectedScheduleId = val);
+                },
+              ),
 
-                DropdownButtonFormField<int?>(
-                  value: _selectedMesinId,
-                  hint: const Text("Pilih Mesin"),
-                  items: _mesinList.map<DropdownMenuItem<int?>>((m) {
-                    return DropdownMenuItem<int?>(
-                      value: m['id'],
-                      child: Text(m['nama_mesin']),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setDialogState(() => _selectedMesinId = val);
-                  },
-                ),
-
-                TextButton(
-                  onPressed: _showMesinCRUDDialog,
-                  child: const Text("+ Kelola Mesin"),
-                ),
-
-                DropdownButtonFormField<int?>(
-                  value: _selectedRouteId,
-                  hint: const Text("Pilih Rute"),
-                  items: _routes.map<DropdownMenuItem<int?>>((r) {
-                    final id = int.parse(r['id'].toString());
-                    return DropdownMenuItem<int?>(
-                      value: id,
-                      child: Text(
-                        "${r['nama_rute']} (${r['titik_awal']} → ${r['titik_tujuan']})",
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setDialogState(() {
-                      _selectedRouteId = val;
-                    });
-                  },
-                ),
-
-                DropdownButtonFormField<int?>(
-                  value: _selectedScheduleId,
-                  hint: const Text("Pilih Jadwal"),
-                  items: _schedules.map<DropdownMenuItem<int?>>((s) {
-                    return DropdownMenuItem<int?>(
-                      value: s['id'],
-                      child: Text(
-                        "${s['route_name']} - ${s['waktu_keberangkatan']}",
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setDialogState(() => _selectedScheduleId = val);
-                  },
-                ),
-
-                DropdownButtonFormField<String>(
-                  value: _selectedStatus,
-                  items:
-                      [
-                        "Aktif",
-                        "Non Aktif",
-                        "Tidak Ada Driver",
-                        "Maintenance",
-                      ].map((s) {
-                        return DropdownMenuItem(value: s, child: Text(s));
-                      }).toList(),
-                  onChanged: (val) {
-                    setDialogState(() => _selectedStatus = val!);
-                  },
-                ),
-              ],
-            ),
+              // STATUS
+              DropdownButtonFormField<String>(
+                value: _selectedStatus,
+                items: ["Aktif", "Non Aktif", "Tidak Ada Driver", "Maintenance"]
+                    .map((s) {
+                      return DropdownMenuItem(value: s, child: Text(s));
+                    })
+                    .toList(),
+                onChanged: (val) {
+                  setState(() => _selectedStatus = val!);
+                },
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Batal"),
-            ),
-            ElevatedButton(
-              onPressed: () => _saveBus(busId: bus?['id']),
-              child: const Text("Simpan"),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () => _saveBus(busId: bus?['id']),
+            child: const Text("Simpan"),
+          ),
+        ],
       ),
     );
   }
