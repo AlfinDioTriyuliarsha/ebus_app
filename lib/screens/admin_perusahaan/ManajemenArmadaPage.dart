@@ -116,19 +116,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   }
 
   // ================= SAVE =================
-  Future<void> _saveBus({
-    int? busId,
-    int? driverId,
-    int? routeId,
-    int? scheduleId,
-    int? mesinId,
-    String? status,
-  }) async {
-    if (_platController.text.isEmpty || _noBusController.text.isEmpty) {
-      _showDialog("Error", "Semua field wajib diisi");
-      return;
-    }
-
+  Future<void> _saveBus({int? busId}) async {
     if (_isPlatDuplicate(_platController.text, currentId: busId)) {
       _showDialog("Error", "Plat nomor sudah digunakan!");
       return;
@@ -139,13 +127,13 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
         : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
 
     final body = jsonEncode({
-      "driver_id": driverId,
+      "driver_id": _selectedDriverId,
       "nomor_bus": _noBusController.text,
       "plat_nomor": _platController.text,
-      "mesin": mesinId,
-      "route_id": routeId,
-      "schedule_id": scheduleId,
-      "status": status,
+      "mesin_id": _selectedMesinId, // ✅ FIX (bukan "mesin")
+      "route_id": _selectedRouteId,
+      "schedule_id": _selectedScheduleId,
+      "status": _selectedStatus,
     });
 
     print("DATA DIKIRIM: $body"); // 🔥 DEBUG
@@ -185,16 +173,30 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
   // ================= FORM =================
   void _showForm({Map? bus}) {
-    int? localDriverId = bus?['driver_id'];
-    int? localRouteId = bus != null
-        ? int.tryParse(bus['route_id'].toString())
-        : null;
-    int? localScheduleId = bus?['schedule_id'];
-    int? localMesinId = bus?['mesin'];
-    String localStatus = bus?['status'] ?? "Aktif";
+    if (bus != null) {
+      _noBusController.text = bus['nomor_bus'] ?? '';
+      _platController.text = bus['plat_nomor'] ?? '';
 
-    _noBusController.text = bus?['nomor_bus'] ?? "";
-    _platController.text = bus?['plat_nomor'] ?? "";
+      // ✅ WAJIB overwrite, jangan pakai ??=
+      _selectedDriverId = bus['driver_id'];
+      _selectedRouteId = bus['route_id'] != null
+          ? int.tryParse(bus['route_id'].toString())
+          : null;
+      _selectedScheduleId = bus['schedule_id'];
+      _selectedMesinId = bus['mesin_id']; // ⚠️ penting (bukan 'mesin')
+
+      _selectedStatus = bus['status'] ?? "Aktif";
+    } else {
+      // ✅ RESET TOTAL
+      _noBusController.clear();
+      _platController.clear();
+
+      _selectedDriverId = null;
+      _selectedRouteId = null;
+      _selectedScheduleId = null;
+      _selectedMesinId = null;
+      _selectedStatus = "Aktif";
+    }
 
     showDialog(
       context: context,
@@ -204,15 +206,15 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
-                // DRIVER
                 DropdownButtonFormField<int?>(
-                  value: localDriverId,
+                  value: _selectedDriverId,
+                  hint: const Text("Pilih Driver"),
                   items: [
                     const DropdownMenuItem<int?>(
                       value: null,
                       child: Text("Tanpa Driver"),
                     ),
-                    ..._availableDrivers.map((d) {
+                    ..._availableDrivers.map<DropdownMenuItem<int?>>((d) {
                       return DropdownMenuItem<int?>(
                         value: d['id'],
                         child: Text(d['driver_name'] ?? "-"),
@@ -220,7 +222,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                     }),
                   ],
                   onChanged: (val) {
-                    setDialogState(() => localDriverId = val);
+                    setDialogState(() => _selectedDriverId = val);
                   },
                 ),
 
@@ -233,27 +235,30 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                   decoration: const InputDecoration(labelText: "Plat Nomor"),
                 ),
 
-                // MESIN
                 DropdownButtonFormField<int?>(
-                  value: localMesinId,
-                  decoration: const InputDecoration(labelText: "Mesin"),
-                  items: _mesinList.map((m) {
+                  value: _selectedMesinId,
+                  hint: const Text("Pilih Mesin"),
+                  items: _mesinList.map<DropdownMenuItem<int?>>((m) {
                     return DropdownMenuItem<int?>(
                       value: m['id'],
                       child: Text(m['nama_mesin']),
                     );
                   }).toList(),
                   onChanged: (val) {
-                    setDialogState(() => localMesinId = val);
+                    setDialogState(() => _selectedMesinId = val);
                   },
                 ),
 
-                // ROUTE (🔥 INI YANG FIX)
-                DropdownButtonFormField<int?>(
-                  value: localRouteId,
-                  items: _routes.map((r) {
-                    final id = int.parse(r['id'].toString());
+                TextButton(
+                  onPressed: _showMesinCRUDDialog,
+                  child: const Text("+ Kelola Mesin"),
+                ),
 
+                DropdownButtonFormField<int?>(
+                  value: _selectedRouteId,
+                  hint: const Text("Pilih Rute"),
+                  items: _routes.map<DropdownMenuItem<int?>>((r) {
+                    final id = int.parse(r['id'].toString());
                     return DropdownMenuItem<int?>(
                       value: id,
                       child: Text(
@@ -262,17 +267,16 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                     );
                   }).toList(),
                   onChanged: (val) {
-                    print("ROUTE DIPILIH: $val");
                     setDialogState(() {
-                      localRouteId = val;
+                      _selectedRouteId = val;
                     });
                   },
                 ),
 
-                // SCHEDULE
                 DropdownButtonFormField<int?>(
-                  value: localScheduleId,
-                  items: _schedules.map((s) {
+                  value: _selectedScheduleId,
+                  hint: const Text("Pilih Jadwal"),
+                  items: _schedules.map<DropdownMenuItem<int?>>((s) {
                     return DropdownMenuItem<int?>(
                       value: s['id'],
                       child: Text(
@@ -281,21 +285,23 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                     );
                   }).toList(),
                   onChanged: (val) {
-                    setDialogState(() => localScheduleId = val);
+                    setDialogState(() => _selectedScheduleId = val);
                   },
                 ),
 
-                // STATUS
                 DropdownButtonFormField<String>(
-                  value: localStatus,
+                  value: _selectedStatus,
                   items:
-                      ["Aktif", "Non Aktif", "Tidak Ada Driver", "Maintenance"]
-                          .map(
-                            (s) => DropdownMenuItem(value: s, child: Text(s)),
-                          )
-                          .toList(),
+                      [
+                        "Aktif",
+                        "Non Aktif",
+                        "Tidak Ada Driver",
+                        "Maintenance",
+                      ].map((s) {
+                        return DropdownMenuItem(value: s, child: Text(s));
+                      }).toList(),
                   onChanged: (val) {
-                    setDialogState(() => localStatus = val!);
+                    setDialogState(() => _selectedStatus = val!);
                   },
                 ),
               ],
@@ -307,14 +313,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
               child: const Text("Batal"),
             ),
             ElevatedButton(
-              onPressed: () => _saveBus(
-                busId: bus?['id'],
-                driverId: localDriverId,
-                routeId: localRouteId,
-                scheduleId: localScheduleId,
-                mesinId: localMesinId,
-                status: localStatus,
-              ),
+              onPressed: () => _saveBus(busId: bus?['id']),
               child: const Text("Simpan"),
             ),
           ],
