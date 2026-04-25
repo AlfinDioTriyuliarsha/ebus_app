@@ -55,7 +55,9 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
   Future<void> _fetchBuses() async {
     final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/company/${widget.companyId}/buses"),
+      Uri.parse(
+        "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+      ),
     );
     if (res.statusCode == 200) {
       _buses = jsonDecode(res.body)['data'];
@@ -126,6 +128,12 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       _showDialog("Error", "Plat nomor sudah digunakan!");
       return;
     }
+
+    print("=================================");
+    print("ROUTE DIPILIH: $_selectedRouteId");
+    print("DRIVER DIPILIH: $_selectedDriverId");
+    print("MESIN DIPILIH: $_selectedMesinId");
+    print("=================================");
 
     final url = busId == null
         ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
@@ -208,9 +216,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
       _platController.text = bus['plat_nomor'] ?? '';
 
       _selectedDriverId = bus['driver_id'];
-      _selectedRouteId = bus['route_id'] != null
-          ? int.tryParse(bus['route_id'].toString())
-          : null;
+      _selectedRouteId = int.tryParse(bus['route_id']?.toString() ?? '');
       _selectedScheduleId = bus['schedule_id'];
       _selectedMesinId = bus['mesin_id'];
       _selectedStatus = bus['status'] ?? "Aktif";
@@ -285,7 +291,12 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
 
               // ROUTE
               DropdownButtonFormField<int?>(
-                value: _selectedRouteId,
+                value:
+                    _routes.any(
+                      (r) => int.parse(r['id'].toString()) == _selectedRouteId,
+                    )
+                    ? _selectedRouteId
+                    : null,
                 hint: const Text("Pilih Rute"),
                 items: _routes.map<DropdownMenuItem<int?>>((r) {
                   final id = int.parse(r['id'].toString());
@@ -297,6 +308,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
                   );
                 }).toList(),
                 onChanged: (val) {
+                  print("USER PILIH ROUTE: $val"); // 🔥 DEBUG
                   setState(() => _selectedRouteId = val);
                 },
               ),
