@@ -54,37 +54,6 @@ app.use("/api/mesin", mesinRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/location", locationRoutes);
 
-// 1. Endpoint untuk MENGAMBIL Rute berdasarkan company_id
-app.get('/api/routes', async (req, res) => {
-    const { company_id } = req.query;
-    if (!company_id) return res.status(400).json({ error: 'company_id is required' });
-
-    try {
-        const result = await pool.query(
-            'SELECT * FROM routes WHERE company_id = $1 ORDER BY id DESC', 
-            [company_id]
-        );
-        res.status(200).json({ status: 'success', data: result.rows });
-    } catch (err) {
-        console.error("Error Routes:", err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 2. Endpoint untuk MENAMBAH Rute Baru
-app.post('/api/routes', async (req, res) => {
-    const { company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi } = req.body;
-    try {
-        const result = await pool.query(
-            'INSERT INTO routes (company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [company_id, nama_rute, titik_awal, titik_tujuan, jarak_estimasi]
-        );
-        res.status(201).json({ status: 'success', data: result.rows[0] });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 app.get('/api/schedules', async (req, res) => {
   const { company_id } = req.query;
   
