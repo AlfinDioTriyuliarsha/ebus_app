@@ -147,19 +147,24 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   // DRAW ROUTE (1 BUS)
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
-    final routeData = bus['route'];
+    final routeData = bus['path'];
+    print("ROUTE DATA: $routeData");
 
     if (routeData == null || routeData.isEmpty) return;
 
     List<LatLng> route = [];
 
     try {
-      route = List.from(routeData)
-          .map<LatLng>((p) => LatLng(
-                double.parse(p['lat'].toString()),
-                double.parse(p['lng'].toString()),
-              ))
-          .toList();
+      List decoded = routeData is String
+          ? jsonDecode(routeData)
+          : routeData;
+
+      route = decoded.map<LatLng>((p) {
+        return LatLng(
+          double.parse(p['lat'].toString()),
+          double.parse(p['lng'].toString()),
+        );
+      }).toList();
     } catch (e) {
       debugPrint("ERROR PARSE ROUTE: $e");
       return;
@@ -168,9 +173,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     final start = route.first;
 
     setState(() {
-      _polylines = [
-        Polyline(points: route, strokeWidth: 6, color: Colors.red)
-      ];
+      _polylines = [Polyline(points: route, strokeWidth: 6, color: Colors.red)];
     });
 
     _mapController.move(start, 14);
@@ -303,7 +306,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
                       if (selectedBusId == null) {
                         _generateRealtimeMarkers();
                       } else {
-                        final bus = _busData.firstWhere((b) => b['id'] == selectedBusId);
+                        final bus = _busData.firstWhere(
+                          (b) => b['id'] == selectedBusId,
+                        );
                         _drawRoute(bus); // ✔ ini akan pakai route terbaru
                       }
                     },

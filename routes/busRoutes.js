@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
             SELECT 
                 b.*,
                 r.nama_rute,
-                r.path,
+                r.path as route,
                 c.company_name,
                 d.driver_name
             FROM buses b
