@@ -49602,7 +49602,7 @@ AL(a){return this.afE(a)},
 afE(a){var s=0,r=A.x(t.H),q,p=this,o,n,m,l,k,j,i,h
 var $async$AL=A.t(function(b,c){if(b===1)return A.u(c,r)
 while(true)switch(s){case 0:i={}
-h=J.a2(a,"path")
+h=J.a2(a,"route")
 A.dE("ROUTE DATA: "+A.k(h))
 if(h==null||J.i3(h)){s=1
 break}m=i.a=A.b([],t.q_)
