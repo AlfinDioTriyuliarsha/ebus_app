@@ -61,26 +61,14 @@ router.post("/", async (req, res) => {
         status
     } = req.body;
 
+    if (!company_id || !nomor_bus || !plat_nomor) {
+        return res.status(400).json({
+            success: false,
+            error: "Company, nomor bus & plat wajib"
+        });
+    }
+
     try {
-        if (!nomor_bus || !plat_nomor || !company_id) {
-            return res.status(400).json({
-                success: false,
-                error: "company_id, nomor_bus & plat wajib"
-            });
-        }
-
-        const check = await pool.query(
-            "SELECT * FROM buses WHERE plat_nomor=$1 AND company_id=$2",
-            [plat_nomor, company_id]
-        );
-
-        if (check.rows.length > 0) {
-            return res.status(400).json({
-                success: false,
-                error: "Plat nomor sudah digunakan"
-            });
-        }
-
         const result = await pool.query(
             `INSERT INTO buses 
             (company_id, driver_id, nomor_bus, plat_nomor, mesin_id, route_id, schedule_id, status)
@@ -104,14 +92,9 @@ router.post("/", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("INSERT ERROR:", err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
+        res.status(500).json({ error: err.message });
     }
 });
-
 
 // =======================
 // GET DRIVER
