@@ -147,12 +147,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   // DRAW ROUTE (1 BUS)
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
-    final routeData = bus['path'];
-    print("ROUTE DATA: $routeData");
+  final routeData = bus['route']; // ✅ FIX DI SINI
+  print("ROUTE DATA: $routeData");
 
-    if (routeData == null || routeData.isEmpty) return;
+  if (routeData == null || routeData.isEmpty) return;
 
-    List<LatLng> route = [];
+  List<LatLng> route = [];
 
     try {
       List decoded = routeData is String
@@ -173,7 +173,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     final start = route.first;
 
     setState(() {
-      _polylines = [Polyline(points: route, strokeWidth: 6, color: Colors.red)];
+      _polylines = [
+        Polyline(points: route, strokeWidth: 6, color: Colors.red)
+      ];
     });
 
     _mapController.move(start, 14);
