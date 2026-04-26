@@ -34,9 +34,31 @@ router.get("/", async (req, res) => {
 
         const result = await pool.query(query, values);
 
+        const data = result.rows.map(row => {
+            let routeParsed = null;
+
+            try {
+                console.log("ROUTE RAW:", row.route); // ✅ DEBUG
+
+                routeParsed = row.route
+                    ? (typeof row.route === "string"
+                        ? JSON.parse(row.route)
+                        : row.route)
+                    : null;
+
+            } catch (e) {
+                console.log("ERROR PARSE ROUTE:", e);
+            }
+
+            return {
+                ...row,
+                route: routeParsed
+            };
+        });
+
         res.json({
             success: true,
-            data: result.rows
+            data
         });
 
     } catch (err) {
