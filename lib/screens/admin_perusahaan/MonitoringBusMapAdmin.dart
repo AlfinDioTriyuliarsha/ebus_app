@@ -147,40 +147,62 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   // DRAW ROUTE (1 BUS)
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
-  final routeData = bus['route']; // ✅ FIX DI SINI
-  print("ROUTE DATA: $routeData");
+    final routeData = bus['route']; // ✅ sudah benar
+    print("ROUTE DATA: $routeData");
 
-  if (routeData == null || routeData.isEmpty) return;
-
-  List<LatLng> route = [];
+    if (routeData == null || routeData.isEmpty) return;
 
     try {
-      List decoded = routeData is String
-          ? jsonDecode(routeData)
-          : routeData;
+      // =========================
+      // PARSE DATA BACKEND
+      // =========================
+      List decoded = routeData is String ? jsonDecode(routeData) : routeData;
 
-      route = decoded.map<LatLng>((p) {
+      List<LatLng> rawRoute = decoded.map<LatLng>((p) {
         return LatLng(
           double.parse(p['lat'].toString()),
           double.parse(p['lng'].toString()),
         );
       }).toList();
+
+      // =========================
+      // AMBIL ROUTE JALAN ASLI (OSRM)
+      // =========================
+      final coordinates = rawRoute
+          .map((p) => "${p.longitude},${p.latitude}")
+          .join(";");
+
+      final url =
+          "https://router.project-osrm.org/route/v1/driving/$coordinates?overview=full&geometries=geojson";
+
+      final res = await http.get(Uri.parse(url));
+
+      if (res.statusCode != 200) {
+        throw Exception("Gagal ambil route dari OSRM");
+      }
+
+      final data = jsonDecode(res.body);
+      final coords = data['routes'][0]['geometry']['coordinates'] as List;
+
+      List<LatLng> realRoute = coords.map<LatLng>((c) {
+        return LatLng(c[1], c[0]);
+      }).toList();
+
+      // =========================
+      // TAMPILKAN DI MAP
+      // =========================
+      setState(() {
+        _polylines = [
+          Polyline(points: realRoute, strokeWidth: 6, color: Colors.red),
+        ];
+      });
+
+      _mapController.move(realRoute.first, 10);
+
+      _animateBus(realRoute);
     } catch (e) {
-      debugPrint("ERROR PARSE ROUTE: $e");
-      return;
+      debugPrint("ERROR DRAW ROUTE: $e");
     }
-
-    final start = route.first;
-
-    setState(() {
-      _polylines = [
-        Polyline(points: route, strokeWidth: 6, color: Colors.red)
-      ];
-    });
-
-    _mapController.move(start, 14);
-
-    _animateBus(route);
   }
 
   // =========================
