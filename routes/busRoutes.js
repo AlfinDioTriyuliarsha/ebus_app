@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
             SELECT 
                 b.*,
                 r.nama_rute,
-                r.path as path,
+                r.path,
                 c.company_name,
                 d.driver_name
             FROM buses b
@@ -47,7 +47,7 @@ router.get("/", async (req, res) => {
 
             return {
                 ...row,
-                route: routeParsed
+                route: routeParsed || row.path // fallback
             };
         });
 
@@ -61,7 +61,6 @@ router.get("/", async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
-
 
 // =======================
 // POST BUS

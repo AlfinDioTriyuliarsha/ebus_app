@@ -52,6 +52,32 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
     super.dispose();
   }
 
+  // =======================
+  // rute
+  // =======================
+  Future<List<LatLng>> getRealRoute(List<LatLng> points) async {
+    final coordinates = points
+        .map((p) => "${p.longitude},${p.latitude}")
+        .join(";");
+
+    final url =
+        "https://router.project-osrm.org/route/v1/driving/$coordinates?overview=full&geometries=geojson";
+
+    final res = await http.get(Uri.parse(url));
+
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+
+      final coords = data['routes'][0]['geometry']['coordinates'] as List;
+
+      return coords.map<LatLng>((c) {
+        return LatLng(c[1], c[0]);
+      }).toList();
+    } else {
+      throw Exception("Gagal ambil route dari OSRM");
+    }
+  }
+
   // =========================
   // FETCH AWAL
   // =========================
@@ -147,15 +173,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   // DRAW ROUTE (1 BUS)
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
-    final routeData = bus['route']; // ✅ sudah benar
+    final routeData = bus['path'] ?? bus['route']; // 🔥 FIX DISINI
     print("ROUTE DATA: $routeData");
 
     if (routeData == null || routeData.isEmpty) return;
 
     try {
-      // =========================
-      // PARSE DATA BACKEND
-      // =========================
       List decoded = routeData is String ? jsonDecode(routeData) : routeData;
 
       List<LatLng> rawRoute = decoded.map<LatLng>((p) {
@@ -165,32 +188,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
         );
       }).toList();
 
-      // =========================
-      // AMBIL ROUTE JALAN ASLI (OSRM)
-      // =========================
-      final coordinates = rawRoute
-          .map((p) => "${p.longitude},${p.latitude}")
-          .join(";");
+      // 🔥 pakai OSRM
+      List<LatLng> realRoute = await getRealRoute(rawRoute);
 
-      final url =
-          "https://router.project-osrm.org/route/v1/driving/$coordinates?overview=full&geometries=geojson";
-
-      final res = await http.get(Uri.parse(url));
-
-      if (res.statusCode != 200) {
-        throw Exception("Gagal ambil route dari OSRM");
-      }
-
-      final data = jsonDecode(res.body);
-      final coords = data['routes'][0]['geometry']['coordinates'] as List;
-
-      List<LatLng> realRoute = coords.map<LatLng>((c) {
-        return LatLng(c[1], c[0]);
-      }).toList();
-
-      // =========================
-      // TAMPILKAN DI MAP
-      // =========================
       setState(() {
         _polylines = [
           Polyline(points: realRoute, strokeWidth: 6, color: Colors.red),
