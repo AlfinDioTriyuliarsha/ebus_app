@@ -149,12 +149,12 @@ router.get("/:companyId/buses", async (req, res) => {
 router.post("/:companyId/buses", async (req, res) => {
     try {
         const { companyId } = req.params;
-        const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
+        const { driver_id, nomor_bus, plat_nomor, mesin_id, rute_berangkat, rute_tujuan, status } = req.body;
         const result = await pool.query(
             `INSERT INTO buses 
-            (company_id, driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status) 
+            (company_id, driver_id, nomor_bus, plat_nomor, mesin_id, rute_berangkat, rute_tujuan, status) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [companyId, driver_id || null, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status || 'Aktif']
+            [companyId, driver_id || null, nomor_bus, plat_nomor, mesin_id, rute_berangkat, rute_tujuan, status || 'Aktif']
         );
         res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err) {
@@ -166,12 +166,12 @@ router.post("/:companyId/buses", async (req, res) => {
 router.put("/:companyId/buses/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { driver_id, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status } = req.body;
+        const { driver_id, nomor_bus, plat_nomor, mesin_id, rute_berangkat, rute_tujuan, status } = req.body;
         const result = await pool.query(
             `UPDATE buses 
-             SET driver_id=$1, nomor_bus=$2, plat_nomor=$3, mesin=$4, rute_berangkat=$5, rute_tujuan=$6, status=$7 
+             SET driver_id=$1, nomor_bus=$2, plat_nomor=$3, mesin_id=$4, rute_berangkat=$5, rute_tujuan=$6, status=$7 
              WHERE id=$8 RETURNING *`,
-            [driver_id || null, nomor_bus, plat_nomor, mesin, rute_berangkat, rute_tujuan, status, id]
+            [driver_id || null, nomor_bus, plat_nomor, mesin_id, rute_berangkat, rute_tujuan, status, id]
         );
         if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Bus tidak ditemukan" });
         res.json({ success: true, data: result.rows[0] });
