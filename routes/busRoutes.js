@@ -35,17 +35,12 @@ router.get("/", async (req, res) => {
         const result = await pool.query(query, values);
 
         const data = result.rows.map(row => {
+            console.log("ROUTE DB:", row.route); // ✅ benar
+
             let routeParsed = null;
 
             try {
-                console.log("ROUTE RAW:", row.route); // ✅ DEBUG
-
-                routeParsed = row.route
-                    ? (typeof row.route === "string"
-                        ? JSON.parse(row.route)
-                        : row.route)
-                    : null;
-
+                routeParsed = row.route ? JSON.parse(row.route) : null;
             } catch (e) {
                 console.log("ERROR PARSE ROUTE:", e);
             }
