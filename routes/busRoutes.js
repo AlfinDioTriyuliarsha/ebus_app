@@ -4,7 +4,7 @@ const pool = require("../db");
 
 
 // =======================
-// GET BUS + ROUTE
+// GET BUS
 // =======================
 router.get("/", async (req, res) => {
     try {
@@ -40,8 +40,8 @@ router.get("/", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("GET BUS ERROR:", err);
-        res.status(500).json({ success: false, error: err.message });
+        console.error(err);
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -49,11 +49,9 @@ router.get("/", async (req, res) => {
 // =======================
 // POST BUS
 // =======================
-router.post("/:company_id/buses", async (req, res) => {
-    console.log("BODY MASUK:", req.body);
-    const { company_id } = req.params;
-
+router.post("/", async (req, res) => {
     const {
+        company_id,
         driver_id,
         nomor_bus,
         plat_nomor,
@@ -64,25 +62,6 @@ router.post("/:company_id/buses", async (req, res) => {
     } = req.body;
 
     try {
-        if (!nomor_bus || !plat_nomor) {
-            return res.status(400).json({
-                success: false,
-                error: "Nomor bus & plat wajib"
-            });
-        }
-
-        const check = await pool.query(
-            "SELECT * FROM buses WHERE plat_nomor=$1 AND company_id=$2",
-            [plat_nomor, company_id]
-        );
-
-        if (check.rows.length > 0) {
-            return res.status(400).json({
-                success: false,
-                error: "Plat nomor sudah digunakan"
-            });
-        }
-
         const result = await pool.query(
             `INSERT INTO buses 
             (company_id, driver_id, nomor_bus, plat_nomor, mesin_id, route_id, schedule_id, status)
@@ -106,11 +85,7 @@ router.post("/:company_id/buses", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("INSERT ERROR:", err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -145,8 +120,7 @@ router.get("/drivers", async (req, res) => {
 // =======================
 // UPDATE BUS
 // =======================
-router.put("/:company_id/buses/:id", async (req, res) => {
-    console.log("UPDATE BODY:", req.body);
+router.put("/:id", async (req, res) => {
     const { id } = req.params;
 
     const {
@@ -184,17 +158,17 @@ router.put("/:company_id/buses/:id", async (req, res) => {
             ]
         );
 
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Bus tidak ditemukan" });
+        }
+
         res.json({
             success: true,
             data: result.rows[0]
         });
 
     } catch (err) {
-        console.error("UPDATE ERROR:", err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -202,7 +176,7 @@ router.put("/:company_id/buses/:id", async (req, res) => {
 // =======================
 // DELETE BUS
 // =======================
-router.delete("/:company_id/buses/:id", async (req, res) => {
+router.delete("/:id", async (req, res) => {
     const { id } = req.params;
 
     try {
@@ -214,11 +188,7 @@ router.delete("/:company_id/buses/:id", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("DELETE ERROR:", err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
+        res.status(500).json({ error: err.message });
     }
 });
 

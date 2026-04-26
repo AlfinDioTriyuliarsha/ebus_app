@@ -17,18 +17,6 @@ router.get("/", async (req, res) => {
     }
 });
 
-// GET perusahaan by ID
-router.get("/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query("SELECT * FROM companies WHERE id = $1", [id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Perusahaan tidak ditemukan" });
-        res.json({ success: true, data: result.rows[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
 // POST tambah perusahaan
 router.post("/", async (req, res) => {
     try {
@@ -38,36 +26,6 @@ router.post("/", async (req, res) => {
             [company_name, alamat || null, email || null, status || "Aktif", user_id || null]
         );
         res.status(201).json({ success: true, data: result.rows[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-// PUT update perusahaan
-router.put("/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { company_name, alamat, email, status, user_id } = req.body;
-        const result = await pool.query(
-            `UPDATE companies 
-             SET company_name = $1, alamat = $2, email = $3, status = $4, user_id = $5 
-             WHERE id = $6 RETURNING *`, 
-            [company_name, alamat, email, status, user_id, id]
-        );
-        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Data tidak ditemukan" });
-        res.json({ success: true, data: result.rows[0] });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-// DELETE perusahaan
-router.delete("/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query("DELETE FROM companies WHERE id = $1 RETURNING *", [id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Data tidak ditemukan" });
-        res.json({ success: true, message: "Perusahaan berhasil dihapus" });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
@@ -149,6 +107,48 @@ router.get("/:companyId/available-drivers", async (req, res) => {
             [req.params.companyId]
         );
         res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// GET perusahaan by ID
+router.get("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query("SELECT * FROM companies WHERE id = $1", [id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Perusahaan tidak ditemukan" });
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// PUT update perusahaan
+router.put("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { company_name, alamat, email, status, user_id } = req.body;
+        const result = await pool.query(
+            `UPDATE companies 
+             SET company_name = $1, alamat = $2, email = $3, status = $4, user_id = $5 
+             WHERE id = $6 RETURNING *`, 
+            [company_name, alamat, email, status, user_id, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Data tidak ditemukan" });
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// DELETE perusahaan
+router.delete("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query("DELETE FROM companies WHERE id = $1 RETURNING *", [id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: "Data tidak ditemukan" });
+        res.json({ success: true, message: "Perusahaan berhasil dihapus" });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
