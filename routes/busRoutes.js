@@ -49,7 +49,7 @@ router.get("/", async (req, res) => {
 // =======================
 // POST BUS
 // =======================
-router.post("/company/:company_id/buses", async (req, res) => {
+router.post("/:company_id/buses", async (req, res) => {
     console.log("BODY MASUK:", req.body);
     const { company_id } = req.params;
 
@@ -145,7 +145,7 @@ router.get("/drivers", async (req, res) => {
 // =======================
 // UPDATE BUS
 // =======================
-router.put("/company/:company_id/buses/:id", async (req, res) => {
+router.put("/:company_id/buses/:id", async (req, res) => {
     console.log("UPDATE BODY:", req.body);
     const { id } = req.params;
 
@@ -202,7 +202,7 @@ router.put("/company/:company_id/buses/:id", async (req, res) => {
 // =======================
 // DELETE BUS
 // =======================
-router.delete("/company/:company_id/buses/:id", async (req, res) => {
+router.delete("/:company_id/buses/:id", async (req, res) => {
     const { id } = req.params;
 
     try {
