@@ -136,11 +136,12 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
     print("=================================");
 
     final url = busId == null
-        ? "${ApiService.baseUrl}/api/company/${widget.companyId}/buses"
-        : "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$busId";
+        ? "${ApiService.baseUrl}/api/buses"
+        : "${ApiService.baseUrl}/api/buses/$busId";
 
     // ✅ FILTER NULL (INI KUNCI UTAMA)
     Map<String, dynamic> bodyMap = {
+      "company_id": widget.companyId,
       "nomor_bus": _noBusController.text,
       "plat_nomor": _platController.text,
       "status": _selectedStatus,
@@ -200,11 +201,7 @@ class _ManajemenArmadaPageState extends State<ManajemenArmadaPage> {
   }
 
   Future<void> _deleteBus(int id) async {
-    await http.delete(
-      Uri.parse(
-        "${ApiService.baseUrl}/api/company/${widget.companyId}/buses/$id",
-      ),
-    );
+    await http.delete(Uri.parse("${ApiService.baseUrl}/api/buses/$id"));
     _fetchData();
     _showDialog("Sukses", "Data berhasil dihapus");
   }
