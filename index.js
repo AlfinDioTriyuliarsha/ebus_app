@@ -105,3 +105,32 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
+const WebSocket = require("ws");
+
+const wss = new WebSocket.Server({ port: 3001 });
+
+wss.on("connection", (ws) => {
+    console.log("Client connected");
+
+    ws.on("close", () => {
+        console.log("Client disconnected");
+    });
+});
+
+// 🔥 broadcast posisi bus tiap 2 detik
+setInterval(async () => {
+    const buses = await pool.query("SELECT * FROM buses");
+
+    const data = JSON.stringify({
+        type: "bus_location",
+        data: buses.rows
+    });
+
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+        }
+    });
+
+}, 2000);
