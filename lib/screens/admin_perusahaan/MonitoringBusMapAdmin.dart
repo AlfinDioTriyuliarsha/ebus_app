@@ -7,9 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
-// ignore: unused_import
 import 'package:ebus_app/services/api_service.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 
 class MonitoringBusMapAdmin extends StatefulWidget {
   final int companyId;
@@ -20,229 +18,153 @@ class MonitoringBusMapAdmin extends StatefulWidget {
   State<MonitoringBusMapAdmin> createState() => _MonitoringBusMapAdminState();
 }
 
+Future<List<LatLng>> getRealRoute(List<LatLng> points) async {
+  final coordinates = points
+      .map((p) => "${p.longitude},${p.latitude}")
+      .join(";");
+
+  final url =
+      "https://router.project-osrm.org/route/v1/driving/$coordinates"
+      "?overview=full&geometries=geojson&steps=true";
+
+  final res = await http.get(Uri.parse(url));
+
+  if (res.statusCode == 200) {
+    final data = jsonDecode(res.body);
+
+    final coords = data['routes'][0]['geometry']['coordinates'] as List;
+
+    return coords.map<LatLng>((c) {
+      return LatLng(c[1], c[0]);
+    }).toList();
+  } else {
+    throw Exception("Gagal ambil route");
+  }
+}
+
 class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     with AutomaticKeepAliveClientMixin {
-  // ================= STATE =================
   List<Map<String, dynamic>> _busData = [];
-
-  late WebSocketChannel channel;
 
   List<Marker> _markers = [];
   List<Polyline> _polylines = [];
+  bool _userInteracting = false;
 
+  Timer? _timer;
   final MapController _mapController = MapController();
 
   int? selectedBusId;
-  // ignore: prefer_final_fields
-  bool _userInteracting = false;
 
   double distance = 0;
   double duration = 0;
 
-  // 🔥 AI DATA
-  final Map<int, double> _speed = {};
-  final Map<int, DateTime> _lastUpdate = {};
-  final Map<int, LatLng> _lastPositions = {};
-
-  // 🔥 CACHE & HISTORY
-  final Map<int, List<LatLng>> _routeCache = {};
-  final Map<int, List<LatLng>> _history = {};
-
-  @override
+  bool _isAnimating = false;
+  // ignore: annotate_overrides
   bool get wantKeepAlive => true;
 
-  // ================= INIT =================
   @override
   void initState() {
     super.initState();
-    _connectWebSocket();
+
+    _fetchBuses();
+
+    _timer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _fetchBusesRealtime(),
+    );
   }
 
   @override
   void dispose() {
-    channel.sink.close();
+    _timer?.cancel();
     super.dispose();
   }
 
-  // ================= WEBSOCKET =================
-  void _connectWebSocket() {
-    channel = WebSocketChannel.connect(Uri.parse("ws://YOUR_SERVER_IP:3001"));
-
-    channel.stream.listen((message) {
-      final data = jsonDecode(message);
-
-      if (data['type'] == 'bus_location') {
-        setState(() {
-          _busData = List<Map<String, dynamic>>.from(data['data']);
-        });
-
-        _processRealtimeData();
-      }
-    });
-  }
-
-  // ================= REALTIME PROCESS =================
-  void _processRealtimeData() {
-    for (var bus in _busData) {
-      double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
-      double lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
-
-      if (lat == 0 || lng == 0) continue;
-
-      final current = LatLng(lat, lng);
-      final id = bus['id'];
-
-      // 🔥 HISTORY
-      _history.putIfAbsent(id, () => []);
-      _history[id]!.add(current);
-
-      if (_history[id]!.length > 50) {
-        _history[id]!.removeAt(0);
-      }
-
-      // 🔥 AI SPEED
-      if (_lastPositions.containsKey(id)) {
-        final prev = _lastPositions[id]!;
-        final now = DateTime.now();
-        final lastTime = _lastUpdate[id];
-
-        if (lastTime != null) {
-          final timeDiff = now.difference(lastTime).inSeconds;
-
-          final dist = _distance(prev, current);
-
-          if (timeDiff > 0) {
-            double speed = dist / timeDiff;
-
-            _speed[id] = (_speed[id] ?? speed) * 0.7 + speed * 0.3;
-          }
-        }
-
-        _lastUpdate[id] = now;
-      }
-
-      _lastPositions[id] = current;
-    }
-
-    _generateMarkers();
-  }
-
-  // ================= DISTANCE =================
-  double _distance(LatLng a, LatLng b) {
-    const R = 6371000;
-
-    final dLat = (b.latitude - a.latitude) * Math.pi / 180;
-    final dLon = (b.longitude - a.longitude) * Math.pi / 180;
-
-    final lat1 = a.latitude * Math.pi / 180;
-    final lat2 = b.latitude * Math.pi / 180;
-
-    final aHarv =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.sin(dLon / 2) *
-            Math.sin(dLon / 2) *
-            Math.cos(lat1) *
-            Math.cos(lat2);
-
-    final c = 2 * Math.atan2(Math.sqrt(aHarv), Math.sqrt(1 - aHarv));
-
-    return R * c;
-  }
-
-  // ================= AI ETA =================
-  double _calculateETA(int busId, double remainingDistance) {
-    double speed = _speed[busId] ?? 10;
-
-    if (speed < 5) speed *= 0.5;
-
-    if (speed == 0) return 0;
-
-    return remainingDistance / speed;
-  }
-
-  // ================= OSRM =================
+  // =======================
+  // rute
+  // =======================
   Future<List<LatLng>> getRealRoute(List<LatLng> points) async {
-    final coords = points.map((p) => "${p.longitude},${p.latitude}").join(";");
+    final coordinates = points
+        .map((p) => "${p.longitude},${p.latitude}")
+        .join(";");
 
     final url =
-        "https://router.project-osrm.org/route/v1/driving/$coords?overview=full&geometries=geojson";
+        "https://router.project-osrm.org/route/v1/driving/$coordinates?overview=full&geometries=geojson";
 
     final res = await http.get(Uri.parse(url));
 
-    final data = jsonDecode(res.body);
-    final route = data['routes'][0];
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
 
-    distance = route['distance'];
+      final coords = data['routes'][0]['geometry']['coordinates'] as List;
 
-    final geometry = route['geometry']['coordinates'] as List;
-
-    return geometry.map<LatLng>((c) {
-      return LatLng(c[1], c[0]);
-    }).toList();
+      return coords.map<LatLng>((c) {
+        return LatLng(c[1], c[0]);
+      }).toList();
+    } else {
+      throw Exception("Gagal ambil route dari OSRM");
+    }
   }
 
-  // ================= DRAW ROUTE =================
-  // ignore: unused_element
-  Future<void> _drawRoute(Map<String, dynamic> bus) async {
-    final routeId = bus['route_id'];
-    final busId = bus['id'];
-
-    if (_routeCache.containsKey(routeId)) {
-      final cached = _routeCache[routeId]!;
-
-      duration = _calculateETA(busId, distance);
-
-      setState(() {
-        _polylines = _buildPolyline(cached, busId);
-      });
-
-      return;
-    }
-
-    final routeData = bus['path'] ?? bus['route'];
-
-    if (routeData == null || routeData.isEmpty) return;
-
-    List decoded = routeData is String ? jsonDecode(routeData) : routeData;
-
-    List<LatLng> raw = decoded.map<LatLng>((p) {
-      return LatLng(
-        double.parse(p['lat'].toString()),
-        double.parse(p['lng'].toString()),
+  // =========================
+  // FETCH AWAL
+  // =========================
+  Future<void> _fetchBuses() async {
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
       );
-    }).toList();
 
-    final realRoute = await getRealRoute(raw);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
 
-    _routeCache[routeId] = realRoute;
+        setState(() {
+          _busData = List<Map<String, dynamic>>.from(data);
+        });
 
-    duration = _calculateETA(busId, distance);
-
-    setState(() {
-      _polylines = _buildPolyline(realRoute, busId);
-    });
-
-    if (!_userInteracting) {
-      _mapController.move(realRoute.first, 7);
+        _generateRealtimeMarkers();
+      }
+    } catch (e) {
+      debugPrint("ERROR FETCH BUS: $e");
     }
   }
 
-  // ================= POLYLINE =================
-  List<Polyline> _buildPolyline(List<LatLng> route, int busId) {
-    return [
-      Polyline(
-        points: route,
-        strokeWidth: 10,
-        color: Colors.black.withOpacity(0.2),
-      ),
-      Polyline(points: route, strokeWidth: 6, color: Colors.blue),
-      if (_history.containsKey(busId))
-        Polyline(points: _history[busId]!, strokeWidth: 4, color: Colors.green),
-    ];
+  // =========================
+  // FETCH REALTIME (TIAP 2 DETIK)
+  // =========================
+  Future<void> _fetchBusesRealtime() async {
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
+
+        setState(() {
+          _busData = List<Map<String, dynamic>>.from(data);
+        });
+
+        if (selectedBusId == null) {
+          _generateRealtimeMarkers();
+        } else {
+          final bus = _busData.firstWhere((b) => b['id'] == selectedBusId);
+          _drawRoute(bus);
+        }
+      }
+    } catch (e) {
+      debugPrint("ERROR REALTIME: $e");
+    }
   }
 
-  // ================= MARKER =================
-  void _generateMarkers() {
+  // =========================
+  // MARKER SEMUA BUS
+  // =========================
+  void _generateRealtimeMarkers() {
     List<Marker> markers = [];
 
     for (var bus in _busData) {
@@ -254,25 +176,155 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       markers.add(
         Marker(
           point: LatLng(lat, lng),
-          width: 70,
-          height: 70,
-          child: const Icon(Icons.directions_bus, color: Colors.blue, size: 30),
+          width: 50,
+          height: 50,
+          child: Column(
+            children: [
+              const Icon(Icons.directions_bus, color: Colors.green),
+              Text(
+                bus['plat_nomor'] ?? '',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     setState(() {
       _markers = markers;
+      _polylines = [];
     });
   }
 
-  // ================= UI =================
+  // =========================
+  // DRAW ROUTE (1 BUS)
+  // =========================
+  Future<void> _drawRoute(Map<String, dynamic> bus) async {
+    final routeData = bus['path'] ?? bus['route'];
+
+    print("ROUTE DATA: $routeData");
+
+    if (routeData == null || routeData.isEmpty) return;
+
+    try {
+      List decoded = routeData is String ? jsonDecode(routeData) : routeData;
+
+      List<LatLng> rawRoute = decoded.map<LatLng>((p) {
+        return LatLng(
+          double.parse(p['lat'].toString()),
+          double.parse(p['lng'].toString()),
+        );
+      }).toList();
+
+      // 🔥 ambil route asli jalan
+      List<LatLng> realRoute = await getRealRoute(rawRoute);
+
+      setState(() {
+        _polylines = [
+          // shadow (biar kayak Google Maps)
+          Polyline(
+            points: realRoute,
+            strokeWidth: 10,
+            color: Colors.black.withOpacity(0.2),
+          ),
+          // garis utama
+          Polyline(points: realRoute, strokeWidth: 6, color: Colors.blue),
+        ];
+      });
+
+      if (!_userInteracting) {
+        _mapController.move(realRoute.first, 7);
+      }
+
+      _animateBus(realRoute);
+    } catch (e) {
+      debugPrint("ERROR DRAW ROUTE: $e");
+    }
+  }
+
+  // =========================
+  // ANIMASI BUS
+  // =========================
+  Future<void> _animateBus(List<LatLng> route) async {
+    if (_isAnimating) return;
+    _isAnimating = true;
+
+    for (int i = 0; i < route.length - 1; i++) {
+      final start = route[i];
+      final end = route[i + 1];
+
+      const steps = 20;
+
+      for (int j = 0; j <= steps; j++) {
+        final lat =
+            start.latitude + (end.latitude - start.latitude) * (j / steps);
+        final lng =
+            start.longitude + (end.longitude - start.longitude) * (j / steps);
+
+        // ignore: unused_local_variable
+        final angle = _bearing(start, end);
+
+        setState(() {
+          _markers = [
+            Marker(
+              point: LatLng(lat, lng),
+              width: 60,
+              height: 60,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                ),
+                padding: const EdgeInsets.all(6),
+                child: const Icon(
+                  Icons.directions_bus,
+                  color: Colors.blue,
+                  size: 28,
+                ),
+              ),
+            ),
+          ];
+        });
+
+        await Future.delayed(const Duration(milliseconds: 40));
+      }
+    }
+
+    _isAnimating = false;
+  }
+
+  // =========================
+  // HITUNG ARAH
+  // =========================
+  double _bearing(LatLng start, LatLng end) {
+    final lat1 = start.latitude * Math.pi / 180;
+    final lon1 = start.longitude * Math.pi / 180;
+    final lat2 = end.latitude * Math.pi / 180;
+    final lon2 = end.longitude * Math.pi / 180;
+
+    final dLon = lon2 - lon1;
+
+    final y = Math.sin(dLon) * Math.cos(lat2);
+    final x =
+        Math.cos(lat1) * Math.sin(lat2) -
+        Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+    return Math.atan2(y, x);
+  }
+
+  // =========================
+  // UI
+  // =========================
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
     return Scaffold(
-      appBar: AppBar(title: const Text("Monitoring Armada")),
+      appBar: AppBar(
+        title: const Text("Monitoring Armada"),
+        backgroundColor: const Color(0xFF001F3F),
+      ),
       body: Stack(
         children: [
           FlutterMap(
@@ -280,10 +332,17 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             options: MapOptions(
               initialCenter: const LatLng(-7.9839, 112.6214),
               initialZoom: 6,
+              onPositionChanged: (position, hasGesture) {
+                if (hasGesture) {
+                  _userInteracting = true;
+                }
+              },
             ),
             children: [
               TileLayer(
-                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                urlTemplate:
+                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                subdomains: const ['a', 'b', 'c'],
               ),
               PolylineLayer(polylines: _polylines),
               MarkerLayer(markers: _markers),
@@ -291,13 +350,43 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           ),
 
           Positioned(
-            top: 20,
+            bottom: 20,
             left: 20,
             child: Container(
               padding: const EdgeInsets.all(10),
-              color: Colors.white,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Column(
                 children: [
+                  DropdownButton<int>(
+                    value: selectedBusId,
+                    hint: const Text("Pilih Bus"),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text("Semua")),
+                      ..._busData.map(
+                        (b) => DropdownMenuItem(
+                          value: b['id'],
+                          child: Text(b['plat_nomor']),
+                        ),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      setState(() {
+                        selectedBusId = val;
+                      });
+
+                      if (selectedBusId == null) {
+                        _generateRealtimeMarkers();
+                      } else {
+                        final bus = _busData.firstWhere(
+                          (b) => b['id'] == selectedBusId,
+                        );
+                        _drawRoute(bus); // ✔ ini akan pakai route terbaru
+                      }
+                    },
+                  ),
                   Text("Jarak: ${(distance / 1000).toStringAsFixed(1)} km"),
                   Text("ETA: ${(duration / 60).toStringAsFixed(0)} menit"),
                 ],
