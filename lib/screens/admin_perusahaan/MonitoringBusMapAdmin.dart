@@ -18,6 +18,30 @@ class MonitoringBusMapAdmin extends StatefulWidget {
   State<MonitoringBusMapAdmin> createState() => _MonitoringBusMapAdminState();
 }
 
+Future<List<LatLng>> getRealRoute(List<LatLng> points) async {
+  final coordinates = points
+      .map((p) => "${p.longitude},${p.latitude}")
+      .join(";");
+
+  final url =
+      "https://router.project-osrm.org/route/v1/driving/$coordinates"
+      "?overview=full&geometries=geojson&steps=true";
+
+  final res = await http.get(Uri.parse(url));
+
+  if (res.statusCode == 200) {
+    final data = jsonDecode(res.body);
+
+    final coords = data['routes'][0]['geometry']['coordinates'] as List;
+
+    return coords.map<LatLng>((c) {
+      return LatLng(c[1], c[0]);
+    }).toList();
+  } else {
+    throw Exception("Gagal ambil route");
+  }
+}
+
 class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   List<Map<String, dynamic>> _busData = [];
 
@@ -173,7 +197,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
   // DRAW ROUTE (1 BUS)
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
-    final routeData = bus['path'] ?? bus['route']; // 🔥 FIX DISINI
+    final routeData = bus['path'] ?? bus['route'];
+
     print("ROUTE DATA: $routeData");
 
     if (routeData == null || routeData.isEmpty) return;
@@ -188,16 +213,23 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
         );
       }).toList();
 
-      // 🔥 pakai OSRM
+      // 🔥 ambil route asli jalan
       List<LatLng> realRoute = await getRealRoute(rawRoute);
 
       setState(() {
         _polylines = [
-          Polyline(points: realRoute, strokeWidth: 6, color: Colors.red),
+          // shadow (biar kayak Google Maps)
+          Polyline(
+            points: realRoute,
+            strokeWidth: 10,
+            color: Colors.black.withOpacity(0.2),
+          ),
+          // garis utama
+          Polyline(points: realRoute, strokeWidth: 6, color: Colors.blue),
         ];
       });
 
-      _mapController.move(realRoute.first, 10);
+      _mapController.move(realRoute.first, 7);
 
       _animateBus(realRoute);
     } catch (e) {
@@ -224,6 +256,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
         final lng =
             start.longitude + (end.longitude - start.longitude) * (j / steps);
 
+        // ignore: unused_local_variable
         final angle = _bearing(start, end);
 
         setState(() {
@@ -232,12 +265,17 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin> {
               point: LatLng(lat, lng),
               width: 60,
               height: 60,
-              child: Transform.rotate(
-                angle: angle,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                ),
+                padding: const EdgeInsets.all(6),
                 child: const Icon(
                   Icons.directions_bus,
-                  size: 40,
-                  color: Colors.green,
+                  color: Colors.blue,
+                  size: 28,
                 ),
               ),
             ),
