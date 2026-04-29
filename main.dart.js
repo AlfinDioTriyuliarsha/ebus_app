@@ -49688,7 +49688,7 @@ aj(){this.abj()
 this.amO()
 this.AV()},
 gmY(){return!0},
-amO(){var s=A.b6S(A.b6("wss://ebusapp-production.up.railway.app/ws"),null)
+amO(){var s=A.b6S(A.b6("wss://ebusapp-production.up.railway.app"),null)
 this.w=s
 s=s.r.b
 s===$&&A.a()
