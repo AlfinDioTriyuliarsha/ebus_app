@@ -173,6 +173,8 @@ router.put("/update-location/:id", async (req, res) => {
             longitude
         });
 
+        console.log("📡 BROADCAST:", id, latitude, longitude);
+
         res.json({
             success: true,
             data: result.rows[0]
@@ -223,6 +225,12 @@ router.post("/simulate", async (req, res) => {
             JOIN routes r ON b.route_id = r.id
         `);
 
+        broadcastLocation({
+            bus_id: bus.id,
+            latitude: point.lat,
+            longitude: point.lng
+        });
+
         for (let bus of buses.rows) {
             const route = bus.path;
 
@@ -249,7 +257,7 @@ router.post("/simulate", async (req, res) => {
 
 
 // =======================
-// UPDATE GPS (FIX DUPLIKAT)
+// UPDATE GPS + REALTIME (FINAL)
 // =======================
 router.put("/update-location/:id", async (req, res) => {
     const { id } = req.params;
@@ -276,6 +284,15 @@ router.put("/update-location/:id", async (req, res) => {
                 error: "Bus tidak ditemukan"
             });
         }
+
+        // 🔥 REALTIME DI SINI
+        broadcastLocation({
+            bus_id: id,
+            latitude,
+            longitude
+        });
+
+        console.log("📡 BROADCAST:", id, latitude, longitude);
 
         res.json({
             success: true,
