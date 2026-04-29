@@ -51,7 +51,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   // =========================
   void _initWebSocket() {
     channel = WebSocketChannel.connect(
-      Uri.parse('wss://ebusapp-production.up.railway.app/ws'),
+      Uri.parse('wss://ebusapp-production.up.railway.app'),
     );
 
     channel.stream.listen(
@@ -73,24 +73,27 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
               print("❌ BUS TIDAK DITEMUKAN DI LIST");
             }
 
-            _markers = _busData.map((b) {
-              final lat = double.tryParse(b['latitude'].toString()) ?? 0;
-              final lng = double.tryParse(b['longitude'].toString()) ?? 0;
+            _markers = _busData
+                .map((b) {
+                  final lat = double.tryParse(b['latitude'].toString()) ?? 0;
+                  final lng = double.tryParse(b['longitude'].toString()) ?? 0;
 
-              if (lat == 0 || lng == 0) return null;
+                  if (lat == 0 || lng == 0) return null;
 
-              return Marker(
-                point: LatLng(lat, lng),
-                width: 50,
-                height: 50,
-                child: Column(
-                  children: [
-                    const Icon(Icons.directions_bus, color: Colors.green),
-                    Text(b['plat_nomor'] ?? ''),
-                  ],
-                ),
-              );
-            }).whereType<Marker>().toList();
+                  return Marker(
+                    point: LatLng(lat, lng),
+                    width: 50,
+                    height: 50,
+                    child: Column(
+                      children: [
+                        const Icon(Icons.directions_bus, color: Colors.green),
+                        Text(b['plat_nomor'] ?? ''),
+                      ],
+                    ),
+                  );
+                })
+                .whereType<Marker>()
+                .toList();
           });
         }
       },
