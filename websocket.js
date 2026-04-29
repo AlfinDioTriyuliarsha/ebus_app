@@ -29,6 +29,22 @@ function broadcastLocation(data) {
   });
 }
 
+function init(server) {
+  wss = new WebSocket.Server({ server });
+
+  wss.on("connection", (ws) => {
+    console.log("🟢 Client connected"); // WAJIB MUNCUL
+
+    ws.on("message", (msg) => {
+      console.log("📩 Message from client:", msg.toString());
+    });
+
+    ws.on("close", () => {
+      console.log("🔴 Client disconnected");
+    });
+  });
+}
+
 module.exports = {
   init,
   broadcastLocation,
