@@ -8,6 +8,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 class MonitoringBusMapAdmin extends StatefulWidget {
   final int companyId;
@@ -18,42 +19,25 @@ class MonitoringBusMapAdmin extends StatefulWidget {
   State<MonitoringBusMapAdmin> createState() => _MonitoringBusMapAdminState();
 }
 
-Future<List<LatLng>> getRealRoute(List<LatLng> points) async {
-  final coordinates = points
-      .map((p) => "${p.longitude},${p.latitude}")
-      .join(";");
-
-  final url =
-      "https://router.project-osrm.org/route/v1/driving/$coordinates"
-      "?overview=full&geometries=geojson&steps=true";
-
-  final res = await http.get(Uri.parse(url));
-
-  if (res.statusCode == 200) {
-    final data = jsonDecode(res.body);
-
-    final coords = data['routes'][0]['geometry']['coordinates'] as List;
-
-    return coords.map<LatLng>((c) {
-      return LatLng(c[1], c[0]);
-    }).toList();
-  } else {
-    throw Exception("Gagal ambil route");
-  }
-}
-
 class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _busData = [];
-
   List<Marker> _markers = [];
   List<Polyline> _polylines = [];
-  bool _userInteracting = false;
 
-  Timer? _timer;
   final MapController _mapController = MapController();
+  late WebSocketChannel channel;
 
   int? selectedBusId;
+  bool _userInteracting = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _initWebSocket();
+    _fetchBuses();
+  }
 
   double distance = 0;
   double duration = 0;
@@ -62,22 +46,71 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   // ignore: annotate_overrides
   bool get wantKeepAlive => true;
 
-  @override
-  void initState() {
-    super.initState();
+  // =========================
+  // INIT WEBSOCKET
+  // =========================
+  void _initWebSocket() {
+    channel = WebSocketChannel.connect(
+      Uri.parse('wss://ebusapp-production.up.railway.app/ws'),
+    );
 
-    _fetchBuses();
+    channel.stream.listen(
+      (message) {
+        print("🔥 WS MESSAGE: $message");
 
-    _timer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => _fetchBusesRealtime(),
+        final data = jsonDecode(message);
+
+        if (data['type'] == 'bus_location') {
+          final bus = data['data'];
+
+          setState(() {
+            final index = _busData.indexWhere((b) => b['id'] == bus['bus_id']);
+
+            if (index != -1) {
+              _busData[index]['latitude'] = bus['latitude'];
+              _busData[index]['longitude'] = bus['longitude'];
+            }
+          });
+
+          _generateRealtimeMarkers();
+        }
+      },
+      onError: (e) {
+        print("❌ WS ERROR: $e");
+      },
+      onDone: () {
+        print("⚠️ WS CLOSED");
+      },
     );
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    channel.sink.close(); // 🔥 WAJIB
     super.dispose();
+  }
+
+  // =========================
+  // FETCH AWAL
+  // =========================
+  Future<void> _fetchBuses() async {
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
+
+      final data = jsonDecode(res.body)['data'];
+
+      setState(() {
+        _busData = List<Map<String, dynamic>>.from(data);
+      });
+
+      _generateRealtimeMarkers();
+    } catch (e) {
+      print("❌ FETCH ERROR: $e");
+    }
   }
 
   // =======================
@@ -93,117 +126,53 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
     final res = await http.get(Uri.parse(url));
 
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
+    final data = jsonDecode(res.body);
 
-      final coords = data['routes'][0]['geometry']['coordinates'] as List;
+    final coords = data['routes'][0]['geometry']['coordinates'];
 
-      return coords.map<LatLng>((c) {
-        return LatLng(c[1], c[0]);
-      }).toList();
-    } else {
-      throw Exception("Gagal ambil route dari OSRM");
-    }
+    return coords.map<LatLng>((c) => LatLng(c[1], c[0])).toList();
   }
 
   // =========================
-  // FETCH AWAL
-  // =========================
-  Future<void> _fetchBuses() async {
-    try {
-      final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-        ),
-      );
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body)['data'];
-
-        setState(() {
-          _busData = List<Map<String, dynamic>>.from(data);
-        });
-
-        _generateRealtimeMarkers();
-      }
-    } catch (e) {
-      debugPrint("ERROR FETCH BUS: $e");
-    }
-  }
-
-  // =========================
-  // FETCH REALTIME (TIAP 2 DETIK)
-  // =========================
-  Future<void> _fetchBusesRealtime() async {
-    try {
-      final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-        ),
-      );
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body)['data'];
-
-        setState(() {
-          _busData = List<Map<String, dynamic>>.from(data);
-        });
-
-        if (selectedBusId == null) {
-          _generateRealtimeMarkers();
-        } else {
-          final bus = _busData.firstWhere((b) => b['id'] == selectedBusId);
-          _drawRoute(bus);
-        }
-      }
-    } catch (e) {
-      debugPrint("ERROR REALTIME: $e");
-    }
-  }
-
-  // =========================
-  // MARKER SEMUA BUS
+  // MARKER REALTIME
   // =========================
   void _generateRealtimeMarkers() {
-    List<Marker> markers = [];
+    final markers = _busData
+        .map((bus) {
+          double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+          double lng =
+              double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
 
-    for (var bus in _busData) {
-      double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
-      double lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
+          if (lat == 0 || lng == 0) return null;
 
-      if (lat == 0 || lng == 0) continue;
-
-      markers.add(
-        Marker(
-          point: LatLng(lat, lng),
-          width: 50,
-          height: 50,
-          child: Column(
-            children: [
-              const Icon(Icons.directions_bus, color: Colors.green),
-              Text(
-                bus['plat_nomor'] ?? '',
-                style: const TextStyle(fontSize: 10),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+          return Marker(
+            point: LatLng(lat, lng),
+            width: 50,
+            height: 50,
+            child: Column(
+              children: [
+                const Icon(Icons.directions_bus, color: Colors.green),
+                Text(
+                  bus['plat_nomor'] ?? '',
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ],
+            ),
+          );
+        })
+        .whereType<Marker>()
+        .toList();
 
     setState(() {
       _markers = markers;
-      _polylines = [];
     });
   }
 
   // =========================
-  // DRAW ROUTE (1 BUS)
+  // DRAW ROUTE
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
     final routeData = bus['path'] ?? bus['route'];
-
-    print("ROUTE DATA: $routeData");
 
     if (routeData == null || routeData.isEmpty) return;
 
@@ -217,18 +186,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         );
       }).toList();
 
-      // 🔥 ambil route asli jalan
       List<LatLng> realRoute = await getRealRoute(rawRoute);
 
       setState(() {
         _polylines = [
-          // shadow (biar kayak Google Maps)
           Polyline(
             points: realRoute,
             strokeWidth: 10,
             color: Colors.black.withOpacity(0.2),
           ),
-          // garis utama
           Polyline(points: realRoute, strokeWidth: 6, color: Colors.blue),
         ];
       });
@@ -239,7 +205,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       _animateBus(realRoute);
     } catch (e) {
-      debugPrint("ERROR DRAW ROUTE: $e");
+      print("❌ DRAW ROUTE ERROR: $e");
     }
   }
 

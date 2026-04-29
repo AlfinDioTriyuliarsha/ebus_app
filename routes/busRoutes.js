@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-
+const { broadcastLocation } = require("../websocket");
 
 // =======================
 // GET BUS
@@ -35,8 +35,6 @@ router.get("/", async (req, res) => {
         const result = await pool.query(query, values);
 
         const data = result.rows.map(row => {
-            console.log("ROUTE DB:", row.route); // ✅ benar
-
             let routeParsed = null;
 
             try {
@@ -47,7 +45,7 @@ router.get("/", async (req, res) => {
 
             return {
                 ...row,
-                route: routeParsed || row.path // fallback
+                route: routeParsed || row.path
             };
         });
 
@@ -140,45 +138,40 @@ router.get("/drivers", async (req, res) => {
 
 
 // =======================
-// UPDATE BUS
+// UPDATE GPS + REALTIME
 // =======================
-router.put("/:id", async (req, res) => {
+router.put("/update-location/:id", async (req, res) => {
     const { id } = req.params;
+    const { latitude, longitude } = req.body;
 
-    const {
-        driver_id,
-        nomor_bus,
-        plat_nomor,
-        mesin_id,
-        route_id,
-        schedule_id,
-        status
-    } = req.body;
+    if (!latitude || !longitude) {
+        return res.status(400).json({
+            success: false,
+            error: "Latitude & Longitude wajib"
+        });
+    }
 
     try {
         const result = await pool.query(
-            `UPDATE buses SET
-                driver_id=$1,
-                nomor_bus=$2,
-                plat_nomor=$3,
-                mesin_id=$4,
-                route_id=$5,
-                schedule_id=$6,
-                status=$7,
-                updated_at=NOW()
-            WHERE id=$8
-            RETURNING *`,
-            [
-                driver_id || null,
-                nomor_bus,
-                plat_nomor,
-                mesin_id || null,
-                route_id || null,
-                schedule_id || null,
-                status || "Aktif",
-                id
-            ]
+            `UPDATE buses 
+             SET latitude=$1, longitude=$2, updated_at=NOW()
+             WHERE id=$3 RETURNING *`,
+            [latitude, longitude, id]
         );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Bus tidak ditemukan"
+            });
+        }
+
+        // 🔥 REALTIME DI SINI (INI YANG BENAR)
+        broadcastLocation({
+            bus_id: id,
+            latitude,
+            longitude
+        });
 
         res.json({
             success: true,
@@ -186,7 +179,7 @@ router.put("/:id", async (req, res) => {
         });
 
     } catch (err) {
-        console.error("UPDATE ERROR:", err);
+        console.error("GPS ERROR:", err);
         res.status(500).json({
             success: false,
             error: err.message
