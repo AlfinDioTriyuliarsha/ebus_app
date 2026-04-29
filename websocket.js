@@ -1,12 +1,16 @@
-let wss;
+const WebSocket = require("ws");
+
+let wss; // ✅ HARUS let, bukan const
 
 function init(server) {
-  const WebSocket = require("ws");
-  const wss = new WebSocket.Server({ server, path: "/ws" });
   wss = new WebSocket.Server({ server });
 
   wss.on("connection", (ws) => {
-    console.log("Client connected");
+    console.log("🟢 Client connected");
+
+    ws.on("close", () => {
+      console.log("🔴 Client disconnected");
+    });
   });
 }
 
@@ -15,14 +19,17 @@ function broadcastLocation(data) {
 
   const message = JSON.stringify({
     type: "bus_location",
-    data
+    data,
   });
 
-  wss.clients.forEach(client => {
-    if (client.readyState === 1) {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
       client.send(message);
     }
   });
 }
 
-module.exports = { init, broadcastLocation };
+module.exports = {
+  init,
+  broadcastLocation,
+};
