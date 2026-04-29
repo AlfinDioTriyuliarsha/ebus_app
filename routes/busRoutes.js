@@ -338,4 +338,19 @@ router.get("/driver/:driver_id", async (req, res) => {
     }
 });
 
+// =======================
+// TEST WEBSOCKET
+// =======================
+router.get("/test-ws", (req, res) => {
+    console.log("🔥 TEST WS TRIGGERED");
+
+    broadcastLocation({
+        bus_id: 1,
+        latitude: -7.999,
+        longitude: 112.62
+    });
+
+    res.send("WS SENT");
+});
+
 module.exports = router;

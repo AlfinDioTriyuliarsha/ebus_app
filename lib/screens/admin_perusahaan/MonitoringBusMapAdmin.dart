@@ -69,18 +69,33 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             if (index != -1) {
               _busData[index]['latitude'] = bus['latitude'];
               _busData[index]['longitude'] = bus['longitude'];
+            } else {
+              print("❌ BUS TIDAK DITEMUKAN DI LIST");
             }
-          });
 
-          _generateRealtimeMarkers();
+            _markers = _busData.map((b) {
+              final lat = double.tryParse(b['latitude'].toString()) ?? 0;
+              final lng = double.tryParse(b['longitude'].toString()) ?? 0;
+
+              if (lat == 0 || lng == 0) return null;
+
+              return Marker(
+                point: LatLng(lat, lng),
+                width: 50,
+                height: 50,
+                child: Column(
+                  children: [
+                    const Icon(Icons.directions_bus, color: Colors.green),
+                    Text(b['plat_nomor'] ?? ''),
+                  ],
+                ),
+              );
+            }).whereType<Marker>().toList();
+          });
         }
       },
-      onError: (e) {
-        print("❌ WS ERROR: $e");
-      },
-      onDone: () {
-        print("⚠️ WS CLOSED");
-      },
+      onError: (e) => print("❌ WS ERROR: $e"),
+      onDone: () => print("⚠️ WS CLOSED"),
     );
   }
 
