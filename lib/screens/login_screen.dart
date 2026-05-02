@@ -5,6 +5,8 @@ import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dashboard_screen.dart';
 import 'package:ebus_app/screens/DriverDashboard.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -358,54 +360,54 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _processResponse(Map<String, dynamic> data, String fallbackEmail) {
+  void _processResponse(Map<String, dynamic> data, String fallbackEmail) async {
     if (data['success'] == true) {
-      try {
-        final userData = data['data'];
+      final userData = data['data'];
 
-        final int userId = int.parse(userData['id'].toString());
-        final String userRole = userData['role']?.toString() ?? 'penumpang';
-        final String userEmail = userData['email']?.toString() ?? fallbackEmail;
-        final int companyId = int.parse(userData['company_id'].toString());
+      final int userId = int.parse(userData['id'].toString());
+      final String role = userData['role'] ?? 'penumpang';
+      final String email = userData['email'] ?? fallbackEmail;
 
-        print("✅ LOGIN SUKSES | ID: $userId | Role: $userRole");
+      print("✅ LOGIN: $userId | $role");
 
-        Future.microtask(() {
+      if (role == "driver") {
+        try {
+          final res = await http.get(
+            Uri.parse("${ApiService.baseUrl}/api/buses/driver/$userId"),
+          );
+
+          final result = jsonDecode(res.body);
+
+          int busId = 0;
+
+          if (result['success'] == true) {
+            busId = result['data']['bus_id'] ?? 0;
+          }
+
           if (!mounted) return;
 
-          // 🔥 KHUSUS DRIVER
-          if (userRole == "driver") {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DriverDashboard(
-                  email: userEmail,
-                  driverId: userId,
-                  companyId: companyId,
-                ),
-              ),
-              (route) => false,
-            );
-          } else {
-            // ADMIN / USER BIASA
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DashboardScreen(
-                  role: userRole,
-                  email: userEmail,
-                  userId: userId,
-                ),
-              ),
-              (route) => false,
-            );
-          }
-        });
-      } catch (e) {
-        _showError("Error parsing data user: $e");
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DriverDashboard(email: email, busId: busId),
+            ),
+          );
+        } catch (e) {
+          _showError("Gagal ambil data bus");
+        }
+      } else {
+        if (!mounted) return;
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                DashboardScreen(role: role, email: email, userId: userId),
+          ),
+        );
       }
     } else {
-      _showError(data['message'] ?? "Email atau Password Salah");
+      _showError(data['message'] ?? "Login gagal");
     }
   }
 
