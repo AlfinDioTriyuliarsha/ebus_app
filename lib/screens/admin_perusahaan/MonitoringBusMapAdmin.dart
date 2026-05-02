@@ -42,6 +42,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   double distance = 0;
   double duration = 0;
 
+  // ignore: prefer_final_fields
   bool _isAnimating = false;
   // ignore: annotate_overrides
   bool get wantKeepAlive => true;
@@ -152,6 +153,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   // =========================
   // FETCH AWAL
   // =========================
+  // ignore: unused_element
   Future<void> _fetchBuses() async {
     try {
       final res = await http.get(
@@ -321,6 +323,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   // =========================
   // HITUNG ARAH
   // =========================
+  // ignore: unused_element
   double _bearing(LatLng start, LatLng end) {
     final lat1 = start.latitude * Math.pi / 180;
     final lon1 = start.longitude * Math.pi / 180;
