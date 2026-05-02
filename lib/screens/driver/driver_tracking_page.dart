@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
-import 'package:latlong2/latlong.dart';
 
 class DriverTrackingPage extends StatefulWidget {
   final int busId;
@@ -12,87 +12,17 @@ class DriverTrackingPage extends StatefulWidget {
   const DriverTrackingPage({super.key, required this.busId});
 
   @override
-  State<DriverTrackingPage> createState() => _DriverTrackingPageState();
+  State<DriverTrackingPage> createState() => _DriverTrackingScreenState();
 }
 
-class _DriverTrackingPageState extends State<DriverTrackingPage> {
+class _DriverTrackingScreenState extends State<DriverTrackingPage> {
   Timer? _timer;
-  bool isTracking = false;
-  String status = "Belum aktif";
+  Position? _currentPosition;
 
-  // =========================
-  // START TRACKING
-  // =========================
-  Future<void> startTracking() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      setState(() => status = "GPS tidak aktif");
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.requestPermission();
-
-    if (permission == LocationPermission.denied) {
-      setState(() => status = "Izin ditolak");
-      return;
-    }
-
-    setState(() {
-      isTracking = true;
-      status = "Tracking aktif...";
-    });
-
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      final snapped = await snapToRoad(LatLng(pos.latitude, pos.longitude));
-
-      await _sendToServer(snapped.latitude, snapped.longitude);
-    });
-  }
-
-  // =========================
-  // STOP TRACKING
-  // =========================
-  void stopTracking() {
-    _timer?.cancel();
-
-    setState(() {
-      isTracking = false;
-      status = "Tracking dihentikan";
-    });
-  }
-
-  // =========================
-  // KIRIM KE SERVER
-  // =========================
-  Future<void> _sendToServer(double lat, double lng) async {
-    try {
-      await http.put(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
-        ),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"latitude": lat, "longitude": lng}),
-      );
-    } catch (e) {
-      setState(() => status = "Gagal kirim ke server");
-    }
-  }
-
-  Future<LatLng> snapToRoad(LatLng pos) async {
-    final url = Uri.parse(
-      "https://router.project-osrm.org/nearest/v1/driving/${pos.longitude},${pos.latitude}",
-    );
-
-    final res = await http.get(url);
-    final data = jsonDecode(res.body);
-
-    final snapped = data['waypoints'][0]['location'];
-
-    return LatLng(snapped[1], snapped[0]);
+  @override
+  void initState() {
+    super.initState();
+    _startTracking();
   }
 
   @override
@@ -102,34 +32,91 @@ class _DriverTrackingPageState extends State<DriverTrackingPage> {
   }
 
   // =========================
+  // START TRACKING
+  // =========================
+  void _startTracking() {
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      await _sendLocation();
+    });
+  }
+
+  // =========================
+  // GET GPS
+  // =========================
+  Future<Position> _getLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception("GPS tidak aktif");
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
+
+  // =========================
+  // SEND TO BACKEND
+  // =========================
+  Future<void> _sendLocation() async {
+    try {
+      final pos = await _getLocation();
+
+      setState(() {
+        _currentPosition = pos;
+      });
+
+      final response = await http.put(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+        ),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "latitude": pos.latitude,
+          "longitude": pos.longitude,
+        }),
+      );
+
+      print("📡 SEND GPS: ${pos.latitude}, ${pos.longitude}");
+      print("STATUS: ${response.statusCode}");
+    } catch (e) {
+      print("❌ ERROR GPS: $e");
+    }
+  }
+
+  // =========================
   // UI
   // =========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Driver Tracking")),
+      appBar: AppBar(
+        title: const Text("Driver Tracking"),
+        backgroundColor: const Color(0xFF001F3F),
+      ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(status, style: const TextStyle(fontSize: 18)),
-
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: isTracking ? null : startTracking,
-              child: const Text("START"),
-            ),
-
-            const SizedBox(height: 10),
-
-            ElevatedButton(
-              onPressed: isTracking ? stopTracking : null,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text("STOP"),
-            ),
-          ],
-        ),
+        child: _currentPosition == null
+            ? const Text("Mengambil lokasi...")
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.location_on, size: 50, color: Colors.red),
+                  Text(
+                    "Lat: ${_currentPosition!.latitude}",
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  Text(
+                    "Lng: ${_currentPosition!.longitude}",
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text("📡 Mengirim ke server..."),
+                ],
+              ),
       ),
     );
   }
