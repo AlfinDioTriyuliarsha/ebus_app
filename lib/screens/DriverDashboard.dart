@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ebus_app/screens/driver/driver_tracking_page.dart';
+import 'package:ebus_app/services/background_service.dart';
+import 'package:geolocator/geolocator.dart';
 
 class DriverDashboard extends StatelessWidget {
   final String email;
@@ -69,7 +71,13 @@ class DriverDashboard extends StatelessWidget {
             ElevatedButton.icon(
               icon: const Icon(Icons.play_arrow),
               label: const Text("Mulai Tracking"),
-              onPressed: () {
+              onPressed: () async {
+                await Geolocator.requestPermission();
+
+                await initializeService(busId);
+
+                if (!context.mounted) return; // ✅ FIX ERROR
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(
