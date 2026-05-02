@@ -51,7 +51,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   // =========================
   void _initWebSocket() {
     channel = WebSocketChannel.connect(
-      Uri.parse('wss://ebusapp-production.up.railway.app'),
+      Uri.parse('wss://ebusapp-production-4fdd.up.railway.app'),
     );
 
     channel.stream.listen(
