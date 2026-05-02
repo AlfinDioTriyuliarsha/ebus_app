@@ -52,6 +52,19 @@ class DashboardScreen extends StatelessWidget {
     }
   }
 
+  Future<int> getDriverBusId(int userId) async {
+    final res = await http.get(
+      Uri.parse("${ApiService.baseUrl}/api/driver-bus/$userId"),
+    );
+
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      return data['bus_id'] ?? 0;
+    }
+
+    return 0;
+  }
+
   // =========================
   // AMBIL BUS ID DARI DRIVER
   // =========================
@@ -109,20 +122,35 @@ class DashboardScreen extends StatelessWidget {
         // 🔥 DRIVER PAKAI FUTURE (AMBIL BUS ID DARI SERVER)
         return FutureBuilder<int>(
           future: getBusId(userId),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+          builder: (context, busSnapshot) {
+            if (busSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );
             }
 
-            if (!snapshot.hasData || snapshot.data == 0) {
+            if (!busSnapshot.hasData || busSnapshot.data == 0) {
               return const Scaffold(
                 body: Center(child: Text("Bus belum terdaftar")),
               );
             }
 
-            return DriverDashboard(email: email, busId: snapshot.data!);
+            return FutureBuilder<int>(
+              future: getDriverBusId(userId),
+              builder: (context, driverSnapshot) {
+                if (driverSnapshot.connectionState == ConnectionState.waiting ||
+                    !driverSnapshot.hasData) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                return DriverDashboard(
+                  email: email,
+                  busId: driverSnapshot.data ?? 0,
+                );
+              },
+            );
           },
         );
 

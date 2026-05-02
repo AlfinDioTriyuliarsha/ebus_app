@@ -56,6 +56,7 @@ app.use("/api/drivers", driverRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/driver-request", driverRequestRoutes);
 
+
 app.get('/api/schedules', async (req, res) => {
   const { company_id } = req.query;
   
