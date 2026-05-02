@@ -36,7 +36,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     super.initState();
 
     _initWebSocket();
-    _fetchBuses();
+    _generateRealtimeMarkers();
   }
 
   double distance = 0;
@@ -94,6 +94,47 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                 })
                 .whereType<Marker>()
                 .toList();
+            setState(() {
+              final index = _busData.indexWhere(
+                (b) => b['id'].toString() == bus['bus_id'].toString(),
+              );
+
+              if (index != -1) {
+                _busData[index]['latitude'] = bus['latitude'];
+                _busData[index]['longitude'] = bus['longitude'];
+              } else {
+                // 🔥 kalau bus belum ada → tambahkan
+                _busData.add({
+                  'id': bus['bus_id'],
+                  'latitude': bus['latitude'],
+                  'longitude': bus['longitude'],
+                  'plat_nomor': 'BUS ${bus['bus_id']}',
+                });
+              }
+
+              // 🔥 rebuild marker FULL dari data terbaru
+              _markers = _busData
+                  .map((b) {
+                    final lat = double.tryParse(b['latitude'].toString()) ?? 0;
+                    final lng = double.tryParse(b['longitude'].toString()) ?? 0;
+
+                    if (lat == 0 || lng == 0) return null;
+
+                    return Marker(
+                      point: LatLng(lat, lng),
+                      width: 50,
+                      height: 50,
+                      child: Column(
+                        children: [
+                          const Icon(Icons.directions_bus, color: Colors.green),
+                          Text(b['plat_nomor'] ?? ''),
+                        ],
+                      ),
+                    );
+                  })
+                  .whereType<Marker>()
+                  .toList();
+            });
           });
         }
       },
@@ -220,64 +261,62 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       if (!_userInteracting) {
         _mapController.move(realRoute.first, 7);
       }
-
-      _animateBus(realRoute);
     } catch (e) {
       print("❌ DRAW ROUTE ERROR: $e");
     }
   }
 
-  // =========================
-  // ANIMASI BUS
-  // =========================
-  Future<void> _animateBus(List<LatLng> route) async {
-    if (_isAnimating) return;
-    _isAnimating = true;
+  // // =========================
+  // // ANIMASI BUS
+  // // =========================
+  // Future<void> _animateBus(List<LatLng> route) async {
+  //   if (_isAnimating) return;
+  //   _isAnimating = true;
 
-    for (int i = 0; i < route.length - 1; i++) {
-      final start = route[i];
-      final end = route[i + 1];
+  //   for (int i = 0; i < route.length - 1; i++) {
+  //     final start = route[i];
+  //     final end = route[i + 1];
 
-      const steps = 20;
+  //     const steps = 20;
 
-      for (int j = 0; j <= steps; j++) {
-        final lat =
-            start.latitude + (end.latitude - start.latitude) * (j / steps);
-        final lng =
-            start.longitude + (end.longitude - start.longitude) * (j / steps);
+  //     for (int j = 0; j <= steps; j++) {
+  //       final lat =
+  //           start.latitude + (end.latitude - start.latitude) * (j / steps);
+  //       final lng =
+  //           start.longitude + (end.longitude - start.longitude) * (j / steps);
 
-        // ignore: unused_local_variable
-        final angle = _bearing(start, end);
+  //       // ignore: unused_local_variable
+  //       final angle = _bearing(start, end);
 
-        setState(() {
-          _markers = [
-            Marker(
-              point: LatLng(lat, lng),
-              width: 60,
-              height: 60,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                ),
-                padding: const EdgeInsets.all(6),
-                child: const Icon(
-                  Icons.directions_bus,
-                  color: Colors.blue,
-                  size: 28,
-                ),
-              ),
-            ),
-          ];
-        });
+  //       setState(() {
+  //         _markers = [
+  //           Marker(
+  //             point: LatLng(lat, lng),
+  //             width: 60,
+  //             height: 60,
+  //             child: Container(
+  //               decoration: BoxDecoration(
+  //                 color: Colors.white,
+  //                 shape: BoxShape.circle,
+  //                 boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+  //               ),
+  //               padding: const EdgeInsets.all(6),
+  //               child: const Icon(
+  //                 Icons.directions_bus,
+  //                 color: Colors.blue,
+  //                 size: 28,
+  //               ),
+  //             ),
+  //           ),
+  //         ];
+  //       });
 
-        await Future.delayed(const Duration(milliseconds: 40));
-      }
-    }
+  //       await Future.delayed(const Duration(milliseconds: 40));
+  //     }
+  //   }
 
-    _isAnimating = false;
-  }
+  //   _isAnimating = false;
+  // }
 
   // =========================
   // HITUNG ARAH
