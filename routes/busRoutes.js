@@ -136,60 +136,6 @@ router.get("/drivers", async (req, res) => {
     }
 });
 
-
-// =======================
-// UPDATE GPS + REALTIME
-// =======================
-router.put("/update-location/:id", async (req, res) => {
-    const { id } = req.params;
-    const { latitude, longitude } = req.body;
-
-    if (!latitude || !longitude) {
-        return res.status(400).json({
-            success: false,
-            error: "Latitude & Longitude wajib"
-        });
-    }
-
-    try {
-        const result = await pool.query(
-            `UPDATE buses 
-             SET latitude=$1, longitude=$2, updated_at=NOW()
-             WHERE id=$3 RETURNING *`,
-            [latitude, longitude, id]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: "Bus tidak ditemukan"
-            });
-        }
-
-        // 🔥 REALTIME DI SINI (INI YANG BENAR)
-        broadcastLocation({
-            bus_id: id,
-            latitude,
-            longitude
-        });
-
-        console.log("📡 BROADCAST:", id, latitude, longitude);
-
-        res.json({
-            success: true,
-            data: result.rows[0]
-        });
-
-    } catch (err) {
-        console.error("GPS ERROR:", err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
-});
-
-
 // =======================
 // DELETE BUS
 // =======================
