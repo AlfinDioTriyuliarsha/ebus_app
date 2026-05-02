@@ -36,7 +36,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     super.initState();
 
     _initWebSocket();
-    _generateRealtimeMarkers();
+    _fetchBuses();
   }
 
   double distance = 0;
@@ -73,12 +73,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
               _busData[index]['latitude'] = bus['latitude'];
               _busData[index]['longitude'] = bus['longitude'];
             } else {
-              _busData.add({
-                'id': bus['bus_id'],
-                'latitude': bus['latitude'],
-                'longitude': bus['longitude'],
-                'plat_nomor': 'BUS ${bus['bus_id']}',
-              });
+              print("❌ BUS TIDAK ADA DI DATABASE");
             }
 
             _markers = _busData
@@ -135,6 +130,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       });
     } catch (e) {
       print("❌ FETCH ERROR: $e");
+
+      _generateRealtimeMarkers();
     }
   }
 
