@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dashboard_screen.dart';
+import 'package:ebus_app/screens/DriverDashboard.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -360,30 +361,45 @@ class _LoginScreenState extends State<LoginScreen> {
   void _processResponse(Map<String, dynamic> data, String fallbackEmail) {
     if (data['success'] == true) {
       try {
-        // Mengambil data user dari response backend
         final userData = data['data'];
 
-        // Konversi ID secara aman ke int (baik itu ID 1 atau ID 6)
         final int userId = int.parse(userData['id'].toString());
         final String userRole = userData['role']?.toString() ?? 'penumpang';
         final String userEmail = userData['email']?.toString() ?? fallbackEmail;
+        final int companyId = int.parse(userData['company_id'].toString());
 
         print("✅ LOGIN SUKSES | ID: $userId | Role: $userRole");
 
-        // Navigasi aman menggunakan microtask untuk menghindari error context
         Future.microtask(() {
           if (!mounted) return;
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (c) => DashboardScreen(
-                role: userRole,
-                email: userEmail,
-                userId: userId,
+
+          // 🔥 KHUSUS DRIVER
+          if (userRole == "driver") {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DriverDashboard(
+                  email: userEmail,
+                  driverId: userId,
+                  companyId: companyId,
+                ),
               ),
-            ),
-            (route) => false, // Bersihkan stack navigasi
-          );
+              (route) => false,
+            );
+          } else {
+            // ADMIN / USER BIASA
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DashboardScreen(
+                  role: userRole,
+                  email: userEmail,
+                  userId: userId,
+                ),
+              ),
+              (route) => false,
+            );
+          }
         });
       } catch (e) {
         _showError("Error parsing data user: $e");

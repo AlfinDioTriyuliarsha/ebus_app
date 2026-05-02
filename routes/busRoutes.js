@@ -259,14 +259,16 @@ router.get("/test-ws", (req, res) => {
 // =======================
 // ASSIGN DRIVER KE BUS
 // =======================
-router.put("/assign-driver/:bus_id", async (req, res) => {
-    const { bus_id } = req.params;
+router.put("/assign-driver/:id", async (req, res) => {
+    const { id } = req.params; // bus_id
     const { driver_id } = req.body;
 
     try {
         const result = await pool.query(
-            "UPDATE buses SET driver_id=$1 WHERE id=$2 RETURNING *",
-            [driver_id, bus_id]
+            `UPDATE buses 
+             SET driver_id=$1 
+             WHERE id=$2 RETURNING *`,
+            [driver_id, id]
         );
 
         res.json({
@@ -276,7 +278,10 @@ router.put("/assign-driver/:bus_id", async (req, res) => {
 
     } catch (err) {
         console.error("ASSIGN DRIVER ERROR:", err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
 });
 

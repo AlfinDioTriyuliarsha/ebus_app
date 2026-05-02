@@ -14,6 +14,7 @@ const scheduleRoutes = require("./routes/scheduleRoutes");
 const mesinRoutes = require("./routes/mesinRoutes");
 const driverRoutes = require("./routes/driverRoutes");
 const locationRoutes = require("./routes/location");
+const driverRequestRoutes = require("./routes/driverRequest");
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use("/api/schedules", scheduleRoutes);
 app.use("/api/mesin", mesinRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/location", locationRoutes);
+app.use("/api/driver-request", driverRequestRoutes);
 
 app.get('/api/schedules', async (req, res) => {
   const { company_id } = req.query;
