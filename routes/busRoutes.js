@@ -256,4 +256,28 @@ router.get("/test-ws", (req, res) => {
     res.send("WS SENT");
 });
 
+// =======================
+// ASSIGN DRIVER KE BUS
+// =======================
+router.put("/assign-driver/:bus_id", async (req, res) => {
+    const { bus_id } = req.params;
+    const { driver_id } = req.body;
+
+    try {
+        const result = await pool.query(
+            "UPDATE buses SET driver_id=$1 WHERE id=$2 RETURNING *",
+            [driver_id, bus_id]
+        );
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error("ASSIGN DRIVER ERROR:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
