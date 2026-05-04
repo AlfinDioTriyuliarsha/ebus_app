@@ -16,12 +16,14 @@ class DashboardScreen extends StatelessWidget {
   final String role;
   final String email;
   final int userId;
+  final int busId;
 
   const DashboardScreen({
     super.key,
     required this.role,
     required this.email,
     required this.userId,
+    required this.busId,
   });
 
   // =========================
@@ -114,8 +116,8 @@ class DashboardScreen extends StatelessWidget {
 
             return DriverDashboard(
               email: email,
+              userId: userId,
               busId: busId,
-              userId: userId, // ✅ FIX
             );
           },
         );

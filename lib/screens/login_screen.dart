@@ -373,33 +373,52 @@ class _LoginScreenState extends State<LoginScreen> {
 
     print("✅ LOGIN: $userId | $role");
 
+    int busId = 0;
+
     // =========================
-    // AUTO CREATE DRIVER
+    // KHUSUS DRIVER
     // =========================
     if (role == "driver") {
       try {
-        final res = await http.post(
+        // 🔥 AUTO CREATE DRIVER
+        await http.post(
           Uri.parse("${ApiService.baseUrl}/api/drivers/auto-create"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({"user_id": userId, "email": email}),
         );
 
-        print("AUTO CREATE RESPONSE: ${res.body}");
+        // 🔥 AMBIL BUS BERDASARKAN USER_ID
+        final res = await http.get(
+          Uri.parse("${ApiService.baseUrl}/api/buses/driver/$userId"),
+        );
+
+        final result = jsonDecode(res.body);
+
+        print("BUS RESPONSE: $result");
+
+        if (result['success'] == true) {
+          busId = result['data']['bus_id'] ?? 0;
+        }
+
       } catch (e) {
-        print("AUTO CREATE DRIVER ERROR: $e");
+        print("ERROR DRIVER FLOW: $e");
       }
     }
 
-    // =========================
-    // NAVIGATE KE DASHBOARD
-    // =========================
     if (!mounted) return;
 
+    // =========================
+    // NAVIGASI
+    // =========================
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            DashboardScreen(role: role, email: email, userId: userId),
+        builder: (_) => DashboardScreen(
+          role: role,
+          email: email,
+          userId: userId,
+          busId: busId, // 🔥 INI WAJIB
+        ),
       ),
     );
   }

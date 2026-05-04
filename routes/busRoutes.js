@@ -38,7 +38,7 @@ router.get("/", async (req, res) => {
             let routeParsed = null;
 
             try {
-                routeParsed = row.route ? JSON.parse(row.route) : null;
+                routeParsed = row.path ? JSON.parse(row.path) : null;
             } catch (e) {
                 console.log("ERROR PARSE ROUTE:", e);
             }
@@ -213,32 +213,47 @@ router.put("/update-location/:id", async (req, res) => {
 
 
 // =======================
-// GET BUS BY DRIVER
+// GET BUS BY DRIVER (FINAL)
 // =======================
-router.get("/driver/:driver_id", async (req, res) => {
-    const { driver_id } = req.params;
+router.get("/driver/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
 
-    try {
-        const result = await pool.query(
-            "SELECT id as bus_id FROM buses WHERE driver_id = $1",
-            [driver_id]
-        );
+    const result = await pool.query(
+      `SELECT 
+          b.id,
+          b.nomor_bus,
+          b.plat_nomor,
+          b.status,
+          b.latitude,
+          b.longitude,
+          d.driver_name
+       FROM buses b
+       JOIN drivers d ON b.driver_id = d.id
+       WHERE d.user_id = $1
+       LIMIT 1`,
+      [user_id]
+    );
 
-        if (result.rows.length === 0) {
-            return res.json({
-                success: false,
-                message: "Driver belum punya bus"
-            });
-        }
-
-        res.json({
-            success: true,
-            data: result.rows[0]
-        });
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (result.rows.length === 0) {
+      return res.json({
+        success: true,
+        data: null
+      });
     }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error("ERROR GET BUS DRIVER:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 });
 
 // =======================
