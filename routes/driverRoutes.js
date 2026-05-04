@@ -131,6 +131,43 @@ router.get("/by-user/:user_id", async (req, res) => {
   }
 });
 
+// ================= REGISTER DRIVER (DARI MOBILE) =================
+router.post("/register", async (req, res) => {
+  try {
+    const { user_id, email, company_id } = req.body;
+
+    // cek apakah sudah ada
+    const check = await pool.query(
+      "SELECT * FROM drivers WHERE user_id = $1",
+      [user_id]
+    );
+
+    if (check.rows.length > 0) {
+      return res.json({
+        success: false,
+        message: "Driver sudah terdaftar",
+      });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO drivers (user_id, company_id, driver_name, kontak)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [user_id, company_id, email, email]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (err) {
+    console.error("REGISTER DRIVER ERROR:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
 
 // ================= UPDATE DRIVER =================
 router.put("/:id", async (req, res) => {

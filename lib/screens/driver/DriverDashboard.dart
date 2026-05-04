@@ -29,7 +29,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     checkDriver();
   }
 
-  // ✅ CEK APAKAH SUDAH JADI DRIVER
+  // ================= CEK DRIVER =================
   Future<void> checkDriver() async {
     try {
       final res = await http.get(
@@ -44,30 +44,34 @@ class _DriverDashboardState extends State<DriverDashboard> {
       print("ERROR CHECK DRIVER: $e");
     }
 
+    if (!mounted) return;
     setState(() => isLoading = false);
   }
 
-  // ✅ DAFTAR DRIVER
+  // ================= REGISTER DRIVER =================
   Future<void> registerDriver() async {
     try {
       final res = await http.post(
-        Uri.parse("${ApiService.baseUrl}/api/drivers"),
+        Uri.parse("${ApiService.baseUrl}/api/drivers/register"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_id": widget.userId,
-          "driver_name": widget.email,
-          "kontak": "-",
-          "company_id": 1, // ⚠️ sementara (nanti bisa dipilih)
+          "email": widget.email,
+          "company_id": 1,
         }),
       );
 
-      if (res.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Berhasil daftar driver")),
-        );
+      print("STATUS: ${res.statusCode}");
+      print("BODY: ${res.body}");
 
-        checkDriver(); // refresh
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res.body)),
+      );
+
+      // refresh status
+      await checkDriver();
     } catch (e) {
       print("ERROR REGISTER DRIVER: $e");
     }
@@ -75,13 +79,14 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    // ================= LOADING =================
     if (isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // ❌ BELUM TERDAFTAR
+    // ================= BELUM TERDAFTAR =================
     if (!isRegistered) {
       return Scaffold(
         appBar: AppBar(title: const Text("Driver Dashboard")),
@@ -101,7 +106,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
       );
     }
 
-    // ❌ BELUM DAPAT BUS
+    // ================= BELUM DAPAT BUS =================
     if (widget.busId == 0) {
       return Scaffold(
         appBar: AppBar(title: const Text("Driver Dashboard")),
@@ -111,17 +116,22 @@ class _DriverDashboardState extends State<DriverDashboard> {
       );
     }
 
-    // ✅ SUDAH SIAP
+    // ================= SUDAH SIAP =================
     return Scaffold(
       appBar: AppBar(title: const Text("Driver Dashboard")),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Text("Email: ${widget.email}"),
+            Text("User ID: ${widget.userId}"),
             Text("Bus ID: ${widget.busId}"),
             const SizedBox(height: 20),
+
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                // nanti ke tracking
+              },
               child: const Text("Mulai Jalan"),
             ),
           ],
