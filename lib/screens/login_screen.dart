@@ -377,6 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
           final result = jsonDecode(res.body);
 
+          // ignore: unused_local_variable
           int busId = 0;
 
           if (result['success'] == true) {
@@ -389,9 +390,9 @@ class _LoginScreenState extends State<LoginScreen> {
             context,
             MaterialPageRoute(
               builder: (c) => DashboardScreen(
-                role: role,      // ✅ FIX
-                email: email,    // ✅ FIX
-                userId: userId,  // ✅ FIX
+                role: role, // ✅ FIX
+                email: email, // ✅ FIX
+                userId: userId, // ✅ FIX
               ),
             ),
           );
