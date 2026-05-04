@@ -4,7 +4,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dashboard_screen.dart';
-import 'package:ebus_app/screens/DriverDashboard.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -389,7 +388,11 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) => DriverDashboard(email: email, busId: busId),
+              builder: (c) => DashboardScreen(
+                role: role,      // ✅ FIX
+                email: email,    // ✅ FIX
+                userId: userId,  // ✅ FIX
+              ),
             ),
           );
         } catch (e) {

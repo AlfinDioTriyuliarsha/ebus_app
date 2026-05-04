@@ -1,29 +1,27 @@
-import 'dart:convert'; // ✅ untuk jsonDecode
+import 'dart:convert';
+import 'package:ebus_app/screens/driver/DriverDashboard.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http; // ✅ FIX http
+import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
-import 'package:ebus_app/services/api_service.dart'; // ✅ FIX ApiService
+import 'package:ebus_app/services/api_service.dart';
 
 import 'package:ebus_app/screens/super_admin_dashboard.dart';
 import 'package:ebus_app/screens/admin_perusahaan_dashboard.dart';
 import 'package:ebus_app/screens/agen_dashboard.dart';
 import 'package:ebus_app/screens/penumpang_dashboard.dart';
-import 'package:ebus_app/screens/driverdashboard.dart'; // ⚠️ pastikan nama file huruf kecil semua
 
 class DashboardScreen extends StatelessWidget {
   final String role;
   final String email;
   final int userId;
-  final int busId;
 
   const DashboardScreen({
     super.key,
     required this.role,
     required this.email,
     required this.userId,
-    this.busId = 0,
   });
 
   // =========================
@@ -52,21 +50,8 @@ class DashboardScreen extends StatelessWidget {
     }
   }
 
-  Future<int> getDriverBusId(int userId) async {
-    final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/driver-bus/$userId"),
-    );
-
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      return data['bus_id'] ?? 0;
-    }
-
-    return 0;
-  }
-
   // =========================
-  // AMBIL BUS ID DARI DRIVER
+  // AMBIL BUS ID DRIVER
   // =========================
   Future<int> getBusId(int userId) async {
     try {
@@ -88,6 +73,9 @@ class DashboardScreen extends StatelessWidget {
     return 0;
   }
 
+  // =========================
+  // BUILD
+  // =========================
   @override
   Widget build(BuildContext context) {
     String normalizedRole = role
@@ -95,72 +83,48 @@ class DashboardScreen extends StatelessWidget {
         .replaceAll("_", "")
         .replaceAll(" ", "");
 
-    Widget dashboard;
-
     switch (normalizedRole) {
       case "superadmin":
-        dashboard = SuperAdminDashboard(email: email, userId: userId);
-        break;
+        return SuperAdminDashboard(email: email, userId: userId);
 
       case "adminperusahaan":
-        dashboard = AdminPerusahaanDashboard(
+        return AdminPerusahaanDashboard(
           email: email,
           companyId: userId,
           userId: userId,
         );
-        break;
 
       case "agen":
-        dashboard = AgenDashboard(email: email);
-        break;
+        return AgenDashboard(email: email);
 
       case "penumpang":
-        dashboard = PenumpangDashboard(email: email);
-        break;
+        return PenumpangDashboard(email: email);
 
       case "driver":
-        // 🔥 DRIVER PAKAI FUTURE (AMBIL BUS ID DARI SERVER)
         return FutureBuilder<int>(
           future: getBusId(userId),
-          builder: (context, busSnapshot) {
-            if (busSnapshot.connectionState == ConnectionState.waiting) {
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );
             }
 
-            if (!busSnapshot.hasData || busSnapshot.data == 0) {
-              return const Scaffold(
-                body: Center(child: Text("Bus belum terdaftar")),
-              );
-            }
+            final busId = snapshot.data ?? 0;
 
-            return FutureBuilder<int>(
-              future: getDriverBusId(userId),
-              builder: (context, driverSnapshot) {
-                if (driverSnapshot.connectionState == ConnectionState.waiting ||
-                    !driverSnapshot.hasData) {
-                  return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                return DriverDashboard(
-                  email: email,
-                  busId: driverSnapshot.data ?? 0,
-                );
-              },
+            return DriverDashboard(
+              email: email,
+              busId: busId,
+              userId: userId, // ✅ FIX
             );
           },
         );
 
       default:
-        dashboard = Scaffold(
+        return Scaffold(
           appBar: AppBar(title: const Text("Dashboard")),
           body: Center(child: Text("⚠️ Role tidak dikenali: $role")),
         );
     }
-
-    return dashboard;
   }
 }
