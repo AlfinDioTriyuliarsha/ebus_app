@@ -49620,7 +49620,8 @@ return A.E(A.dM(A.b0(u.f+a),null),$async$zc)
 case 7:n=c
 if(n.b===200){k=n
 m=B.v.bV(0,A.bQ(A.bP(k.e)).b8(0,k.w),null)
-if(J.d(J.a2(m,"success"),!0)){k=J.a2(J.a2(m,"data"),"bus_id")
+if(J.d(J.a2(m,"success"),!0)){k=J.a2(m,"data")
+k=k==null?null:J.a2(k,"id")
 if(k==null)k=0
 q=k
 s=1
