@@ -51,27 +51,46 @@ class _DriverDashboardState extends State<DriverDashboard> {
   // ================= REGISTER DRIVER =================
   Future<void> registerDriver() async {
     try {
+      // ✅ STEP 1: ambil company dari backend
+      final companyRes = await http.get(
+        Uri.parse("${ApiService.baseUrl}/api/companies/user/${widget.userId}"),
+      );
+
+      final companyData = jsonDecode(companyRes.body);
+
+      if (companyData['success'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Company tidak ditemukan")),
+        );
+        return;
+      }
+
+      final int companyId = companyData['data']['id'];
+
+      // ✅ STEP 2: insert driver
       final res = await http.post(
-        Uri.parse("${ApiService.baseUrl}/api/drivers/register"),
+        Uri.parse("${ApiService.baseUrl}/api/drivers"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_id": widget.userId,
           "email": widget.email,
-          "company_id": 1,
+          "kontak": "-",
+          "company_id": companyId,
         }),
       );
 
       print("STATUS: ${res.statusCode}");
       print("BODY: ${res.body}");
 
-      if (!mounted) return;
+      if (res.statusCode == 201) {
+        if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res.body)),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Berhasil daftar driver")),
+        );
 
-      // refresh status
-      await checkDriver();
+        checkDriver(); // refresh status
+      }
     } catch (e) {
       print("ERROR REGISTER DRIVER: $e");
     }

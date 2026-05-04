@@ -154,4 +154,33 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
+router.get("/user/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const result = await pool.query(
+      "SELECT * FROM companies WHERE user_id = $1 LIMIT 1",
+      [user_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({
+        success: false,
+        message: "Company tidak ditemukan",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (err) {
+    console.error("ERROR GET COMPANY:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
 module.exports = router;

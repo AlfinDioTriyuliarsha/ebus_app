@@ -3,6 +3,28 @@ const router = express.Router();
 const pool = require("../db");
 
 
+router.get("/user/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const result = await pool.query(
+      "SELECT * FROM drivers WHERE user_id = $1 LIMIT 1",
+      [user_id]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows[0] || null,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
 // ================= GET DRIVERS =================
 router.get("/", async (req, res) => {
   try {
