@@ -45,9 +45,13 @@ router.get("/", async (req, res) => {
                         console.log("ERROR PARSE ROUTE:", e);
                     }
                 } else {
-                    // sudah object, tidak perlu parse
                     routeParsed = row.path;
                 }
+            }
+
+            return {
+                ...row,
+                route: routeParsed || row.path
             };
         });
 
@@ -220,6 +224,14 @@ router.put("/update-location/:id", async (req, res) => {
 router.get("/driver/:user_id", async (req, res) => {
   try {
     const { user_id } = req.params;
+
+    console.log("🔥 USER ID:", user_id);
+
+    const debug = await pool.query("SELECT * FROM drivers");
+    console.log("🔥 DRIVERS:", debug.rows);
+
+    const debugBus = await pool.query("SELECT * FROM buses");
+    console.log("🔥 BUSES:", debugBus.rows);
 
     const result = await pool.query(
       `SELECT 
