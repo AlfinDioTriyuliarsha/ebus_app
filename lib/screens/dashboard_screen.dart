@@ -65,7 +65,7 @@ class DashboardScreen extends StatelessWidget {
         final data = jsonDecode(res.body);
 
         if (data['success'] == true) {
-          return data['data']?['id'] ?? 0;
+          return data['data']['id'] ?? 0;
         }
       }
     } catch (e) {
