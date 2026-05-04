@@ -300,38 +300,6 @@ router.put("/assign-driver/:id", async (req, res) => {
     }
 });
 
-router.get("/driver/:user_id", async (req, res) => {
-  try {
-    const { user_id } = req.params;
-
-    const result = await pool.query(
-      `SELECT b.id as bus_id
-       FROM buses b
-       JOIN drivers d ON b.driver_id = d.id
-       WHERE d.user_id = $1`,
-      [user_id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.json({
-        success: true,
-        data: { bus_id: 0 },
-      });
-    }
-
-    res.json({
-      success: true,
-      data: result.rows[0],
-    });
-  } catch (err) {
-    console.error("ERROR GET BUS DRIVER:", err);
-    res.status(500).json({
-      success: false,
-      error: err.message,
-    });
-  }
-});
-
 // ================= UPDATE BUS =================
 router.put("/:id", async (req, res) => {
   try {
