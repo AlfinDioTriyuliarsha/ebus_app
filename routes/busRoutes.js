@@ -321,49 +321,21 @@ router.get("/driver/:user_id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-
-    const {
-      company_id,
-      nomor_bus,
-      plat_nomor,
-      status,
-      driver_id,
-      mesin_id,
-      route_id,
-    } = req.body;
+    const { company_id, nomor_bus, plat_nomor, status, driver_id, mesin_id, route_id } = req.body;
 
     const result = await pool.query(
-      `
-      UPDATE buses SET
+      `UPDATE buses SET
         company_id = $1,
         nomor_bus = $2,
         plat_nomor = $3,
         status = $4,
         driver_id = $5,
         mesin_id = $6,
-        route_id = $7,
-        updated_at = NOW()
-      WHERE id = $8
-      RETURNING *
-      `,
-      [
-        company_id,
-        nomor_bus,
-        plat_nomor,
-        status,
-        driver_id || null,
-        mesin_id || null,
-        route_id || null,
-        id,
-      ]
+        route_id = $7
+       WHERE id = $8
+       RETURNING *`,
+      [company_id, nomor_bus, plat_nomor, status, driver_id, mesin_id, route_id, id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Bus tidak ditemukan",
-      });
-    }
 
     res.json({
       success: true,

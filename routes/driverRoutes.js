@@ -239,4 +239,26 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// GET DRIVER BY COMPANY
+router.get("/company/:company_id", async (req, res) => {
+  try {
+    const { company_id } = req.params;
+
+    const result = await pool.query(
+      "SELECT * FROM drivers WHERE company_id = $1",
+      [company_id]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
 module.exports = router;

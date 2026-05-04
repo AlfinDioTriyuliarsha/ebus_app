@@ -131,20 +131,28 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
 
   // ================= ASSIGN =================
   Future<void> assignDriver(int driverId, int busId) async {
-    final res = await http.put(
-      Uri.parse("${ApiService.baseUrl}/api/buses/assign-driver/$busId"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"driver_id": driverId}),
-    );
-
-    if (res.statusCode == 200) {
-      fetchAll();
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Driver berhasil ditugaskan")),
+    try {
+      final res = await http.put(
+        Uri.parse("${ApiService.baseUrl}/api/buses/$busId/assign-driver"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"driver_id": driverId}),
       );
-    } else {
-      debugPrint(res.body);
+
+      print("ASSIGN STATUS: ${res.statusCode}");
+      print("ASSIGN BODY: ${res.body}");
+
+      if (res.statusCode == 200) {
+        fetchAll();
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Driver berhasil ditugaskan")),
+        );
+      } else {
+        debugPrint("ERROR ASSIGN: ${res.body}");
+      }
+    } catch (e) {
+      debugPrint("EXCEPTION ASSIGN: $e");
     }
   }
 
@@ -247,8 +255,6 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
         backgroundColor: Colors.orange,
         child: const Icon(Icons.add),
       ),
-      
     );
   }
-  
 }
