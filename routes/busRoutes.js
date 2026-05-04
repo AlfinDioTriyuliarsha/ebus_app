@@ -37,15 +37,17 @@ router.get("/", async (req, res) => {
         const data = result.rows.map(row => {
             let routeParsed = null;
 
-            try {
-                routeParsed = row.path ? JSON.parse(row.path) : null;
-            } catch (e) {
-                console.log("ERROR PARSE ROUTE:", e);
-            }
-
-            return {
-                ...row,
-                route: routeParsed || row.path
+            if (row.path) {
+                if (typeof row.path === "string") {
+                    try {
+                        routeParsed = JSON.parse(row.path);
+                    } catch (e) {
+                        console.log("ERROR PARSE ROUTE:", e);
+                    }
+                } else {
+                    // sudah object, tidak perlu parse
+                    routeParsed = row.path;
+                }
             };
         });
 
