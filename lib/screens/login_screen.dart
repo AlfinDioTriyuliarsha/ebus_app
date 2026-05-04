@@ -360,59 +360,48 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _processResponse(Map<String, dynamic> data, String fallbackEmail) async {
-    if (data['success'] == true) {
-      final userData = data['data'];
-
-      final int userId = int.parse(userData['id'].toString());
-      final String role = userData['role'] ?? 'penumpang';
-      final String email = userData['email'] ?? fallbackEmail;
-
-      print("✅ LOGIN: $userId | $role");
-
-      if (role == "driver") {
-        try {
-          final res = await http.get(
-            Uri.parse("${ApiService.baseUrl}/api/buses/driver/$userId"),
-          );
-
-          final result = jsonDecode(res.body);
-
-          // ignore: unused_local_variable
-          int busId = 0;
-
-          if (result['success'] == true) {
-            busId = result['data']['bus_id'] ?? 0;
-          }
-
-          if (!mounted) return;
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (c) => DashboardScreen(
-                role: role, // ✅ FIX
-                email: email, // ✅ FIX
-                userId: userId, // ✅ FIX
-              ),
-            ),
-          );
-        } catch (e) {
-          _showError("Gagal ambil data bus");
-        }
-      } else {
-        if (!mounted) return;
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                DashboardScreen(role: role, email: email, userId: userId),
-          ),
-        );
-      }
-    } else {
+    if (data['success'] != true) {
       _showError(data['message'] ?? "Login gagal");
+      return;
     }
+
+    final userData = data['data'];
+
+    final int userId = int.parse(userData['id'].toString());
+    final String role = userData['role'] ?? 'penumpang';
+    final String email = userData['email'] ?? fallbackEmail;
+
+    print("✅ LOGIN: $userId | $role");
+
+    // =========================
+    // AUTO CREATE DRIVER
+    // =========================
+    if (role == "driver") {
+      try {
+        final res = await http.post(
+          Uri.parse("${ApiService.baseUrl}/api/drivers/auto-create"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId, "email": email}),
+        );
+
+        print("AUTO CREATE RESPONSE: ${res.body}");
+      } catch (e) {
+        print("AUTO CREATE DRIVER ERROR: $e");
+      }
+    }
+
+    // =========================
+    // NAVIGATE KE DASHBOARD
+    // =========================
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            DashboardScreen(role: role, email: email, userId: userId),
+      ),
+    );
   }
 
   void _showError(String msg) {
