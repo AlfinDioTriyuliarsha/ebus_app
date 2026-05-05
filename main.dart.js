@@ -48828,7 +48828,7 @@ CR(a,b){return this.avH(a,b)},
 avH(a,b){var s=0,r=A.C(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g
 var $async$CR=A.y(function(c,d){if(c===1){o.push(d)
 s=p}while(true)switch(s){case 0:p=4
-k=A.b0("https://ebusapp-production-4fdd.up.railway.app/api/assign-driver/"+b)
+k=A.b0("https://ebusapp-production-4fdd.up.railway.app/api/buses/assign-driver/$busId"+b)
 j=t.N
 i=A.a4(["Content-Type","application/json"],j,j)
 s=7
