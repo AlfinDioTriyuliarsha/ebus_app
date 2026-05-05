@@ -138,8 +138,13 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
   // ================= ASSIGN =================
   Future<void> assignDriver(int driverId, int busId) async {
     try {
+      final url =
+          "${ApiService.baseUrl}/api/buses/assign-driver/$busId";
+
+      print("🔥 URL ASSIGN: $url");
+
       final res = await http.put(
-        Uri.parse("${ApiService.baseUrl}/api/buses/assign-driver/$busId"),
+        Uri.parse(url),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"driver_id": driverId}),
       );
@@ -154,11 +159,9 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Driver berhasil ditugaskan")),
         );
-      } else {
-        debugPrint("ERROR ASSIGN: ${res.body}");
       }
     } catch (e) {
-      debugPrint("EXCEPTION ASSIGN: $e");
+      print("ERROR ASSIGN: $e");
     }
   }
 
