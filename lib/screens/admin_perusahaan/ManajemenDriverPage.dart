@@ -139,7 +139,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
   Future<void> assignDriver(int driverId, int busId) async {
     try {
       final res = await http.put(
-        Uri.parse("${ApiService.baseUrl}/api/assign-driver/$busId"),
+        Uri.parse("${ApiService.baseUrl}/api/buses/assign-driver/$busId"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"driver_id": driverId}),
       );
