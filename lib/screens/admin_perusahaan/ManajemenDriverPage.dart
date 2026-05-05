@@ -19,6 +19,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
   @override
   void initState() {
     super.initState();
+    debugPrint("COMPANY ID DIKIRIM: ${widget.companyId}");
     fetchAll();
   }
 
@@ -138,7 +139,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
   Future<void> assignDriver(int driverId, int busId) async {
     try {
       final res = await http.put(
-        Uri.parse("${ApiService.baseUrl}/api/buses/$busId/assign-driver"),
+        Uri.parse("${ApiService.baseUrl}/api/assign-driver/$busId"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"driver_id": driverId}),
       );
@@ -216,47 +217,47 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : drivers.isEmpty
-            ? const Center(child: Text("Belum ada driver"))
-              : ListView.builder(
-                  itemCount: drivers.length,
-                  itemBuilder: (context, i) {
-                    final d = drivers[i];
+          ? const Center(child: Text("Belum ada driver"))
+          : ListView.builder(
+              itemCount: drivers.length,
+              itemBuilder: (context, i) {
+                final d = drivers[i];
 
-                    return Card(
-                      child: ListTile(
-                        title: Text(d['driver_name'] ?? 'Tidak ada nama'),
-                        subtitle: Text(d['kontak'] ?? '-'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            DropdownButton<int>(
-                              hint: const Text("Bus"),
-                              items: buses.map<DropdownMenuItem<int>>((b) {
-                                return DropdownMenuItem<int>(
-                                  value: b['id'],
-                                  child: Text(b['plat_nomor'] ?? 'No Plat'),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  assignDriver(d['id'], val);
-                                }
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => showForm(data: d),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => deleteDriver(d['id']),
-                            ),
-                          ],
+                return Card(
+                  child: ListTile(
+                    title: Text(d['driver_name'] ?? 'Tidak ada nama'),
+                    subtitle: Text(d['kontak'] ?? '-'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DropdownButton<int>(
+                          hint: const Text("Bus"),
+                          items: buses.map<DropdownMenuItem<int>>((b) {
+                            return DropdownMenuItem<int>(
+                              value: b['id'],
+                              child: Text(b['plat_nomor'] ?? 'No Plat'),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              assignDriver(d['id'], val);
+                            }
+                          },
                         ),
-                      ),
-                    );
-                  },
-                ),
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => showForm(data: d),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => deleteDriver(d['id']),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => showForm(),
         backgroundColor: Colors.orange,
