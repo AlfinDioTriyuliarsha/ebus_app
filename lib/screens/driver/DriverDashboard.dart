@@ -86,6 +86,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
       print("STATUS: ${res.statusCode}");
       print("BODY: ${res.body}");
+      print("USER ID: ${widget.userId}");
+      print("COMPANY ID: $companyId");
 
       if (res.statusCode == 201) {
         if (!mounted) return;

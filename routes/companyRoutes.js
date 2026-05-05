@@ -87,16 +87,6 @@ router.delete("/:companyId/agents/:agentId", async (req, res) => {
 // 4. MANAJEMEN DRIVER (Admin Perusahaan)
 // ==========================================
 
-// GET Semua Driver Perusahaan
-router.get("/:companyId/drivers", async (req, res) => {
-    try {
-        const result = await pool.query("SELECT * FROM drivers WHERE company_id = $1", [req.params.companyId]);
-        res.json({ success: true, data: result.rows });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
 // Ambil Driver yang belum punya batangan bus
 router.get("/:companyId/available-drivers", async (req, res) => {
     try {
@@ -106,6 +96,16 @@ router.get("/:companyId/available-drivers", async (req, res) => {
              AND id NOT IN (SELECT driver_id FROM buses WHERE driver_id IS NOT NULL)`,
             [req.params.companyId]
         );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// GET Semua Driver Perusahaan
+router.get("/:companyId/drivers", async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM drivers WHERE company_id = $1", [req.params.companyId]);
         res.json({ success: true, data: result.rows });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
