@@ -68,7 +68,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        buses = data['data']; // ✅ FIX
+        buses = data['data'] ?? [];
       } else {
         buses = [];
         debugPrint("ERROR BUSES: ${res.statusCode}");
