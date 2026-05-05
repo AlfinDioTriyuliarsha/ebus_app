@@ -83,33 +83,34 @@ router.delete("/:companyId/agents/:agentId", async (req, res) => {
     }
 });
 
-// ==========================================
-// 4. MANAJEMEN DRIVER (Admin Perusahaan)
-// ==========================================
-
-// Ambil Driver yang belum punya batangan bus
-router.get("/:companyId/available-drivers", async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT id, driver_name FROM drivers 
-             WHERE company_id = $1 
-             AND id NOT IN (SELECT driver_id FROM buses WHERE driver_id IS NOT NULL)`,
-            [req.params.companyId]
-        );
-        res.json({ success: true, data: result.rows });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
 // GET Semua Driver Perusahaan
 router.get("/:companyId/drivers", async (req, res) => {
-    try {
-        const result = await pool.query("SELECT * FROM drivers WHERE company_id = $1", [req.params.companyId]);
-        res.json({ success: true, data: result.rows });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
+  try {
+    const result = await pool.query(
+      "SELECT * FROM drivers WHERE company_id = $1 ORDER BY id ASC",
+      [req.params.companyId]
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET available driver
+router.get("/:companyId/available-drivers", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM drivers 
+       WHERE company_id = $1 
+       AND id NOT IN (SELECT driver_id FROM buses WHERE driver_id IS NOT NULL)`,
+      [req.params.companyId]
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // GET perusahaan by ID
@@ -154,6 +155,7 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
+// GET user company (WAJIB DI ATAS SEMUA PARAM ROUTE)
 router.get("/user/:user_id", async (req, res) => {
   try {
     const { user_id } = req.params;
@@ -164,22 +166,13 @@ router.get("/user/:user_id", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.json({
-        success: false,
-        message: "Company tidak ditemukan",
-      });
+      return res.json({ success: false, message: "Company tidak ditemukan" });
     }
 
-    res.json({
-      success: true,
-      data: result.rows[0],
-    });
+    res.json({ success: true, data: result.rows[0] });
   } catch (err) {
-    console.error("ERROR GET COMPANY:", err);
-    res.status(500).json({
-      success: false,
-      error: err.message,
-    });
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
