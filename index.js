@@ -48,6 +48,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ================= ROUTES =================
 app.use("/api/users", userRoutes);
 app.use("/api/company", companyRoutes);
+app.use("/api/companies", companyRoutes);
 app.use("/api/buses", busRoutes);
 app.use("/api/routes", routeRoutes);
 app.use("/api/schedules", scheduleRoutes);
