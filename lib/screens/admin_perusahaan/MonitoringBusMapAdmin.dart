@@ -12,8 +12,15 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 class MonitoringBusMapAdmin extends StatefulWidget {
   final int companyId;
+  final int busId;
+  final int userId;
 
-  const MonitoringBusMapAdmin({super.key, required this.companyId});
+  const MonitoringBusMapAdmin({
+    super.key,
+    required this.companyId,
+    required this.busId,
+    required this.userId,
+  });
 
   @override
   State<MonitoringBusMapAdmin> createState() => _MonitoringBusMapAdminState();

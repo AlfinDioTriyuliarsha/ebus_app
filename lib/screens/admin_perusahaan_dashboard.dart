@@ -53,7 +53,11 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
       case 4:
         return ManajemenDriverPage(companyId: widget.companyId);
       case 5:
-        return MonitoringBusMapAdmin(companyId: widget.companyId);
+        return MonitoringBusMapAdmin(
+          companyId: widget.companyId,
+          busId: 0,
+          userId: widget.userId,
+        );
       case 6:
         return const LaporanOperasionalPage();
       case 7:
@@ -96,7 +100,11 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
                 _buildSidebarItem(0, Icons.people, "Manajemen Agent"),
                 _buildSidebarItem(1, Icons.directions_bus, "Manajemen Armada"),
                 _buildSidebarItem(2, Icons.map, "Manajemen Rute"),
-                _buildSidebarItem(3, Icons.schedule, "Manajemen Jadwal"), // Tambah ini
+                _buildSidebarItem(
+                  3,
+                  Icons.schedule,
+                  "Manajemen Jadwal",
+                ), // Tambah ini
                 _buildSidebarItem(4, Icons.person_pin, "Manajemen Driver"),
                 _buildSidebarItem(5, Icons.location_on, "Monitoring Bus"),
                 _buildSidebarItem(6, Icons.bar_chart, "Laporan"),

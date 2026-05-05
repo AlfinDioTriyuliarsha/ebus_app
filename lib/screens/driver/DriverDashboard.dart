@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:ebus_app/screens/admin_perusahaan/MonitoringBusMapAdmin.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
@@ -22,6 +23,8 @@ class DriverDashboard extends StatefulWidget {
 class _DriverDashboardState extends State<DriverDashboard> {
   bool isRegistered = false;
   bool isLoading = true;
+
+  int? companyId;
 
   @override
   void initState() {
@@ -59,13 +62,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
       final companyData = jsonDecode(companyRes.body);
 
       if (companyData['success'] != true) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Company tidak ditemukan")),
         );
         return;
       }
 
-      final int companyId = companyData['data']['id'];
+      companyId = companyData['data']['id'];
+      setState(() {});
 
       // ✅ STEP 2: insert driver
       final res = await http.post(
@@ -85,9 +90,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
       if (res.statusCode == 201) {
         if (!mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Berhasil daftar driver")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Berhasil daftar driver")));
 
         checkDriver(); // refresh status
       }
@@ -100,9 +105,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   Widget build(BuildContext context) {
     // ================= LOADING =================
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // ================= BELUM TERDAFTAR =================
@@ -129,9 +132,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     if (widget.busId == 0) {
       return Scaffold(
         appBar: AppBar(title: const Text("Driver Dashboard")),
-        body: const Center(
-          child: Text("Menunggu assign bus dari admin"),
-        ),
+        body: const Center(child: Text("Menunggu assign bus dari admin")),
       );
     }
 
@@ -149,9 +150,20 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
             ElevatedButton(
               onPressed: () {
-                // nanti ke tracking
+                if (companyId == null) return;
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MonitoringBusMapAdmin(
+                      companyId: companyId!,
+                      busId: widget.busId,
+                      userId: widget.userId,
+                    ),
+                  ),
+                );
               },
-              child: const Text("Mulai Jalan"),
+              child: const Text("Mulai Tracking Bus"),
             ),
           ],
         ),

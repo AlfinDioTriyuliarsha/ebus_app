@@ -35,7 +35,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
     try {
       final res = await http.get(
         Uri.parse(
-          "${ApiService.baseUrl}/api/drivers?company_id=${widget.companyId}",
+          "${ApiService.baseUrl}/api/companies/${widget.companyId}/drivers",
         ),
       );
 
