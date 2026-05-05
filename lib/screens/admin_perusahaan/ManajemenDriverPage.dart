@@ -24,27 +24,32 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
 
   // ================= FETCH ALL =================
   Future<void> fetchAll() async {
-    await fetchDrivers();
-    await fetchBuses();
+    setState(() => isLoading = true);
 
+    await Future.wait([fetchDrivers(), fetchBuses()]);
+
+    if (!mounted) return;
     setState(() => isLoading = false);
   }
 
   // ================= GET DRIVERS =================
   Future<void> fetchDrivers() async {
     try {
-      final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/companies/${widget.companyId}/drivers",
-        ),
-      );
+      final url =
+          "${ApiService.baseUrl}/api/companies/${widget.companyId}/drivers";
+
+      debugPrint("HIT DRIVER API: $url");
+
+      final res = await http.get(Uri.parse(url));
+
+      debugPrint("STATUS DRIVER: ${res.statusCode}");
+      debugPrint("BODY DRIVER: ${res.body}");
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        drivers = data['data']; // ✅ FIX
+        drivers = data['data'] ?? [];
       } else {
         drivers = [];
-        debugPrint("ERROR DRIVER: ${res.statusCode}");
       }
     } catch (e) {
       drivers = [];
@@ -210,46 +215,48 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: drivers.length,
-              itemBuilder: (context, i) {
-                final d = drivers[i];
+          : drivers.isEmpty
+            ? const Center(child: Text("Belum ada driver"))
+              : ListView.builder(
+                  itemCount: drivers.length,
+                  itemBuilder: (context, i) {
+                    final d = drivers[i];
 
-                return Card(
-                  child: ListTile(
-                    title: Text(d['driver_name'] ?? 'Tidak ada nama'),
-                    subtitle: Text(d['kontak'] ?? '-'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DropdownButton<int>(
-                          hint: const Text("Bus"),
-                          items: buses.map<DropdownMenuItem<int>>((b) {
-                            return DropdownMenuItem<int>(
-                              value: b['id'],
-                              child: Text(b['plat_nomor'] ?? 'No Plat'),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              assignDriver(d['id'], val);
-                            }
-                          },
+                    return Card(
+                      child: ListTile(
+                        title: Text(d['driver_name'] ?? 'Tidak ada nama'),
+                        subtitle: Text(d['kontak'] ?? '-'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            DropdownButton<int>(
+                              hint: const Text("Bus"),
+                              items: buses.map<DropdownMenuItem<int>>((b) {
+                                return DropdownMenuItem<int>(
+                                  value: b['id'],
+                                  child: Text(b['plat_nomor'] ?? 'No Plat'),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  assignDriver(d['id'], val);
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => showForm(data: d),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => deleteDriver(d['id']),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => showForm(data: d),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => deleteDriver(d['id']),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      ),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => showForm(),
         backgroundColor: Colors.orange,
