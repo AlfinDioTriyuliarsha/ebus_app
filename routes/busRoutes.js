@@ -120,33 +120,33 @@ router.post("/", async (req, res) => {
 // GET DRIVER
 // =======================
 router.get("/drivers", async (req, res) => {
+  try {
     const { company_id } = req.query;
 
-    try {
-        let query = "SELECT * FROM drivers";
-        let values = [];
+    let query = "SELECT * FROM drivers";
+    let values = [];
 
-        if (company_id) {
-            query += " WHERE company_id = $1";
-            values.push(company_id);
-        }
-
-        query += " ORDER BY id ASC";
-
-        const result = await pool.query(query, values);
-
-        res.json({
-            success: true,
-            data: result.rows
-        });
-
-    } catch (err) {
-        console.error("ERROR DRIVERS:", err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
+    if (company_id) {
+      query += " WHERE company_id = $1";
+      values.push(company_id);
     }
+
+    query += " ORDER BY id ASC";
+
+    const result = await pool.query(query, values);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (err) {
+    console.error("ERROR DRIVERS:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
 });
 
 // =======================
