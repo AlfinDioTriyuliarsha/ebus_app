@@ -123,10 +123,17 @@ router.get("/drivers", async (req, res) => {
     const { company_id } = req.query;
 
     try {
-        const result = await pool.query(
-            "SELECT * FROM drivers WHERE company_id = $1 ORDER BY id ASC",
-            [company_id]
-        );
+        let query = "SELECT * FROM drivers";
+        let values = [];
+
+        if (company_id) {
+            query += " WHERE company_id = $1";
+            values.push(company_id);
+        }
+
+        query += " ORDER BY id ASC";
+
+        const result = await pool.query(query, values);
 
         res.json({
             success: true,
