@@ -2,10 +2,6 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
-const express = require("express");
-const router = express.Router();
-const pool = require("../db");
-
 // ==================
 // PROVINCES
 // ==================
@@ -82,7 +78,5 @@ router.get("/checkpoints/:cityId", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
-module.exports = router;
 
 module.exports = router;
