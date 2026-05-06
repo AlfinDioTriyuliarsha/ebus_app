@@ -15,7 +15,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
   List<Map<String, dynamic>> _routes = [];
   bool _isLoading = true;
 
-  List provinces = [];
+  List<Map<String, dynamic>> provinces = [];
 
   @override
   void initState() {
@@ -56,12 +56,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     print("STATUS PROVINCES: ${res.statusCode}");
     print("BODY PROVINCES: ${res.body}");
 
-    provinces = jsonDecode(res.body);
-
-    final data = jsonDecode(res.body);
+    final decoded = jsonDecode(res.body);
 
     setState(() {
-      provinces = data;
+      provinces = decoded['data']; // 🔥 INI FIX NYA
     });
   }
 
@@ -252,7 +250,9 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       items: provinces.map<DropdownMenuItem<int>>((p) {
                         return DropdownMenuItem(
                           value: p['id'],
-                          child: Text(p['nama_provinsi']), // 🔥 FIX DI SINI
+                          child: Text(
+                            p['nama_provinsi'] ?? '',
+                          ), // 🔥 FIX DI SINI
                         );
                       }).toList(),
                       onChanged: (val) async {
