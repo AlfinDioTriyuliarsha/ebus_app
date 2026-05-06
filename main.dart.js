@@ -49384,7 +49384,7 @@ A.aFc.prototype={
 $0(){return this.a.c=this.b},
 $S:0}
 A.aFi.prototype={
-$1(a){var s=null,r=J.a0(a,"nama_terminal")
+$1(a){var s=null,r=J.a0(a,"name")
 return A.j1(A.ap(r==null?"":r,s,s,s,s,s,s,s),a,t.P)},
 $S:256}
 A.aFj.prototype={
@@ -49394,7 +49394,7 @@ A.aFb.prototype={
 $0(){return this.a.b=this.b},
 $S:0}
 A.aFk.prototype={
-$1(a){var s=null,r=J.a0(a,"nama_checkpoint")
+$1(a){var s=null,r=J.a0(a,"name")
 return A.j1(A.ap(r==null?"":r,s,s,s,s,s,s,s),a,t.P)},
 $S:256}
 A.aFl.prototype={
