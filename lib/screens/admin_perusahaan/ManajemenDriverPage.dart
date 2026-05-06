@@ -27,10 +27,37 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
   Future<void> fetchAll() async {
     setState(() => isLoading = true);
 
-    await Future.wait([fetchDrivers(), fetchBuses()]);
+    final driverRes = await http.get(
+      Uri.parse(
+        "${ApiService.baseUrl}/api/companies/${widget.companyId}/drivers",
+      ),
+    );
+
+    final busRes = await http.get(
+      Uri.parse(
+        "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+      ),
+    );
 
     if (!mounted) return;
-    setState(() => isLoading = false);
+
+    setState(() {
+      if (driverRes.statusCode == 200) {
+        final d = jsonDecode(driverRes.body);
+        drivers = d['data'] ?? [];
+      } else {
+        drivers = [];
+      }
+
+      if (busRes.statusCode == 200) {
+        final b = jsonDecode(busRes.body);
+        buses = b['data'] ?? [];
+      } else {
+        buses = [];
+      }
+
+      isLoading = false;
+    });
   }
 
   // ================= GET DRIVERS =================
@@ -39,22 +66,20 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
       final url =
           "${ApiService.baseUrl}/api/companies/${widget.companyId}/drivers";
 
-      debugPrint("HIT DRIVER API: $url");
-
       final res = await http.get(Uri.parse(url));
-
-      debugPrint("STATUS DRIVER: ${res.statusCode}");
-      debugPrint("BODY DRIVER: ${res.body}");
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        drivers = data['data'] ?? [];
+
+        if (!mounted) return;
+        setState(() {
+          drivers = data['data'] ?? [];
+        });
       } else {
-        drivers = [];
+        setState(() => drivers = []);
       }
     } catch (e) {
-      drivers = [];
-      debugPrint("EXCEPTION DRIVER: $e");
+      setState(() => drivers = []);
     }
   }
 
@@ -224,6 +249,8 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
               itemCount: drivers.length,
               itemBuilder: (context, i) {
                 final d = drivers[i];
+
+                if (d == null) return const SizedBox();
 
                 return Card(
                   child: ListTile(
