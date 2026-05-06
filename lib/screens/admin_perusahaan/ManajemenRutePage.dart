@@ -180,21 +180,15 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     showDialog(
       context: context,
       builder: (context) {
-        // ignore: unused_local_variable, no_leading_underscores_for_local_identifiers
-        int? _provinceId;
-        // ignore: unused_local_variable, no_leading_underscores_for_local_identifiers
-        int? _cityId;
-        // ignore: no_leading_underscores_for_local_identifiers
-        Map? _startTerminal;
-        // ignore: no_leading_underscores_for_local_identifiers
-        Map? _endCheckpoint;
+        int? provinceId;
+        int? cityId;
 
-        // ignore: no_leading_underscores_for_local_identifiers
-        List _cities = [];
-        // ignore: no_leading_underscores_for_local_identifiers
-        List _terminals = [];
-        // ignore: no_leading_underscores_for_local_identifiers
-        List _checkpoints = [];
+        Map<String, dynamic>? startTerminal;
+        Map<String, dynamic>? endCheckpoint;
+
+        List cities = [];
+        List terminals = [];
+        List checkpoints = [];
 
         return StatefulBuilder(
           builder: (context, setStateDialog) {
@@ -202,8 +196,16 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               final res = await http.get(
                 Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
               );
+
+              final data = jsonDecode(res.body);
+
               setStateDialog(() {
-                _cities = jsonDecode(res.body);
+                cities = data;
+                cityId = null;
+                terminals = [];
+                checkpoints = [];
+                startTerminal = null;
+                endCheckpoint = null;
               });
             }
 
@@ -211,8 +213,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               final res = await http.get(
                 Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
               );
+
               setStateDialog(() {
-                _terminals = jsonDecode(res.body);
+                terminals = jsonDecode(res.body);
+                startTerminal = null;
               });
             }
 
@@ -220,8 +224,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               final res = await http.get(
                 Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
               );
+
               setStateDialog(() {
-                _checkpoints = jsonDecode(res.body);
+                checkpoints = jsonDecode(res.body);
+                endCheckpoint = null;
               });
             }
 
@@ -230,7 +236,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               content: SingleChildScrollView(
                 child: Column(
                   children: [
+
+                    // ================= PROVINSI =================
                     DropdownButtonFormField<int>(
+                      value: provinceId,
                       hint: const Text("Pilih Provinsi"),
                       items: provinces.map<DropdownMenuItem<int>>((p) {
                         return DropdownMenuItem(
@@ -239,64 +248,75 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                         );
                       }).toList(),
                       onChanged: (val) async {
-                        setStateDialog(() {
-                          _provinceId = val;
-                          _cities = [];
-                        });
-                        await fetchCities(val!);
+                        if (val == null) return;
+
+                        setStateDialog(() => provinceId = val);
+                        await fetchCities(val);
                       },
                     ),
 
                     const SizedBox(height: 10),
 
+                    // ================= KOTA =================
                     DropdownButtonFormField<int>(
+                      value: cityId,
                       hint: const Text("Pilih Kota"),
-                      items: _cities.map<DropdownMenuItem<int>>((c) {
+                      items: cities.map<DropdownMenuItem<int>>((c) {
                         return DropdownMenuItem(
                           value: c['id'],
                           child: Text(c['name']),
                         );
                       }).toList(),
                       onChanged: (val) async {
-                        setStateDialog(() => _cityId = val);
-                        await fetchTerminals(val!);
+                        if (val == null) return;
+
+                        setStateDialog(() => cityId = val);
+
+                        await fetchTerminals(val);
                         await fetchCheckpoints(val);
                       },
                     ),
 
                     const SizedBox(height: 10),
 
-                    DropdownButtonFormField<Map>(
+                    // ================= TERMINAL =================
+                    DropdownButtonFormField<Map<String, dynamic>>(
+                      value: startTerminal,
                       hint: const Text("Terminal Awal"),
-                      items: _terminals.map<DropdownMenuItem<Map>>((t) {
+                      items: terminals.map<DropdownMenuItem<Map<String, dynamic>>>((t) {
                         return DropdownMenuItem(
                           value: t,
                           child: Text(t['name']),
                         );
                       }).toList(),
-                      onChanged: (val) =>
-                          setStateDialog(() => _startTerminal = val),
+                      onChanged: (val) {
+                        setStateDialog(() => startTerminal = val);
+                      },
                     ),
 
                     const SizedBox(height: 10),
 
-                    DropdownButtonFormField<Map>(
+                    // ================= CHECKPOINT =================
+                    DropdownButtonFormField<Map<String, dynamic>>(
+                      value: endCheckpoint,
                       hint: const Text("Checkpoint Tujuan"),
-                      items: _checkpoints.map<DropdownMenuItem<Map>>((c) {
+                      items: checkpoints.map<DropdownMenuItem<Map<String, dynamic>>>((c) {
                         return DropdownMenuItem(
                           value: c,
                           child: Text(c['name']),
                         );
                       }).toList(),
-                      onChanged: (val) =>
-                          setStateDialog(() => _endCheckpoint = val),
+                      onChanged: (val) {
+                        setStateDialog(() => endCheckpoint = val);
+                      },
                     ),
 
                     const SizedBox(height: 20),
 
+                    // ================= BUTTON =================
                     ElevatedButton(
                       onPressed: () async {
-                        if (_startTerminal == null || _endCheckpoint == null) {
+                        if (startTerminal == null || endCheckpoint == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text("Lengkapi semua pilihan")),
                           );
@@ -304,7 +324,9 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                         }
 
                         await _storeAutoRoute(
-                            _startTerminal!, _endCheckpoint!);
+                          startTerminal!,
+                          endCheckpoint!,
+                        );
                       },
                       child: const Text("Simpan Route"),
                     ),
