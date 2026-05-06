@@ -2,112 +2,87 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
-// ==================
-// GET PROVINCES
+const express = require("express");
+const router = express.Router();
+const pool = require("../db");
+
 // ==================
 // PROVINCES
+// ==================
 router.get("/provinces", async (req, res) => {
-  const result = await pool.query("SELECT * FROM provinces");
+  try {
+    const result = await pool.query("SELECT * FROM provinces");
 
-  res.json({
-    success: true,
-    data: result.rows
-  });
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (err) {
+    console.error("PROVINCES ERROR:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
+// ==================
 // CITIES
+// ==================
 router.get("/cities/:provinceId", async (req, res) => {
-  const result = await pool.query(
-    "SELECT * FROM cities WHERE province_id = $1",
-    [req.params.provinceId]
-  );
-
-  res.json({
-    success: true,
-    data: result.rows
-  });
-});
-
-router.get("/terminals/:cityId", async (req, res) => {
-  const result = await pool.query(
-    "SELECT * FROM terminals WHERE city_id = $1",
-    [req.params.cityId]
-  );
-
-  res.json({
-    success: true,
-    data: result.rows
-  });
-});
-
-// CHECKPOINTS
-router.get("/checkpoints/:cityId", async (req, res) => {
-  const result = await pool.query(
-    "SELECT * FROM checkpoints WHERE city_id = $1",
-    [req.params.cityId]
-  );
-
-  res.json({
-    success: true,
-    data: result.rows
-  });
-});
-
-// ==================
-// GET CITIES
-// ==================
-router.get("/cities/:province_id", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name FROM cities WHERE province_id=$1",
-      [req.params.province_id]
+      "SELECT * FROM cities WHERE province_id = $1",
+      [req.params.provinceId]
     );
 
-    console.log("CITIES:", result.rows);
-
-    res.json(result.rows);
+    res.json({
+      success: true,
+      data: result.rows
+    });
   } catch (err) {
     console.error("CITIES ERROR:", err);
-    res.status(500).json({ error: "Failed to fetch cities" });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
 // ==================
-// GET TERMINALS (FIX)
+// TERMINALS
 // ==================
-router.get("/terminals/:city_id", async (req, res) => {
+router.get("/terminals/:cityId", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name, latitude, longitude FROM terminals WHERE city_id=$1",
-      [req.params.city_id]
+      "SELECT * FROM terminals WHERE city_id = $1",
+      [req.params.cityId]
     );
 
-    console.log("TERMINALS:", result.rows);
-
-    res.json(result.rows);
+    res.json({
+      success: true,
+      data: result.rows
+    });
   } catch (err) {
     console.error("TERMINALS ERROR:", err);
-    res.status(500).json({ error: "Failed to fetch terminals" });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
 // ==================
-// GET CHECKPOINTS (FIX)
+// CHECKPOINTS
 // ==================
-router.get("/checkpoints/:city_id", async (req, res) => {
+router.get("/checkpoints/:cityId", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name, latitude, longitude FROM checkpoints WHERE city_id=$1",
-      [req.params.city_id]
+      "SELECT * FROM checkpoints WHERE city_id = $1",
+      [req.params.cityId]
     );
 
-    console.log("CHECKPOINTS:", result.rows);
-
-    res.json(result.rows);
+    res.json({
+      success: true,
+      data: result.rows
+    });
   } catch (err) {
     console.error("CHECKPOINTS ERROR:", err);
-    res.status(500).json({ error: "Failed to fetch checkpoints" });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
+
+module.exports = router;
 
 module.exports = router;
