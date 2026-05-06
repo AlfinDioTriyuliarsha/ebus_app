@@ -138,8 +138,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
   // ================= ASSIGN =================
   Future<void> assignDriver(int driverId, int busId) async {
     try {
-      final url =
-          "${ApiService.baseUrl}/api/buses/assign-driver/$busId";
+      final url = "${ApiService.baseUrl}/api/buses/assign-driver/$busId";
 
       print("🔥 URL ASSIGN: $url");
 
@@ -242,8 +241,11 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
                             );
                           }).toList(),
                           onChanged: (val) {
-                            if (val != null) {
-                              assignDriver(d['id'], val);
+                            final driverId = d['id'];
+                            final busId = val;
+
+                            if (driverId != null && busId != null) {
+                              assignDriver(d['id']!, val!);
                             }
                           },
                         ),
