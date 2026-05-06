@@ -204,15 +204,15 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                 Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
               );
 
-              final data = jsonDecode(res.body);
+              print("CITIES BODY: ${res.body}");
+
+              final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                cities = data;
+                cities = decoded; // endpoint cities kamu langsung array
                 cityId = null;
                 terminals = [];
                 checkpoints = [];
-                startTerminal = null;
-                endCheckpoint = null;
               });
             }
 
@@ -221,9 +221,15 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                 Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
               );
 
+              print("TERMINALS BODY: ${res.body}");
+
+              final decoded = jsonDecode(res.body);
+
               setStateDialog(() {
-                terminals = jsonDecode(res.body);
-                startTerminal = null;
+                cities = decoded; // endpoint cities kamu langsung array
+                cityId = null;
+                terminals = [];
+                checkpoints = [];
               });
             }
 
@@ -232,9 +238,15 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                 Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
               );
 
+              print("CHECKPOINT BODY: ${res.body}");
+
+              final decoded = jsonDecode(res.body);
+
               setStateDialog(() {
-                checkpoints = jsonDecode(res.body);
-                endCheckpoint = null;
+                cities = decoded; // endpoint cities kamu langsung array
+                cityId = null;
+                terminals = [];
+                checkpoints = [];
               });
             }
 
@@ -272,7 +284,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       items: cities.map<DropdownMenuItem<int>>((c) {
                         return DropdownMenuItem(
                           value: c['id'],
-                          child: Text(c['name']),
+                          child: Text(c['nama_kota'] ?? ''),
                         );
                       }).toList(),
                       onChanged: (val) async {
@@ -295,7 +307,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
                             return DropdownMenuItem(
                               value: t,
-                              child: Text(t['name']),
+                              child: Text(t['nama_terminal'] ?? ''),
                             );
                           })
                           .toList(),
@@ -314,7 +326,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
                             return DropdownMenuItem(
                               value: c,
-                              child: Text(c['name']),
+                              child: Text(c['nama_checkpoint'] ?? ''),
                             );
                           })
                           .toList(),
