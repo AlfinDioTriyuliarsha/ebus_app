@@ -51,14 +51,14 @@ router.get("/", async (req, res) => {
 
 // ================= CREATE DRIVER =================
 router.post("/", async (req, res) => {
-  try {
-    const { company_id, driver_name, kontak, user_id } = req.body;
+  const { company_id, driver_name, kontak } = req.body;
 
+  try {
     const result = await pool.query(
-      `INSERT INTO drivers (company_id, driver_name, kontak, user_id)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO drivers (company_id, driver_name, kontak, status)
+       VALUES ($1, $2, $3, 'Tersedia')
        RETURNING *`,
-      [company_id, driver_name, kontak, user_id]
+      [company_id, driver_name, kontak]
     );
 
     res.status(201).json({
@@ -66,11 +66,8 @@ router.post("/", async (req, res) => {
       data: result.rows[0],
     });
   } catch (err) {
-    console.error("ERROR CREATE DRIVER:", err);
-    res.status(500).json({
-      success: false,
-      error: err.message,
-    });
+    console.error("ERROR INSERT DRIVER:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
