@@ -63,20 +63,14 @@ router.get("/terminals/:cityId", async (req, res) => {
 // CHECKPOINTS
 // ==================
 router.get("/checkpoints/:cityId", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM checkpoints WHERE city_id = $1",
-      [req.params.cityId]
-    );
+  const result = await pool.query(
+    "SELECT * FROM checkpoints"
+  );
 
-    res.json({
-      success: true,
-      data: result.rows
-    });
-  } catch (err) {
-    console.error("CHECKPOINTS ERROR:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
+  res.json({
+    success: true,
+    data: result.rows
+  });
 });
 
 module.exports = router;

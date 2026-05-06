@@ -297,7 +297,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
                             return DropdownMenuItem(
                               value: t,
-                              child: Text(t['nama_terminal'] ?? ''),
+                              child: Text(t['name'] ?? ''),
                             );
                           })
                           .toList(),
@@ -316,7 +316,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
                             return DropdownMenuItem(
                               value: c,
-                              child: Text(c['nama_checkpoint'] ?? ''),
+                              child: Text(c['name'] ?? ''),
                             );
                           })
                           .toList(),
