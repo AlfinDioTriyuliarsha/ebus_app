@@ -197,6 +197,13 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
         List terminals = [];
         List checkpoints = [];
 
+        List<dynamic> parseData(dynamic decoded) {
+          if (decoded is Map && decoded.containsKey('data')) {
+            return decoded['data'];
+          }
+          return decoded;
+        }
+
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             Future<void> fetchCities(int id) async {
@@ -207,7 +214,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                cities = decoded['data'];
+                cities = parseData(decoded);
                 cityId = null;
                 terminals = [];
                 checkpoints = [];
@@ -222,7 +229,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                terminals = decoded['data'];
+                terminals = parseData(decoded);
                 startTerminal = null;
               });
             }
@@ -235,7 +242,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                checkpoints = decoded['data'];
+                checkpoints = parseData(decoded);
                 endCheckpoint = null;
               });
             }
