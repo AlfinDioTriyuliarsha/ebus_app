@@ -6,10 +6,12 @@ const pool = require("../db");
 // GET PROVINCES
 // ==================
 router.get("/provinces", async (req, res) => {
-  const result = await pool.query(
-    "SELECT * FROM provinces ORDER BY nama_provinsi"
-  );
-  res.json(result.rows);
+  const result = await pool.query("SELECT * FROM provinces");
+
+  res.json({
+    success: true,
+    data: result.rows
+  });
 });
 
 router.get("/cities/:provinceId", async (req, res) => {

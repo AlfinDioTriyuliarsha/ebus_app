@@ -48,18 +48,29 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
   // ================= FETCH PROVINCES =================
   Future<void> _fetchProvinces() async {
-    final res = await http.get(
-      Uri.parse("${ApiService.baseUrl}/api/location/provinces"),
-    );
+    final url = "${ApiService.baseUrl}/api/location/provinces";
+    print("HIT PROVINCES: $url");
+
+    final res = await http.get(Uri.parse(url));
+
+    print("STATUS PROVINCES: ${res.statusCode}");
+    print("BODY PROVINCES: ${res.body}");
+
+    provinces = jsonDecode(res.body);
+
+    final data = jsonDecode(res.body);
 
     setState(() {
-      provinces = jsonDecode(res.body);
+      provinces = data;
     });
   }
 
   // ================= STORE MANUAL =================
   Future<void> _storeManualRoute(
-      String nama, String asal, String tujuan) async {
+    String nama,
+    String asal,
+    String tujuan,
+  ) async {
     if (nama.isEmpty || asal.isEmpty || tujuan.isEmpty) return;
 
     final res = await http.post(
@@ -81,23 +92,21 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
   }
 
   // ================= STORE AUTO =================
-  Future<void> _storeAutoRoute(
-      Map startTerminal, Map endCheckpoint) async {
+  Future<void> _storeAutoRoute(Map startTerminal, Map endCheckpoint) async {
     final res = await http.post(
       Uri.parse("${ApiService.baseUrl}/api/routes/auto-route"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "company_id": widget.companyId,
-        "nama_rute":
-            "${startTerminal['name']} - ${endCheckpoint['name']}",
+        "nama_rute": "${startTerminal['name']} - ${endCheckpoint['name']}",
         "start": {
           "lat": startTerminal['latitude'],
-          "lng": startTerminal['longitude']
+          "lng": startTerminal['longitude'],
         },
         "end": {
           "lat": endCheckpoint['latitude'],
-          "lng": endCheckpoint['longitude']
-        }
+          "lng": endCheckpoint['longitude'],
+        },
       }),
     );
 
@@ -236,7 +245,6 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               content: SingleChildScrollView(
                 child: Column(
                   children: [
-
                     // ================= PROVINSI =================
                     DropdownButtonFormField<int>(
                       value: provinceId,
@@ -244,7 +252,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       items: provinces.map<DropdownMenuItem<int>>((p) {
                         return DropdownMenuItem(
                           value: p['id'],
-                          child: Text(p['name']),
+                          child: Text(p['nama_provinsi']), // 🔥 FIX DI SINI
                         );
                       }).toList(),
                       onChanged: (val) async {
@@ -283,12 +291,14 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                     DropdownButtonFormField<Map<String, dynamic>>(
                       value: startTerminal,
                       hint: const Text("Terminal Awal"),
-                      items: terminals.map<DropdownMenuItem<Map<String, dynamic>>>((t) {
-                        return DropdownMenuItem(
-                          value: t,
-                          child: Text(t['name']),
-                        );
-                      }).toList(),
+                      items: terminals
+                          .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
+                            return DropdownMenuItem(
+                              value: t,
+                              child: Text(t['name']),
+                            );
+                          })
+                          .toList(),
                       onChanged: (val) {
                         setStateDialog(() => startTerminal = val);
                       },
@@ -300,12 +310,14 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                     DropdownButtonFormField<Map<String, dynamic>>(
                       value: endCheckpoint,
                       hint: const Text("Checkpoint Tujuan"),
-                      items: checkpoints.map<DropdownMenuItem<Map<String, dynamic>>>((c) {
-                        return DropdownMenuItem(
-                          value: c,
-                          child: Text(c['name']),
-                        );
-                      }).toList(),
+                      items: checkpoints
+                          .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
+                            return DropdownMenuItem(
+                              value: c,
+                              child: Text(c['name']),
+                            );
+                          })
+                          .toList(),
                       onChanged: (val) {
                         setStateDialog(() => endCheckpoint = val);
                       },
@@ -318,15 +330,14 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       onPressed: () async {
                         if (startTerminal == null || endCheckpoint == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Lengkapi semua pilihan")),
+                            const SnackBar(
+                              content: Text("Lengkapi semua pilihan"),
+                            ),
                           );
                           return;
                         }
 
-                        await _storeAutoRoute(
-                          startTerminal!,
-                          endCheckpoint!,
-                        );
+                        await _storeAutoRoute(startTerminal!, endCheckpoint!);
                       },
                       child: const Text("Simpan Route"),
                     ),
@@ -352,8 +363,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Manajemen Rute",
-                    style: TextStyle(fontSize: 20)),
+                const Text("Manajemen Rute", style: TextStyle(fontSize: 20)),
                 ElevatedButton(
                   onPressed: _showAddDialog,
                   child: const Text("Tambah Rute"),
