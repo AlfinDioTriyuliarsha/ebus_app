@@ -6,15 +6,37 @@ const pool = require("../db");
 // GET PROVINCES
 // ==================
 router.get("/provinces", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT id, name FROM provinces ORDER BY name"
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("PROVINCES ERROR:", err);
-    res.status(500).json({ error: "Failed to fetch provinces" });
-  }
+  const result = await pool.query(
+    "SELECT * FROM provinces ORDER BY nama_provinsi"
+  );
+  res.json(result.rows);
+});
+
+router.get("/cities/:provinceId", async (req, res) => {
+  const { provinceId } = req.params;
+
+  const result = await pool.query(
+    "SELECT * FROM cities WHERE province_id = $1",
+    [provinceId]
+  );
+
+  res.json(result.rows);
+});
+
+router.get("/terminals/:cityId", async (req, res) => {
+  const { cityId } = req.params;
+
+  const result = await pool.query(
+    "SELECT * FROM terminals WHERE city_id = $1",
+    [cityId]
+  );
+
+  res.json(result.rows);
+});
+
+router.get("/checkpoints", async (req, res) => {
+  const result = await pool.query("SELECT * FROM checkpoints");
+  res.json(result.rows);
 });
 
 // ==================
