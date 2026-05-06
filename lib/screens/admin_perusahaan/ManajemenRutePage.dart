@@ -204,12 +204,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                 Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
               );
 
-              print("CITIES BODY: ${res.body}");
-
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                cities = decoded; // endpoint cities kamu langsung array
+                cities = decoded['data'];
                 cityId = null;
                 terminals = [];
                 checkpoints = [];
@@ -221,15 +219,11 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                 Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
               );
 
-              print("TERMINALS BODY: ${res.body}");
-
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                cities = decoded; // endpoint cities kamu langsung array
-                cityId = null;
-                terminals = [];
-                checkpoints = [];
+                terminals = decoded['data'];
+                startTerminal = null;
               });
             }
 
@@ -238,15 +232,11 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                 Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
               );
 
-              print("CHECKPOINT BODY: ${res.body}");
-
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                cities = decoded; // endpoint cities kamu langsung array
-                cityId = null;
-                terminals = [];
-                checkpoints = [];
+                checkpoints = decoded['data'];
+                endCheckpoint = null;
               });
             }
 

@@ -5,6 +5,7 @@ const pool = require("../db");
 // ==================
 // GET PROVINCES
 // ==================
+// PROVINCES
 router.get("/provinces", async (req, res) => {
   const result = await pool.query("SELECT * FROM provinces");
 
@@ -14,31 +15,42 @@ router.get("/provinces", async (req, res) => {
   });
 });
 
+// CITIES
 router.get("/cities/:provinceId", async (req, res) => {
-  const { provinceId } = req.params;
-
   const result = await pool.query(
     "SELECT * FROM cities WHERE province_id = $1",
-    [provinceId]
+    [req.params.provinceId]
   );
 
-  res.json(result.rows);
+  res.json({
+    success: true,
+    data: result.rows
+  });
 });
 
 router.get("/terminals/:cityId", async (req, res) => {
-  const { cityId } = req.params;
-
   const result = await pool.query(
     "SELECT * FROM terminals WHERE city_id = $1",
-    [cityId]
+    [req.params.cityId]
   );
 
-  res.json(result.rows);
+  res.json({
+    success: true,
+    data: result.rows
+  });
 });
 
-router.get("/checkpoints", async (req, res) => {
-  const result = await pool.query("SELECT * FROM checkpoints");
-  res.json(result.rows);
+// CHECKPOINTS
+router.get("/checkpoints/:cityId", async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM checkpoints WHERE city_id = $1",
+    [req.params.cityId]
+  );
+
+  res.json({
+    success: true,
+    data: result.rows
+  });
 });
 
 // ==================
