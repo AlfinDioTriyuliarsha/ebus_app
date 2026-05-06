@@ -279,30 +279,38 @@ router.get("/test-ws", (req, res) => {
 // =======================
 // ASSIGN DRIVER KE BUS
 // =======================
-router.put("/assign-driver/:id", async (req, res) => {
-    const { id } = req.params; // bus_id
-    const { driver_id } = req.body;
+router.put("/assign-driver/:busId", async (req, res) => {
+  const { busId } = req.params;
+  const { driver_id } = req.body;
 
-    try {
-        const result = await pool.query(
-            `UPDATE buses 
-             SET driver_id=$1 
-             WHERE id=$2 RETURNING *`,
-            [driver_id, id]
-        );
+  try {
+    // 1. Lepas driver dari bus lama
+    await pool.query(
+      `UPDATE buses SET driver_id = NULL WHERE driver_id = $1`,
+      [driver_id]
+    );
 
-        res.json({
-            success: true,
-            data: result.rows[0]
-        });
+    // 2. Assign ke bus baru
+    const result = await pool.query(
+      `UPDATE buses 
+       SET driver_id = $1 
+       WHERE id = $2 
+       RETURNING *`,
+      [driver_id, busId]
+    );
 
-    } catch (err) {
-        console.error("ASSIGN DRIVER ERROR:", err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
+    res.json({
+      success: true,
+      data: result.rows[0],
+      message: "Driver berhasil dipindahkan",
+    });
+  } catch (err) {
+    console.error("ERROR ASSIGN DRIVER:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
 });
 
 // ================= UPDATE BUS =================
