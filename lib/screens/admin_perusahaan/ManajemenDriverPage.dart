@@ -64,7 +64,7 @@ class _ManajemenDriverPageState extends State<ManajemenDriverPage> {
   Future<void> fetchDrivers() async {
     try {
       final url =
-          "${ApiService.baseUrl}/api/companies/${widget.companyId}/drivers";
+          "${ApiService.baseUrl}/api/drivers?company_id=${widget.companyId}";
 
       final res = await http.get(Uri.parse(url));
 
