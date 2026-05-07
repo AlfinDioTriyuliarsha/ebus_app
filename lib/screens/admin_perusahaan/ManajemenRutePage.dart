@@ -96,7 +96,8 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "company_id": widget.companyId,
-        "nama_rute": "${startTerminal['nama']} - ${endCheckpoint['nama_terminal']}",
+        "nama_rute":
+            "${startTerminal['nama_terminal']} - ${endCheckpoint['nama']}",
         "start": {
           "lat": startTerminal['latitude'],
           "lng": startTerminal['longitude'],
@@ -304,7 +305,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                           .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
                             return DropdownMenuItem(
                               value: t,
-                              child: Text(t['nama'] ?? ''),
+                              child: Text(t['nama_terminal'] ?? ''),
                             );
                           })
                           .toList(),
