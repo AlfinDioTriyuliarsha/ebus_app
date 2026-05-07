@@ -49214,7 +49214,7 @@ m=J.ac(a)
 l=J.ac(b)
 k=t.z
 s=2
-return A.E(A.i3(p,B.v.ej(A.a4(["company_id",q.a.c,"nama_rute",A.k(m.i(a,"nama"))+" - "+A.k(l.i(b,"nama_terminal")),"start",A.a4(["lat",m.i(a,"latitude"),"lng",m.i(a,"longitude")],o,k),"end",A.a4(["lat",l.i(b,"latitude"),"lng",l.i(b,"longitude")],o,k)],o,t.K),null),n),$async$C7)
+return A.E(A.i3(p,B.v.ej(A.a4(["company_id",q.a.c,"nama_rute",A.k(m.i(a,"nama_terminal"))+" - "+A.k(l.i(b,"nama")),"start",A.a4(["lat",m.i(a,"latitude"),"lng",m.i(a,"longitude")],o,k),"end",A.a4(["lat",l.i(b,"latitude"),"lng",l.i(b,"longitude")],o,k)],o,t.K),null),n),$async$C7)
 case 2:j=d
 A.c5("AUTO STATUS: "+j.b)
 A.c5("AUTO BODY: "+A.bQ(A.bP(j.e)).b8(0,j.w))
@@ -49396,7 +49396,7 @@ A.aFc.prototype={
 $0(){return this.a.c=this.b},
 $S:0}
 A.aFi.prototype={
-$1(a){var s=null,r=J.a1(a,"nama")
+$1(a){var s=null,r=J.a1(a,"nama_terminal")
 return A.j1(A.ap(r==null?"":r,s,s,s,s,s,s,s),a,t.P)},
 $S:235}
 A.aFj.prototype={
