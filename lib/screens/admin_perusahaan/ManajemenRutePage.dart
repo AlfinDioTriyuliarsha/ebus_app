@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 class ManajemenRutePage extends StatefulWidget {
   final int companyId;
+
   const ManajemenRutePage({super.key, required this.companyId});
 
   @override
@@ -49,17 +50,13 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
   // ================= FETCH PROVINCES =================
   Future<void> _fetchProvinces() async {
     final url = "${ApiService.baseUrl}/api/location/provinces";
-    print("HIT PROVINCES: $url");
 
     final res = await http.get(Uri.parse(url));
-
-    print("STATUS PROVINCES: ${res.statusCode}");
-    print("BODY PROVINCES: ${res.body}");
 
     final decoded = jsonDecode(res.body);
 
     setState(() {
-      provinces = decoded['data']; // 🔥 INI FIX NYA
+      provinces = List<Map<String, dynamic>>.from(decoded['data'] ?? []);
     });
   }
 
@@ -72,7 +69,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     if (nama.isEmpty || asal.isEmpty || tujuan.isEmpty) return;
 
     final res = await http.post(
-      Uri.parse("${ApiService.baseUrl}/api/routes"), // ✅ FIX
+      Uri.parse("${ApiService.baseUrl}/api/routes"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "company_id": widget.companyId,
@@ -86,26 +83,40 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     print("BODY: ${res.body}");
 
     if (mounted) Navigator.pop(context);
+
     _fetchRoutes();
   }
 
   // ================= STORE AUTO =================
-  Future<void> _storeAutoRoute(Map startTerminal, Map endCheckpoint) async {
+  Future<void> _storeAutoRoute({
+    required Map<String, dynamic> startTerminal,
+    required Map<String, dynamic> checkpointA,
+    required Map<String, dynamic> checkpointB,
+    required Map<String, dynamic> endTerminal,
+  }) async {
     final res = await http.post(
       Uri.parse("${ApiService.baseUrl}/api/routes/auto-route"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "company_id": widget.companyId,
+
         "nama_rute":
-            "${startTerminal['nama_terminal']} - ${endCheckpoint['nama']}",
-        "start": {
-          "lat": startTerminal['latitude'],
-          "lng": startTerminal['longitude'],
-        },
-        "end": {
-          "lat": endCheckpoint['latitude'],
-          "lng": endCheckpoint['longitude'],
-        },
+            "${startTerminal['nama_terminal']} - ${endTerminal['nama_terminal']}",
+
+        "start": {"lat": startTerminal['lat'], "lng": startTerminal['lng']},
+
+        "checkpoint_a": {"lat": checkpointA['lat'], "lng": checkpointA['lng']},
+
+        "checkpoint_b": {"lat": checkpointB['lat'], "lng": checkpointB['lng']},
+
+        "end": {"lat": endTerminal['lat'], "lng": endTerminal['lng']},
+
+        "path": [
+          {"lat": startTerminal['lat'], "lng": startTerminal['lng']},
+          {"lat": checkpointA['lat'], "lng": checkpointA['lng']},
+          {"lat": checkpointB['lat'], "lng": checkpointB['lng']},
+          {"lat": endTerminal['lat'], "lng": endTerminal['lng']},
+        ],
       }),
     );
 
@@ -113,6 +124,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     print("AUTO BODY: ${res.body}");
 
     if (mounted) Navigator.pop(context);
+
     _fetchRoutes();
   }
 
@@ -174,8 +186,9 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
         ),
         actions: [
           ElevatedButton(
-            onPressed: () =>
-                _storeManualRoute(nama.text, asal.text, tujuan.text),
+            onPressed: () {
+              _storeManualRoute(nama.text, asal.text, tujuan.text);
+            },
             child: const Text("Simpan"),
           ),
         ],
@@ -188,26 +201,40 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     showDialog(
       context: context,
       builder: (context) {
-        int? provinceId;
-        int? cityId;
+        // ================= FIELD KEBERANGKATAN =================
+        int? provinceStartId;
+        int? cityStartId;
 
         Map<String, dynamic>? startTerminal;
-        Map<String, dynamic>? endCheckpoint;
 
-        List cities = [];
-        List terminals = [];
+        Map<String, dynamic>? checkpointA;
+        Map<String, dynamic>? checkpointB;
+
+        List citiesStart = [];
+        List terminalsStart = [];
         List checkpoints = [];
+
+        // ================= FIELD TUJUAN =================
+        int? provinceEndId;
+        int? cityEndId;
+
+        Map<String, dynamic>? endTerminal;
+
+        List citiesEnd = [];
+        List terminalsEnd = [];
 
         List<dynamic> parseData(dynamic decoded) {
           if (decoded is Map && decoded.containsKey('data')) {
             return decoded['data'];
           }
-          return decoded;
+
+          return [];
         }
 
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            Future<void> fetchCities(int id) async {
+            // ================= FETCH CITIES =================
+            Future<void> fetchCitiesStart(int id) async {
               final res = await http.get(
                 Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
               );
@@ -215,14 +242,31 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                cities = parseData(decoded);
-                cityId = null;
-                terminals = [];
+                citiesStart = parseData(decoded);
+
+                cityStartId = null;
+                terminalsStart = [];
                 checkpoints = [];
               });
             }
 
-            Future<void> fetchTerminals(int id) async {
+            Future<void> fetchCitiesEnd(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
+              );
+
+              final decoded = jsonDecode(res.body);
+
+              setStateDialog(() {
+                citiesEnd = parseData(decoded);
+
+                cityEndId = null;
+                terminalsEnd = [];
+              });
+            }
+
+            // ================= FETCH TERMINALS =================
+            Future<void> fetchStartTerminals(int id) async {
               final res = await http.get(
                 Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
               );
@@ -230,11 +274,25 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
-                terminals = parseData(decoded);
+                terminalsStart = parseData(decoded);
                 startTerminal = null;
               });
             }
 
+            Future<void> fetchEndTerminals(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
+              );
+
+              final decoded = jsonDecode(res.body);
+
+              setStateDialog(() {
+                terminalsEnd = parseData(decoded);
+                endTerminal = null;
+              });
+            }
+
+            // ================= FETCH CHECKPOINT =================
             Future<void> fetchCheckpoints(int id) async {
               final res = await http.get(
                 Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
@@ -244,113 +302,252 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
               setStateDialog(() {
                 checkpoints = parseData(decoded);
-                endCheckpoint = null;
+
+                checkpointA = null;
+                checkpointB = null;
               });
             }
 
             return AlertDialog(
               title: const Text("Auto Route"),
-              content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // ================= PROVINSI =================
-                    DropdownButtonFormField<int>(
-                      value: provinceId,
-                      hint: const Text("Pilih Provinsi"),
-                      items: provinces.map<DropdownMenuItem<int>>((p) {
-                        return DropdownMenuItem(
-                          value: p['id'],
-                          child: Text(
-                            p['nama_provinsi'] ?? '',
-                          ), // 🔥 FIX DI SINI
-                        );
-                      }).toList(),
-                      onChanged: (val) async {
-                        if (val == null) return;
+              content: SizedBox(
+                width: 450,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ======================================================
+                      // FIELD KEBERANGKATAN
+                      // ======================================================
+                      const Text(
+                        "FIELD KEBERANGKATAN",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
 
-                        setStateDialog(() => provinceId = val);
-                        await fetchCities(val);
-                      },
-                    ),
+                      const SizedBox(height: 15),
 
-                    const SizedBox(height: 10),
-
-                    // ================= KOTA =================
-                    DropdownButtonFormField<int>(
-                      value: cityId,
-                      hint: const Text("Pilih Kota"),
-                      items: cities.map<DropdownMenuItem<int>>((c) {
-                        return DropdownMenuItem(
-                          value: c['id'],
-                          child: Text(c['nama_kota'] ?? ''),
-                        );
-                      }).toList(),
-                      onChanged: (val) async {
-                        if (val == null) return;
-
-                        setStateDialog(() => cityId = val);
-
-                        await fetchTerminals(val);
-                        await fetchCheckpoints(val);
-                      },
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // ================= TERMINAL =================
-                    DropdownButtonFormField<Map<String, dynamic>>(
-                      value: startTerminal,
-                      hint: const Text("Terminal Awal"),
-                      items: terminals
-                          .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
-                            return DropdownMenuItem(
-                              value: t,
-                              child: Text(t['nama_terminal'] ?? ''),
-                            );
-                          })
-                          .toList(),
-                      onChanged: (val) {
-                        setStateDialog(() => startTerminal = val);
-                      },
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // ================= CHECKPOINT =================
-                    DropdownButtonFormField<Map<String, dynamic>>(
-                      value: endCheckpoint,
-                      hint: const Text("Checkpoint Tujuan"),
-                      items: checkpoints
-                          .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
-                        return DropdownMenuItem<Map<String, dynamic>>(
-                          value: Map<String, dynamic>.from(c),
-                          child: Text(c['nama'] ?? ''),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        setStateDialog(() {
-                          endCheckpoint = val;
-                        });
-                      },
-                    ),
-
-                    // ================= BUTTON =================
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (startTerminal == null || endCheckpoint == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Lengkapi semua pilihan"),
-                            ),
+                      // PROVINSI START
+                      DropdownButtonFormField<int>(
+                        value: provinceStartId,
+                        hint: const Text("Pilih Provinsi"),
+                        items: provinces.map<DropdownMenuItem<int>>((p) {
+                          return DropdownMenuItem(
+                            value: p['id'],
+                            child: Text(p['nama_provinsi'] ?? ''),
                           );
-                          return;
-                        }
+                        }).toList(),
+                        onChanged: (val) async {
+                          if (val == null) return;
 
-                        await _storeAutoRoute(startTerminal!, endCheckpoint!);
-                      },
-                      child: const Text("Simpan Route"),
-                    ),
-                  ],
+                          setStateDialog(() {
+                            provinceStartId = val;
+                          });
+
+                          await fetchCitiesStart(val);
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // KOTA START
+                      DropdownButtonFormField<int>(
+                        value: cityStartId,
+                        hint: const Text("Pilih Kota"),
+                        items: citiesStart.map<DropdownMenuItem<int>>((c) {
+                          return DropdownMenuItem(
+                            value: c['id'],
+                            child: Text(c['nama_kota'] ?? ''),
+                          );
+                        }).toList(),
+                        onChanged: (val) async {
+                          if (val == null) return;
+
+                          setStateDialog(() {
+                            cityStartId = val;
+                          });
+
+                          await fetchStartTerminals(val);
+                          await fetchCheckpoints(val);
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // TERMINAL START
+                      DropdownButtonFormField<Map<String, dynamic>>(
+                        value: startTerminal,
+                        hint: const Text("Terminal Keberangkatan"),
+                        items: terminalsStart
+                            .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
+                              return DropdownMenuItem(
+                                value: Map<String, dynamic>.from(t),
+                                child: Text(t['nama_terminal'] ?? ''),
+                              );
+                            })
+                            .toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            startTerminal = val;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // CHECKPOINT A
+                      DropdownButtonFormField<Map<String, dynamic>>(
+                        value: checkpointA,
+                        hint: const Text("Checkpoint A"),
+                        items: checkpoints
+                            .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
+                              return DropdownMenuItem(
+                                value: Map<String, dynamic>.from(c),
+                                child: Text(c['nama'] ?? ''),
+                              );
+                            })
+                            .toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            checkpointA = val;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // CHECKPOINT B
+                      DropdownButtonFormField<Map<String, dynamic>>(
+                        value: checkpointB,
+                        hint: const Text("Checkpoint B"),
+                        items: checkpoints
+                            .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
+                              return DropdownMenuItem(
+                                value: Map<String, dynamic>.from(c),
+                                child: Text(c['nama'] ?? ''),
+                              );
+                            })
+                            .toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            checkpointB = val;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      // ======================================================
+                      // FIELD TUJUAN
+                      // ======================================================
+                      const Text(
+                        "FIELD TUJUAN",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+
+                      const SizedBox(height: 15),
+
+                      // PROVINSI TUJUAN
+                      DropdownButtonFormField<int>(
+                        value: provinceEndId,
+                        hint: const Text("Pilih Provinsi"),
+                        items: provinces.map<DropdownMenuItem<int>>((p) {
+                          return DropdownMenuItem(
+                            value: p['id'],
+                            child: Text(p['nama_provinsi'] ?? ''),
+                          );
+                        }).toList(),
+                        onChanged: (val) async {
+                          if (val == null) return;
+
+                          setStateDialog(() {
+                            provinceEndId = val;
+                          });
+
+                          await fetchCitiesEnd(val);
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // KOTA TUJUAN
+                      DropdownButtonFormField<int>(
+                        value: cityEndId,
+                        hint: const Text("Pilih Kota"),
+                        items: citiesEnd.map<DropdownMenuItem<int>>((c) {
+                          return DropdownMenuItem(
+                            value: c['id'],
+                            child: Text(c['nama_kota'] ?? ''),
+                          );
+                        }).toList(),
+                        onChanged: (val) async {
+                          if (val == null) return;
+
+                          setStateDialog(() {
+                            cityEndId = val;
+                          });
+
+                          await fetchEndTerminals(val);
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // TERMINAL TUJUAN
+                      DropdownButtonFormField<Map<String, dynamic>>(
+                        value: endTerminal,
+                        hint: const Text("Terminal Tujuan"),
+                        items: terminalsEnd
+                            .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
+                              return DropdownMenuItem(
+                                value: Map<String, dynamic>.from(t),
+                                child: Text(t['nama_terminal'] ?? ''),
+                              );
+                            })
+                            .toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            endTerminal = val;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 25),
+
+                      // ================= BUTTON =================
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            if (startTerminal == null ||
+                                checkpointA == null ||
+                                checkpointB == null ||
+                                endTerminal == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Lengkapi semua pilihan"),
+                                ),
+                              );
+                              return;
+                            }
+
+                            await _storeAutoRoute(
+                              startTerminal: startTerminal!,
+                              checkpointA: checkpointA!,
+                              checkpointB: checkpointB!,
+                              endTerminal: endTerminal!,
+                            );
+                          },
+                          child: const Text("Simpan Route"),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -380,6 +577,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
               ],
             ),
           ),
+
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -387,6 +585,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                     itemCount: _routes.length,
                     itemBuilder: (_, i) {
                       final r = _routes[i];
+
                       return ListTile(
                         title: Text(r['nama_rute'] ?? ''),
                         subtitle: Text(
