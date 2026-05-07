@@ -192,6 +192,96 @@ router.post("/auto-route", async (req, res) => {
     }
 });
 
+// =======================
+// DELETE AUTO ROUTE 
+// =======================
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      "DELETE FROM routes WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Route tidak ditemukan",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Route berhasil dihapus",
+      data: result.rows[0],
+    });
+  } catch (err) {
+    console.error("DELETE ROUTE ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
+// =======================
+// UPDATE AUTO ROUTE 
+// =======================
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      nama_rute,
+      titik_awal,
+      titik_tujuan,
+      path,
+    } = req.body;
+
+    const result = await pool.query(
+      `
+      UPDATE routes
+      SET
+        nama_rute = COALESCE($1, nama_rute),
+        titik_awal = COALESCE($2, titik_awal),
+        titik_tujuan = COALESCE($3, titik_tujuan),
+        path = COALESCE($4, path),
+        updated_at = NOW()
+      WHERE id = $5
+      RETURNING *
+      `,
+      [
+        nama_rute,
+        titik_awal,
+        titik_tujuan,
+        path ? JSON.stringify(path) : null,
+        id,
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Route tidak ditemukan",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Route berhasil diupdate",
+      data: result.rows[0],
+    });
+  } catch (err) {
+    console.error("UPDATE ROUTE ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
 
 // =======================
 // OSRM DIRECTION
