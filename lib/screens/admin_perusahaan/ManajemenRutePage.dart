@@ -128,6 +128,64 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     _fetchRoutes();
   }
 
+  // =============== DALATE ROUTE ===============
+  Future<void> _deleteRoute(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse("${ApiService.baseUrl}/api/routes/$id"),
+      );
+
+      print("DELETE STATUS: ${res.statusCode}");
+      print("DELETE BODY: ${res.body}");
+
+      _fetchRoutes();
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  // =============== EDIT ROUTE ===============
+  Future<void> _updateRoute({
+    required int routeId,
+    required String namaRute,
+    required Map<String, dynamic> startTerminal,
+    required Map<String, dynamic> checkpointA,
+    required Map<String, dynamic> checkpointB,
+    required Map<String, dynamic> endTerminal,
+  }) async {
+    final res = await http.put(
+      Uri.parse("${ApiService.baseUrl}/api/routes/$routeId"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "nama_rute": namaRute,
+
+        "titik_awal": jsonEncode({
+          "lat": startTerminal['lat'],
+          "lng": startTerminal['lng'],
+        }),
+
+        "titik_tujuan": jsonEncode({
+          "lat": endTerminal['lat'],
+          "lng": endTerminal['lng'],
+        }),
+
+        "path": [
+          {"lat": startTerminal['lat'], "lng": startTerminal['lng']},
+          {"lat": checkpointA['lat'], "lng": checkpointA['lng']},
+          {"lat": checkpointB['lat'], "lng": checkpointB['lng']},
+          {"lat": endTerminal['lat'], "lng": endTerminal['lng']},
+        ],
+      }),
+    );
+
+    print("UPDATE STATUS: ${res.statusCode}");
+    print("UPDATE BODY: ${res.body}");
+
+    if (mounted) Navigator.pop(context);
+
+    _fetchRoutes();
+  }
+
   // ================= DIALOG PILIH MODE =================
   void _showAddDialog() {
     showDialog(
@@ -585,6 +643,59 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     );
   }
 
+  // ================= EDIT DIALOG =================
+  void _showEditDialog(Map route) {
+    final namaController = TextEditingController(
+      text: route['nama_rute'] ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Edit Route"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: namaController,
+              decoration: const InputDecoration(
+                labelText: "Nama Rute",
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            const Text(
+              "Gunakan menu Auto Route untuk edit jalur lengkap",
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () async {
+              final res = await http.put(
+                Uri.parse(
+                  "${ApiService.baseUrl}/api/routes/${route['id']}",
+                ),
+                headers: {"Content-Type": "application/json"},
+                body: jsonEncode({
+                  "nama_rute": namaController.text,
+                }),
+              );
+
+              print(res.body);
+
+              if (mounted) Navigator.pop(context);
+
+              _fetchRoutes();
+            },
+            child: const Text("Update"),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ================= UI =================
   @override
   Widget build(BuildContext context) {
@@ -614,10 +725,43 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                     itemBuilder: (_, i) {
                       final r = _routes[i];
 
-                      return ListTile(
-                        title: Text(r['nama_rute'] ?? ''),
-                        subtitle: Text(
-                          "${r['titik_awal'] ?? ''} → ${r['titik_tujuan'] ?? ''}",
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: ListTile(
+                          title: Text(r['nama_rute'] ?? ''),
+                          subtitle: Text(
+                            "${r['titik_awal'] ?? ''} → ${r['titik_tujuan'] ?? ''}",
+                          ),
+
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // ================= EDIT =================
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.orange,
+                                ),
+                                onPressed: () {
+                                  _showEditDialog(r);
+                                },
+                              ),
+
+                              // ================= DELETE =================
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () {
+                                  _deleteRoute(r['id']);
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
