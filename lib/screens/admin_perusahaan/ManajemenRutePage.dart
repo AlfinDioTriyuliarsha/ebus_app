@@ -259,6 +259,8 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     showDialog(
       context: context,
       builder: (context) {
+        bool isSaving = false;
+
         // ================= FIELD KEBERANGKATAN =================
         int? provinceStartId;
         int? cityStartId;
@@ -423,7 +425,9 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                       // KOTA START
                       DropdownButtonFormField<int>(
-                        value: cityStartId,
+                        value: citiesStart.any((e) => e['id'] == cityStartId)
+                            ? cityStartId
+                            : null,
                         hint: const Text("Pilih Kota"),
                         items: citiesStart.map<DropdownMenuItem<int>>((c) {
                           return DropdownMenuItem(
@@ -447,7 +451,12 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                       // TERMINAL START
                       DropdownButtonFormField<int>(
-                        value: startTerminalId,
+                        value:
+                            terminalsStart.any(
+                              (e) => e['id'] == startTerminalId,
+                            )
+                            ? startTerminalId
+                            : null,
                         hint: const Text("Terminal Keberangkatan"),
                         items: terminalsStart.map<DropdownMenuItem<int>>((t) {
                           return DropdownMenuItem(
@@ -472,7 +481,9 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                       // CHECKPOINT A
                       DropdownButtonFormField<int>(
-                        value: checkpointAId,
+                        value: checkpoints.any((e) => e['id'] == checkpointAId)
+                            ? checkpointAId
+                            : null,
                         hint: const Text("Checkpoint A"),
                         items: checkpoints.map<DropdownMenuItem<int>>((c) {
                           return DropdownMenuItem(
@@ -497,7 +508,9 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                       // CHECKPOINT B
                       DropdownButtonFormField<int>(
-                        value: checkpointBId,
+                        value: checkpoints.any((e) => e['id'] == checkpointBId)
+                            ? checkpointBId
+                            : null,
                         hint: const Text("Checkpoint B"),
                         items: checkpoints.map<DropdownMenuItem<int>>((c) {
                           return DropdownMenuItem(
@@ -558,7 +571,9 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                       // KOTA TUJUAN
                       DropdownButtonFormField<int>(
-                        value: cityEndId,
+                        value: citiesEnd.any((e) => e['id'] == cityEndId)
+                            ? cityEndId
+                            : null,
                         hint: const Text("Pilih Kota"),
                         items: citiesEnd.map<DropdownMenuItem<int>>((c) {
                           return DropdownMenuItem(
@@ -582,7 +597,9 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       // TERMINAL TUJUAN
                       DropdownButtonFormField<int>(
                         isExpanded: true,
-                        value: endTerminalId,
+                        value: terminalsEnd.any((e) => e['id'] == endTerminalId)
+                            ? endTerminalId
+                            : null,
                         hint: const Text("Terminal Tujuan"),
                         items: terminalsEnd.map<DropdownMenuItem<int>>((t) {
                           return DropdownMenuItem(
@@ -609,27 +626,47 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: () async {
-                            if (startTerminal == null ||
-                                checkpointA == null ||
-                                checkpointB == null ||
-                                endTerminal == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Lengkapi semua pilihan"),
-                                ),
-                              );
-                              return;
-                            }
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  if (startTerminal == null ||
+                                      checkpointA == null ||
+                                      checkpointB == null ||
+                                      endTerminal == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text("Lengkapi semua pilihan"),
+                                      ),
+                                    );
+                                    return;
+                                  }
 
-                            await _storeAutoRoute(
-                              startTerminal: startTerminal!,
-                              checkpointA: checkpointA!,
-                              checkpointB: checkpointB!,
-                              endTerminal: endTerminal!,
-                            );
-                          },
-                          child: const Text("Simpan Route"),
+                                  setStateDialog(() {
+                                    isSaving = true;
+                                  });
+
+                                  await _storeAutoRoute(
+                                    startTerminal: startTerminal!,
+                                    checkpointA: checkpointA!,
+                                    checkpointB: checkpointB!,
+                                    endTerminal: endTerminal!,
+                                  );
+
+                                  setStateDialog(() {
+                                    isSaving = false;
+                                  });
+                                },
+
+                          child: isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text("Simpan Route"),
                         ),
                       ),
                     ],
@@ -658,29 +695,21 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
           children: [
             TextField(
               controller: namaController,
-              decoration: const InputDecoration(
-                labelText: "Nama Rute",
-              ),
+              decoration: const InputDecoration(labelText: "Nama Rute"),
             ),
 
             const SizedBox(height: 20),
 
-            const Text(
-              "Gunakan menu Auto Route untuk edit jalur lengkap",
-            ),
+            const Text("Gunakan menu Auto Route untuk edit jalur lengkap"),
           ],
         ),
         actions: [
           ElevatedButton(
             onPressed: () async {
               final res = await http.put(
-                Uri.parse(
-                  "${ApiService.baseUrl}/api/routes/${route['id']}",
-                ),
+                Uri.parse("${ApiService.baseUrl}/api/routes/${route['id']}"),
                 headers: {"Content-Type": "application/json"},
-                body: jsonEncode({
-                  "nama_rute": namaController.text,
-                }),
+                body: jsonEncode({"nama_rute": namaController.text}),
               );
 
               print(res.body);
@@ -741,7 +770,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                             children: [
                               // ================= EDIT =================
                               IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.orange),
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.orange,
+                                ),
                                 onPressed: () async {
                                   final confirm = await showDialog(
                                     context: context,
@@ -776,7 +808,10 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                               // ================= DELETE =================
                               IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
                                 onPressed: () async {
                                   final confirm = await showDialog(
                                     context: context,
