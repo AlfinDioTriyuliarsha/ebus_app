@@ -322,18 +322,17 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       hint: const Text("Checkpoint Tujuan"),
                       items: checkpoints
                           .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
-                            return DropdownMenuItem(
-                              value: c,
-                              child: Text(c['nama_terminal'] ?? ''),
-                            );
-                          })
-                          .toList(),
+                        return DropdownMenuItem<Map<String, dynamic>>(
+                          value: Map<String, dynamic>.from(c),
+                          child: Text(c['nama'] ?? ''),
+                        );
+                      }).toList(),
                       onChanged: (val) {
-                        setStateDialog(() => endCheckpoint = val);
+                        setStateDialog(() {
+                          endCheckpoint = val;
+                        });
                       },
                     ),
-
-                    const SizedBox(height: 20),
 
                     // ================= BUTTON =================
                     ElevatedButton(
