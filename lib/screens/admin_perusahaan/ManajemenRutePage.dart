@@ -287,11 +287,19 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                 Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
               );
 
+              print("END TERMINAL STATUS: ${res.statusCode}");
+              print("END TERMINAL BODY: ${res.body}");
+
               final decoded = jsonDecode(res.body);
 
               setStateDialog(() {
                 terminalsEnd = parseData(decoded);
+
+                print("TERMINALS END:");
+                print(terminalsEnd);
+
                 endTerminal = null;
+                endTerminalId = null;
               });
             }
 
@@ -515,6 +523,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                       // TERMINAL TUJUAN
                       DropdownButtonFormField<int>(
+                        isExpanded: true,
                         value: endTerminalId,
                         hint: const Text("Terminal Tujuan"),
                         items: terminalsEnd.map<DropdownMenuItem<int>>((t) {
