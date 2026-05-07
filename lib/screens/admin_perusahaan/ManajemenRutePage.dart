@@ -680,6 +680,277 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     );
   }
 
+  // ================= EDIT AUTO DIALOG =================
+  void _showEditAutoDialog(Map<String, dynamic> route) {
+    showDialog(
+      context: context,
+      builder: (context) {
+
+        bool isSaving = false;
+
+        // ================= FIELD =================
+        int? provinceStartId;
+        int? cityStartId;
+
+        int? startTerminalId;
+        int? checkpointAId;
+        int? checkpointBId;
+        int? endTerminalId;
+
+        Map<String, dynamic>? startTerminal;
+        Map<String, dynamic>? checkpointA;
+        Map<String, dynamic>? checkpointB;
+        Map<String, dynamic>? endTerminal;
+
+        List<Map<String, dynamic>> citiesStart = [];
+        List<Map<String, dynamic>> terminalsStart = [];
+        List<Map<String, dynamic>> checkpoints = [];
+
+        int? provinceEndId;
+        int? cityEndId;
+
+        List<Map<String, dynamic>> citiesEnd = [];
+        List<Map<String, dynamic>> terminalsEnd = [];
+
+        List<Map<String, dynamic>> parseData(dynamic decoded) {
+          if (decoded is Map && decoded.containsKey('data')) {
+            return List<Map<String, dynamic>>.from(decoded['data']);
+          }
+
+          return [];
+        }
+
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+
+            // ================= FETCH =================
+
+            Future<void> fetchCitiesStart(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
+              );
+
+              final decoded = jsonDecode(res.body);
+
+              setStateDialog(() {
+                citiesStart = parseData(decoded);
+              });
+            }
+
+            Future<void> fetchCitiesEnd(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/cities/$id"),
+              );
+
+              final decoded = jsonDecode(res.body);
+
+              setStateDialog(() {
+                citiesEnd = parseData(decoded);
+              });
+            }
+
+            Future<void> fetchStartTerminals(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
+              );
+
+              final decoded = jsonDecode(res.body);
+
+              setStateDialog(() {
+                terminalsStart = parseData(decoded);
+              });
+            }
+
+            Future<void> fetchEndTerminals(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/terminals/$id"),
+              );
+
+              final decoded = jsonDecode(res.body);
+
+              setStateDialog(() {
+                terminalsEnd = parseData(decoded);
+              });
+            }
+
+            Future<void> fetchCheckpoints(int id) async {
+              final res = await http.get(
+                Uri.parse("${ApiService.baseUrl}/api/location/checkpoints/$id"),
+              );
+
+              final decoded = jsonDecode(res.body);
+
+              setStateDialog(() {
+                checkpoints = parseData(decoded);
+              });
+            }
+
+            return AlertDialog(
+              title: const Text("Edit Auto Route"),
+              content: SizedBox(
+                width: 450,
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+
+                      // ================= START TERMINAL =================
+
+                      DropdownButtonFormField<int>(
+                        value: startTerminalId,
+                        hint: const Text("Terminal Keberangkatan"),
+                        items: terminalsStart.map<DropdownMenuItem<int>>((t) {
+                          return DropdownMenuItem(
+                            value: t['id'],
+                            child: Text(t['nama_terminal']),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            startTerminalId = val;
+
+                            startTerminal = Map<String, dynamic>.from(
+                              terminalsStart.firstWhere(
+                                (e) => e['id'] == val,
+                              ),
+                            );
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // ================= CHECKPOINT A =================
+
+                      DropdownButtonFormField<int>(
+                        value: checkpointAId,
+                        hint: const Text("Checkpoint A"),
+                        items: checkpoints.map<DropdownMenuItem<int>>((c) {
+                          return DropdownMenuItem(
+                            value: c['id'],
+                            child: Text(c['nama']),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            checkpointAId = val;
+
+                            checkpointA = Map<String, dynamic>.from(
+                              checkpoints.firstWhere(
+                                (e) => e['id'] == val,
+                              ),
+                            );
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // ================= CHECKPOINT B =================
+
+                      DropdownButtonFormField<int>(
+                        value: checkpointBId,
+                        hint: const Text("Checkpoint B"),
+                        items: checkpoints.map<DropdownMenuItem<int>>((c) {
+                          return DropdownMenuItem(
+                            value: c['id'],
+                            child: Text(c['nama']),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            checkpointBId = val;
+
+                            checkpointB = Map<String, dynamic>.from(
+                              checkpoints.firstWhere(
+                                (e) => e['id'] == val,
+                              ),
+                            );
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // ================= TERMINAL TUJUAN =================
+
+                      DropdownButtonFormField<int>(
+                        value: endTerminalId,
+                        hint: const Text("Terminal Tujuan"),
+                        items: terminalsEnd.map<DropdownMenuItem<int>>((t) {
+                          return DropdownMenuItem(
+                            value: t['id'],
+                            child: Text(t['nama_terminal']),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            endTerminalId = val;
+
+                            endTerminal = Map<String, dynamic>.from(
+                              terminalsEnd.firstWhere(
+                                (e) => e['id'] == val,
+                              ),
+                            );
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+
+                                  if (startTerminal == null ||
+                                      checkpointA == null ||
+                                      checkpointB == null ||
+                                      endTerminal == null) {
+                                    return;
+                                  }
+
+                                  setStateDialog(() {
+                                    isSaving = true;
+                                  });
+
+                                  await _updateRoute(
+                                    routeId: route['id'],
+
+                                    namaRute:
+                                        "${startTerminal!['nama_terminal']} - ${endTerminal!['nama_terminal']}",
+
+                                    startTerminal: startTerminal!,
+                                    checkpointA: checkpointA!,
+                                    checkpointB: checkpointB!,
+                                    endTerminal: endTerminal!,
+                                  );
+
+                                  setStateDialog(() {
+                                    isSaving = false;
+                                  });
+
+                                  if (mounted) Navigator.pop(context);
+
+                                  _fetchRoutes();
+                                },
+                          child: isSaving
+                              ? const CircularProgressIndicator()
+                              : const Text("Update Route"),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ================= EDIT DIALOG =================
   void _showEditDialog(Map route) {
     final namaController = TextEditingController(
@@ -801,7 +1072,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                                   );
 
                                   if (confirm == true) {
-                                    _showEditDialog(r);
+                                    _showEditAutoDialog(r);
                                   }
                                 },
                               ),
