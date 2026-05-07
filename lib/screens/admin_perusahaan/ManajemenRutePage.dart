@@ -205,27 +205,30 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
         int? provinceStartId;
         int? cityStartId;
 
-        Map<String, dynamic>? startTerminal;
+        int? startTerminalId;
+        int? checkpointAId;
+        int? checkpointBId;
+        int? endTerminalId;
 
+        Map<String, dynamic>? startTerminal;
         Map<String, dynamic>? checkpointA;
         Map<String, dynamic>? checkpointB;
+        Map<String, dynamic>? endTerminal;
 
-        List citiesStart = [];
-        List terminalsStart = [];
-        List checkpoints = [];
+        List<Map<String, dynamic>> citiesStart = [];
+        List<Map<String, dynamic>> terminalsStart = [];
+        List<Map<String, dynamic>> checkpoints = [];
 
         // ================= FIELD TUJUAN =================
         int? provinceEndId;
         int? cityEndId;
 
-        Map<String, dynamic>? endTerminal;
+        List<Map<String, dynamic>> citiesEnd = [];
+        List<Map<String, dynamic>> terminalsEnd = [];
 
-        List citiesEnd = [];
-        List terminalsEnd = [];
-
-        List<dynamic> parseData(dynamic decoded) {
+        List<Map<String, dynamic>> parseData(dynamic decoded) {
           if (decoded is Map && decoded.containsKey('data')) {
-            return decoded['data'];
+            return List<Map<String, dynamic>>.from(decoded['data']);
           }
 
           return [];
@@ -377,20 +380,24 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       const SizedBox(height: 10),
 
                       // TERMINAL START
-                      DropdownButtonFormField<Map<String, dynamic>>(
-                        value: startTerminal,
+                      DropdownButtonFormField<int>(
+                        value: startTerminalId,
                         hint: const Text("Terminal Keberangkatan"),
-                        items: terminalsStart
-                            .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
-                              return DropdownMenuItem(
-                                value: Map<String, dynamic>.from(t),
-                                child: Text(t['nama_terminal'] ?? ''),
-                              );
-                            })
-                            .toList(),
+                        items: terminalsStart.map<DropdownMenuItem<int>>((t) {
+                          return DropdownMenuItem(
+                            value: t['id'],
+                            child: Text(t['nama_terminal'] ?? ''),
+                          );
+                        }).toList(),
                         onChanged: (val) {
                           setStateDialog(() {
-                            startTerminal = val;
+                            startTerminalId = val;
+
+                            startTerminal = Map<String, dynamic>.from(
+                              terminalsStart.firstWhere((e) => e['id'] == val),
+                            );
+
+                            print(startTerminal);
                           });
                         },
                       ),
@@ -398,20 +405,24 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       const SizedBox(height: 10),
 
                       // CHECKPOINT A
-                      DropdownButtonFormField<Map<String, dynamic>>(
-                        value: checkpointA,
+                      DropdownButtonFormField<int>(
+                        value: checkpointAId,
                         hint: const Text("Checkpoint A"),
-                        items: checkpoints
-                            .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
-                              return DropdownMenuItem(
-                                value: Map<String, dynamic>.from(c),
-                                child: Text(c['nama'] ?? ''),
-                              );
-                            })
-                            .toList(),
+                        items: checkpoints.map<DropdownMenuItem<int>>((c) {
+                          return DropdownMenuItem(
+                            value: c['id'],
+                            child: Text(c['nama'] ?? ''),
+                          );
+                        }).toList(),
                         onChanged: (val) {
                           setStateDialog(() {
-                            checkpointA = val;
+                            checkpointAId = val;
+
+                            checkpointA = Map<String, dynamic>.from(
+                              checkpoints.firstWhere((e) => e['id'] == val),
+                            );
+
+                            print(checkpointA);
                           });
                         },
                       ),
@@ -419,20 +430,24 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       const SizedBox(height: 10),
 
                       // CHECKPOINT B
-                      DropdownButtonFormField<Map<String, dynamic>>(
-                        value: checkpointB,
+                      DropdownButtonFormField<int>(
+                        value: checkpointBId,
                         hint: const Text("Checkpoint B"),
-                        items: checkpoints
-                            .map<DropdownMenuItem<Map<String, dynamic>>>((c) {
-                              return DropdownMenuItem(
-                                value: Map<String, dynamic>.from(c),
-                                child: Text(c['nama'] ?? ''),
-                              );
-                            })
-                            .toList(),
+                        items: checkpoints.map<DropdownMenuItem<int>>((c) {
+                          return DropdownMenuItem(
+                            value: c['id'],
+                            child: Text(c['nama'] ?? ''),
+                          );
+                        }).toList(),
                         onChanged: (val) {
                           setStateDialog(() {
-                            checkpointB = val;
+                            checkpointBId = val;
+
+                            checkpointB = Map<String, dynamic>.from(
+                              checkpoints.firstWhere((e) => e['id'] == val),
+                            );
+
+                            print(checkpointB);
                           });
                         },
                       ),
@@ -499,20 +514,24 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                       const SizedBox(height: 10),
 
                       // TERMINAL TUJUAN
-                      DropdownButtonFormField<Map<String, dynamic>>(
-                        value: endTerminal,
+                      DropdownButtonFormField<int>(
+                        value: endTerminalId,
                         hint: const Text("Terminal Tujuan"),
-                        items: terminalsEnd
-                            .map<DropdownMenuItem<Map<String, dynamic>>>((t) {
-                              return DropdownMenuItem(
-                                value: Map<String, dynamic>.from(t),
-                                child: Text(t['nama_terminal'] ?? ''),
-                              );
-                            })
-                            .toList(),
+                        items: terminalsEnd.map<DropdownMenuItem<int>>((t) {
+                          return DropdownMenuItem(
+                            value: t['id'],
+                            child: Text(t['nama_terminal'] ?? ''),
+                          );
+                        }).toList(),
                         onChanged: (val) {
                           setStateDialog(() {
-                            endTerminal = val;
+                            endTerminalId = val;
+
+                            endTerminal = Map<String, dynamic>.from(
+                              terminalsEnd.firstWhere((e) => e['id'] == val),
+                            );
+
+                            print(endTerminal);
                           });
                         },
                       ),
