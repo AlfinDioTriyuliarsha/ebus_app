@@ -741,23 +741,74 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                             children: [
                               // ================= EDIT =================
                               IconButton(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  color: Colors.orange,
-                                ),
-                                onPressed: () {
-                                  _showEditDialog(r);
+                                icon: const Icon(Icons.edit, color: Colors.orange),
+                                onPressed: () async {
+                                  final confirm = await showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      title: const Text("Konfirmasi"),
+                                      content: const Text(
+                                        "Apakah anda yakin ingin mengedit route ini?",
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context, false);
+                                          },
+                                          child: const Text("Batal"),
+                                        ),
+
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.pop(context, true);
+                                          },
+                                          child: const Text("Ya"),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    _showEditDialog(r);
+                                  }
                                 },
                               ),
 
                               // ================= DELETE =================
                               IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () {
-                                  _deleteRoute(r['id']);
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () async {
+                                  final confirm = await showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      title: const Text("Konfirmasi"),
+                                      content: const Text(
+                                        "Apakah anda yakin ingin menghapus route ini?",
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context, false);
+                                          },
+                                          child: const Text("Batal"),
+                                        ),
+
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                          ),
+                                          onPressed: () {
+                                            Navigator.pop(context, true);
+                                          },
+                                          child: const Text("Hapus"),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    _deleteRoute(r['id']);
+                                  }
                                 },
                               ),
                             ],
