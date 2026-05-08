@@ -88,14 +88,24 @@ router.post("/", async (req, res) => {
 
 
 // =======================
-// AUTO ROUTE (FIX FINAL)
+// AUTO ROUTE FULL TOL / NON TOL
 // =======================
 router.post("/auto-route", async (req, res) => {
     try {
-        const { company_id, nama_rute, start, end } = req.body;
+
+        const {
+            company_id,
+            nama_rute,
+            start,
+            checkpoint_a,
+            checkpoint_b,
+            end,
+            route_mode
+        } = req.body;
 
         console.log("BODY:", req.body);
 
+        // ================= VALIDASI =================
         if (!company_id || !start || !end) {
             return res.status(400).json({
                 success: false,
@@ -110,17 +120,60 @@ router.post("/auto-route", async (req, res) => {
             });
         }
 
+        // ================= COORDINATES =================
+        const coordinates = [
+            [Number(start.lng), Number(start.lat)],
+
+            checkpoint_a
+                ? [Number(checkpoint_a.lng), Number(checkpoint_a.lat)]
+                : null,
+
+            checkpoint_b
+                ? [Number(checkpoint_b.lng), Number(checkpoint_b.lat)]
+                : null,
+
+            [Number(end.lng), Number(end.lat)]
+        ].filter(Boolean);
+
+        console.log("COORDINATES:", coordinates);
+
+        // ================= REQUEST BODY =================
+        let requestBody = {
+            coordinates: coordinates
+        };
+
+        // ================= MODE NON TOL =================
+        if (route_mode === "non_tol") {
+
+            requestBody.options = {
+                avoid_features: ["tollways"]
+            };
+
+            console.log("MODE: NON TOL");
+        }
+
+        // ================= MODE MIX =================
+        else if (route_mode === "mix") {
+
+            console.log("MODE: MIX");
+        }
+
+        // ================= MODE FULL TOL =================
+        else {
+
+            console.log("MODE: FULL TOL");
+        }
+
+        // ================= REQUEST ORS =================
         let path = [];
+        let distance = 0;
+        let duration = 0;
 
         try {
+
             const ors = await axios.post(
-                "https://api.openrouteservice.org/v2/directions/driving-car",
-                {
-                    coordinates: [
-                        [start.lng, start.lat],
-                        [end.lng, end.lat]
-                    ]
-                },
+                "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
+                requestBody,
                 {
                     headers: {
                         Authorization: ORS_API_KEY,
@@ -129,61 +182,109 @@ router.post("/auto-route", async (req, res) => {
                 }
             );
 
-            // ✅ VALIDASI RESPONSE ORS
+            // ================= SUCCESS =================
             if (
                 ors.data &&
                 ors.data.features &&
                 ors.data.features.length > 0
             ) {
+
                 console.log("ORS BERHASIL");
 
-                const coords = ors.data.features[0].geometry.coordinates;
+                const feature = ors.data.features[0];
+
+                const coords = feature.geometry.coordinates;
 
                 path = coords.map(c => ({
                     lat: c[1],
                     lng: c[0]
                 }));
+
+                distance = feature.properties.summary.distance;
+                duration = feature.properties.summary.duration;
+
             } else {
-                console.log("ORS GAGAL → fallback garis lurus");
+
+                console.log("ORS GAGAL → fallback");
 
                 path = [
-                    { lat: start.lat, lng: start.lng },
-                    { lat: end.lat, lng: end.lng }
+                    {
+                        lat: start.lat,
+                        lng: start.lng
+                    },
+                    {
+                        lat: end.lat,
+                        lng: end.lng
+                    }
                 ];
             }
 
         } catch (err) {
-            console.log("ORS ERROR → fallback:", err.response?.data || err.message);
 
-            // ✅ fallback kalau ORS gagal
+            console.log(
+                "ORS ERROR:",
+                err.response?.data || err.message
+            );
+
+            // ================= FALLBACK =================
             path = [
-                { lat: start.lat, lng: start.lng },
-                { lat: end.lat, lng: end.lng }
+                {
+                    lat: start.lat,
+                    lng: start.lng
+                },
+                {
+                    lat: end.lat,
+                    lng: end.lng
+                }
             ];
         }
 
-        // ================= SIMPAN =================
+        // ================= SIMPAN DATABASE =================
         const result = await pool.query(
-            `INSERT INTO routes 
-            (company_id, nama_rute, titik_awal, titik_tujuan, path) 
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *`,
+            `
+            INSERT INTO routes
+            (
+                company_id,
+                nama_rute,
+                titik_awal,
+                titik_tujuan,
+                path,
+                jarak_estimasi
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+            `,
             [
                 company_id,
+
                 nama_rute || "Auto Route",
-                JSON.stringify(start),   // ✅ isi titik_awal
-                JSON.stringify(end),     // ✅ isi titik_tujuan
-                JSON.stringify(path)
+
+                JSON.stringify(start),
+
+                JSON.stringify(end),
+
+                JSON.stringify(path),
+
+                distance
             ]
         );
 
+        // ================= RESPONSE =================
         res.json({
             success: true,
-            data: result.rows[0]
+            data: result.rows[0],
+            route_info: {
+                distance_meter: distance,
+                distance_km: (distance / 1000).toFixed(2),
+                duration_second: duration,
+                duration_minute: (duration / 60).toFixed(0),
+                mode: route_mode || "tol"
+            }
         });
 
     } catch (err) {
-        console.error("AUTO ROUTE ERROR:", err.message);
+
+        console.error("AUTO ROUTE ERROR:", err);
 
         res.status(500).json({
             success: false,

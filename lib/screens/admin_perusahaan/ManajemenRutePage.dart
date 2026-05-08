@@ -93,6 +93,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     required Map<String, dynamic> checkpointA,
     required Map<String, dynamic> checkpointB,
     required Map<String, dynamic> endTerminal,
+    required String routeMode,
   }) async {
     final res = await http.post(
       Uri.parse("${ApiService.baseUrl}/api/routes/auto-route"),
@@ -111,12 +112,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
         "end": {"lat": endTerminal['lat'], "lng": endTerminal['lng']},
 
-        "path": [
-          {"lat": startTerminal['lat'], "lng": startTerminal['lng']},
-          {"lat": checkpointA['lat'], "lng": checkpointA['lng']},
-          {"lat": checkpointB['lat'], "lng": checkpointB['lng']},
-          {"lat": endTerminal['lat'], "lng": endTerminal['lng']},
-        ],
+        "route_mode": routeMode,
       }),
     );
 
@@ -152,6 +148,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
     required Map<String, dynamic> checkpointA,
     required Map<String, dynamic> checkpointB,
     required Map<String, dynamic> endTerminal,
+    required String routeMode,
   }) async {
     final res = await http.put(
       Uri.parse("${ApiService.baseUrl}/api/routes/$routeId"),
@@ -168,6 +165,8 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
           "lat": endTerminal['lat'],
           "lng": endTerminal['lng'],
         }),
+
+        "route_mode": routeMode,
 
         "path": [
           {"lat": startTerminal['lat'], "lng": startTerminal['lng']},
@@ -260,6 +259,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
       context: context,
       builder: (context) {
         bool isSaving = false;
+        String routeMode = "tol";
 
         // ================= FIELD KEBERANGKATAN =================
         int? provinceStartId;
@@ -620,6 +620,39 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                         },
                       ),
 
+                      const SizedBox(height: 20),
+
+                      DropdownButtonFormField<String>(
+                        value: routeMode,
+                        decoration: const InputDecoration(
+                          labelText: "Mode Perjalanan",
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: "tol",
+                            child: Text("Full Tol"),
+                          ),
+
+                          DropdownMenuItem(
+                            value: "non_tol",
+                            child: Text("Non Tol"),
+                          ),
+
+                          DropdownMenuItem(
+                            value: "mix",
+                            child: Text("Campuran"),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val == null) return;
+
+                          setStateDialog(() {
+                            routeMode = val;
+                          });
+                        },
+                      ),
+
                       const SizedBox(height: 25),
 
                       // ================= BUTTON =================
@@ -650,6 +683,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                                     checkpointA: checkpointA!,
                                     checkpointB: checkpointB!,
                                     endTerminal: endTerminal!,
+                                    routeMode: routeMode,
                                   );
 
                                   setStateDialog(() {
@@ -686,6 +720,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
       context: context,
       builder: (context) {
         bool isSaving = false;
+        String routeMode = "tol";
 
         // ================= FIELD KEBERANGKATAN =================
         int? provinceStartId;
@@ -1032,7 +1067,71 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                         },
                       ),
 
+                      const SizedBox(height: 20),
+
+                      DropdownButtonFormField<String>(
+                        value: routeMode,
+                        decoration: const InputDecoration(
+                          labelText: "Mode Perjalanan",
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: "tol",
+                            child: Text("Full Tol"),
+                          ),
+
+                          DropdownMenuItem(
+                            value: "non_tol",
+                            child: Text("Non Tol"),
+                          ),
+
+                          DropdownMenuItem(
+                            value: "mix",
+                            child: Text("Campuran"),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val == null) return;
+
+                          setStateDialog(() {
+                            routeMode = val;
+                          });
+                        },
+                      ),
+
                       const SizedBox(height: 25),
+
+                      DropdownButtonFormField<String>(
+                        value: routeMode,
+                        decoration: const InputDecoration(
+                          labelText: "Mode Perjalanan",
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: "tol",
+                            child: Text("Full Tol"),
+                          ),
+                          DropdownMenuItem(
+                            value: "non_tol",
+                            child: Text("Non Tol"),
+                          ),
+                          DropdownMenuItem(
+                            value: "mix",
+                            child: Text("Campuran"),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val == null) return;
+
+                          setStateDialog(() {
+                            routeMode = val;
+                          });
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
 
                       // ================= BUTTON =================
                       SizedBox(
@@ -1067,6 +1166,7 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
                                     checkpointA: checkpointA!,
                                     checkpointB: checkpointB!,
                                     endTerminal: endTerminal!,
+                                    routeMode: routeMode,
                                   );
 
                                   setStateDialog(() {
