@@ -1102,37 +1102,6 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
 
                       const SizedBox(height: 25),
 
-                      DropdownButtonFormField<String>(
-                        value: routeMode,
-                        decoration: const InputDecoration(
-                          labelText: "Mode Perjalanan",
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: "tol",
-                            child: Text("Full Tol"),
-                          ),
-                          DropdownMenuItem(
-                            value: "non_tol",
-                            child: Text("Non Tol"),
-                          ),
-                          DropdownMenuItem(
-                            value: "mix",
-                            child: Text("Campuran"),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val == null) return;
-
-                          setStateDialog(() {
-                            routeMode = val;
-                          });
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
                       // ================= BUTTON =================
                       SizedBox(
                         width: double.infinity,
