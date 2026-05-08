@@ -135,6 +135,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       setState(() {
         _busData = List<Map<String, dynamic>>.from(data);
       });
+
+      _generateRealtimeMarkers();
     } catch (e) {
       print("❌ FETCH ERROR: $e");
 
@@ -198,40 +200,53 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   }
 
   // =========================
-  // DRAW ROUTE
+  // drawRoute
   // =========================
-  // ignore: unused_element
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
-    final routeData = bus['path'] ?? bus['route'];
-
-    if (routeData == null || routeData.isEmpty) return;
-
     try {
+      final routeData = bus['route'];
+
+      if (routeData == null) {
+        print("❌ ROUTE NULL");
+        return;
+      }
+
       List decoded = routeData is String ? jsonDecode(routeData) : routeData;
 
-      List<LatLng> rawRoute = decoded.map<LatLng>((p) {
+      List<LatLng> points = decoded.map<LatLng>((p) {
         return LatLng(
           double.parse(p['lat'].toString()),
           double.parse(p['lng'].toString()),
         );
       }).toList();
 
-      List<LatLng> realRoute = await getRealRoute(rawRoute);
-
+      // ================= POLYLINE =================
       setState(() {
         _polylines = [
-          Polyline(
-            points: realRoute,
-            strokeWidth: 10,
-            color: Colors.black.withOpacity(0.2),
-          ),
-          Polyline(points: realRoute, strokeWidth: 6, color: Colors.blue),
+          Polyline(points: points, strokeWidth: 6, color: Colors.blue),
         ];
       });
 
-      if (!_userInteracting) {
-        _mapController.move(realRoute.first, 7);
+      // ================= CHECKPOINT =================
+      final checkpointMarkers = points.map((p) {
+        return Marker(
+          point: p,
+          width: 30,
+          height: 30,
+          child: const Icon(Icons.location_on, color: Colors.red, size: 28),
+        );
+      }).toList();
+
+      setState(() {
+        _markers.addAll(checkpointMarkers);
+      });
+
+      // ================= AUTO MOVE =================
+      if (points.isNotEmpty) {
+        _mapController.move(points.first, 8);
       }
+
+      print("✅ ROUTE DIGAMBAR");
     } catch (e) {
       print("❌ DRAW ROUTE ERROR: $e");
     }
@@ -287,6 +302,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 subdomains: const ['a', 'b', 'c'],
               ),
+
+              // ================= POLYLINE =================
+              PolylineLayer(polylines: _polylines),
+
+              // ================= MARKER =================
               MarkerLayer(markers: _markers),
             ],
           ),
@@ -321,12 +341,17 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
                       if (selectedBusId == null) {
                         _generateRealtimeMarkers();
+                        setState(() {
+                          _polylines = [];
+                        });
                       } else {
-                        // ignore: unused_local_variable
                         final bus = _busData.firstWhere(
                           (b) => b['id'] == selectedBusId,
                         );
+                        // realtime marker
                         _generateRealtimeMarkers();
+                        // gambar route
+                        _drawRoute(bus);
                       }
                     },
                   ),
