@@ -64,47 +64,69 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
     channel.stream.listen(
       (message) {
-        print("🔥 WS MESSAGE: $message");
+        try {
+          print("🔥 WS MESSAGE: $message");
 
-        final data = jsonDecode(message);
+          final data = jsonDecode(message);
 
-        if (data['type'] == 'bus_location') {
-          final bus = data['data'];
+          if (data == null) return;
 
-          setState(() {
-            final index = _busData.indexWhere(
-              (b) => b['id'].toString() == bus['bus_id'].toString(),
-            );
+          if (data['type'] == 'bus_location') {
+            final bus = data['data'];
 
-            if (index != -1) {
-              _busData[index]['latitude'] = bus['latitude'];
-              _busData[index]['longitude'] = bus['longitude'];
-            } else {
-              print("❌ BUS TIDAK ADA DI DATABASE");
-            }
+            if (bus == null) return;
 
-            _markers = _busData
-                .map((b) {
-                  final lat = double.tryParse(b['latitude'].toString()) ?? 0;
-                  final lng = double.tryParse(b['longitude'].toString()) ?? 0;
+            setState(() {
+              final index = _busData.indexWhere(
+                (b) => b['id'].toString() ==
+                    bus['bus_id'].toString(),
+              );
 
-                  if (lat == 0 || lng == 0) return null;
+              if (index != -1) {
+                _busData[index]['latitude'] =
+                    bus['latitude'];
 
-                  return Marker(
-                    point: LatLng(lat, lng),
-                    width: 50,
-                    height: 50,
-                    child: Column(
-                      children: [
-                        const Icon(Icons.directions_bus, color: Colors.green),
-                        Text(b['plat_nomor'] ?? ''),
-                      ],
-                    ),
-                  );
-                })
-                .whereType<Marker>()
-                .toList();
-          });
+                _busData[index]['longitude'] =
+                    bus['longitude'];
+              }
+
+              _markers = _busData
+                  .map((b) {
+                    final lat = double.tryParse(
+                          b['latitude'].toString(),
+                        ) ??
+                        0;
+
+                    final lng = double.tryParse(
+                          b['longitude'].toString(),
+                        ) ??
+                        0;
+
+                    if (lat == 0 || lng == 0) {
+                      return null;
+                    }
+
+                    return Marker(
+                      point: LatLng(lat, lng),
+                      width: 50,
+                      height: 50,
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.directions_bus,
+                            color: Colors.green,
+                          ),
+                          Text(b['plat_nomor'] ?? ''),
+                        ],
+                      ),
+                    );
+                  })
+                  .whereType<Marker>()
+                  .toList();
+            });
+          }
+        } catch (e) {
+          print("❌ WS ERROR PARSE: $e");
         }
       },
       onError: (e) => print("❌ WS ERROR: $e"),
@@ -322,38 +344,49 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
               ),
               child: Column(
                 children: [
-                  DropdownButton<int>(
+                  DropdownButton<int?>(
                     value: selectedBusId,
                     hint: const Text("Pilih Bus"),
                     items: [
-                      const DropdownMenuItem(value: null, child: Text("Semua")),
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text("Semua"),
+                      ),
+
                       ..._busData.map(
-                        (b) => DropdownMenuItem(
+                        (b) => DropdownMenuItem<int?>(
                           value: b['id'],
                           child: Text(b['plat_nomor']),
                         ),
                       ),
                     ],
-                    onChanged: (val) {
+
+                    onChanged: (int? val) {
                       setState(() {
                         selectedBusId = val;
                       });
 
                       if (selectedBusId == null) {
                         _generateRealtimeMarkers();
+
                         setState(() {
                           _polylines = [];
                         });
-                      } else {
-                        final bus = _busData.firstWhere(
-                          (b) => b['id'] == selectedBusId,
-                        );
-                        // gambar route
-                        _drawRoute(bus);
 
-                        // realtime marker
-                        _generateRealtimeMarkers();
+                        return;
                       }
+
+                      final found = _busData.where(
+                        (b) => b['id'] == selectedBusId,
+                      );
+
+                      if (found.isEmpty) return;
+
+                      final bus = found.first;
+
+                      _drawRoute(bus);
+
+                      _generateRealtimeMarkers();
                     },
                   ),
                   Text("Jarak: ${(distance / 1000).toStringAsFixed(1)} km"),
