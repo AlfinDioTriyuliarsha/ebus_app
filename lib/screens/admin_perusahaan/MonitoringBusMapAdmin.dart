@@ -348,10 +348,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                         final bus = _busData.firstWhere(
                           (b) => b['id'] == selectedBusId,
                         );
-                        // realtime marker
-                        _generateRealtimeMarkers();
                         // gambar route
                         _drawRoute(bus);
+
+                        // realtime marker
+                        _generateRealtimeMarkers();
                       }
                     },
                   ),

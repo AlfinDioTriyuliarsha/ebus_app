@@ -3,6 +3,8 @@ import 'package:ebus_app/screens/admin_perusahaan/MonitoringBusMapAdmin.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 
 class DriverDashboard extends StatefulWidget {
   final String email;
@@ -26,9 +28,12 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   int? companyId;
 
+  StreamSubscription<Position>? _gpsStream;
+
   @override
   void initState() {
     super.initState();
+    _gpsStream?.cancel();
     checkDriver();
   }
 
@@ -103,6 +108,67 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
   }
 
+  // ================= START GPS TRACKING =================
+  Future<void> startLiveTracking() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // ================= GPS AKTIF =================
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      print("GPS OFF");
+      return;
+    }
+
+    // ================= CHECK PERMISSION =================
+    permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+
+      if (permission == LocationPermission.denied) {
+        print("PERMISSION DENIED");
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      print("PERMISSION DENIED FOREVER");
+      return;
+    }
+
+    // ================= START REALTIME GPS =================
+    _gpsStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+          ),
+        ).listen((Position position) async {
+          print("GPS: ${position.latitude}, ${position.longitude}");
+
+          try {
+            final response = await http.put(
+              Uri.parse(
+                "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+              ),
+
+              headers: {"Content-Type": "application/json"},
+
+              body: jsonEncode({
+                "latitude": position.latitude,
+                "longitude": position.longitude,
+              }),
+            );
+
+            print("UPDATE GPS: ${response.body}");
+          } catch (e) {
+            print("GPS ERROR: $e");
+          }
+        });
+  }
+
   @override
   Widget build(BuildContext context) {
     // ================= LOADING =================
@@ -151,8 +217,12 @@ class _DriverDashboardState extends State<DriverDashboard> {
             const SizedBox(height: 20),
 
             ElevatedButton(
-              onPressed: () {
-                if (companyId == null) return;
+              onPressed: () async {
+
+              await startLiveTracking();
+
+              if (companyId == null) return;
+
 
                 Navigator.push(
                   context,
