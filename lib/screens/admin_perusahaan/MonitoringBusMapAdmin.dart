@@ -9,6 +9,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MonitoringBusMapAdmin extends StatefulWidget {
   final int companyId;
@@ -38,9 +40,32 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   int? selectedBusId;
   bool _userInteracting = false;
 
+  final FlutterLocalNotificationsPlugin notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  final Set<String> notifiedCheckpoints = {};
+
+  final List<Map<String, dynamic>> checkpoints = [
+    {
+      'name': 'Rumah Makan',
+      'lat': -7.9504767,
+      'lng': 112.6665545,
+      'radius': 100.0,
+    },
+
+    {
+      'name': 'Terminal',
+      'lat': -7.9510000,
+      'lng': 112.6670000,
+      'radius': 100.0,
+    },
+  ];
+
   @override
   void initState() {
     super.initState();
+
+    initNotifications();
 
     _initWebSocket();
     _fetchBuses();
@@ -53,6 +78,17 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   bool _isAnimating = false;
   // ignore: annotate_overrides
   bool get wantKeepAlive => true;
+
+  Future<void> initNotifications() async {
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const InitializationSettings settings = InitializationSettings(
+      android: androidSettings,
+    );
+
+    await notificationsPlugin.initialize(settings);
+  }
 
   // =========================
   // INIT WEBSOCKET
@@ -78,8 +114,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
             setState(() {
               final index = _busData.indexWhere(
-                (b) => b['id'].toString() ==
-                    bus['bus_id'].toString(),
+                (b) => b['id'].toString() == bus['bus_id'].toString(),
               );
 
               if (index != -1) {
@@ -88,19 +123,25 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
                 _busData[index]['longitude'] =
                     bus['longitude'];
+
+                final lat = double.tryParse(
+                      bus['latitude'].toString(),
+                    ) ??
+                    0;
+
+                final lng = double.tryParse(
+                      bus['longitude'].toString(),
+                    ) ??
+                    0;
+
+                checkCheckpoint(lat, lng);
               }
 
               _markers = _busData
                   .map((b) {
-                    final lat = double.tryParse(
-                          b['latitude'].toString(),
-                        ) ??
-                        0;
+                    final lat = double.tryParse(b['latitude'].toString()) ?? 0;
 
-                    final lng = double.tryParse(
-                          b['longitude'].toString(),
-                        ) ??
-                        0;
+                    final lng = double.tryParse(b['longitude'].toString()) ?? 0;
 
                     if (lat == 0 || lng == 0) {
                       return null;
@@ -112,10 +153,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                       height: 50,
                       child: Column(
                         children: [
-                          const Icon(
-                            Icons.directions_bus,
-                            color: Colors.green,
-                          ),
+                          const Icon(Icons.directions_bus, color: Colors.green),
                           Text(b['plat_nomor'] ?? ''),
                         ],
                       ),
@@ -250,12 +288,25 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       });
 
       // ================= CHECKPOINT =================
-      final checkpointMarkers = points.map((p) {
+      final checkpointMarkers = checkpoints.map((c) {
         return Marker(
-          point: p,
-          width: 30,
-          height: 30,
-          child: const Icon(Icons.location_on, color: Colors.red, size: 28),
+          point: LatLng(c['lat'], c['lng']),
+          width: 40,
+          height: 40,
+          child: Column(
+            children: [
+              const Icon(
+                Icons.location_on,
+                color: Colors.red,
+                size: 30,
+              ),
+
+              Text(
+                c['name'],
+                style: const TextStyle(fontSize: 10),
+              ),
+            ],
+          ),
         );
       }).toList();
 
@@ -292,6 +343,61 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
 
     return Math.atan2(y, x);
+  }
+
+  bool isInsideGeofence({
+    required double busLat,
+    required double busLng,
+    required double checkpointLat,
+    required double checkpointLng,
+    required double radius,
+  }) {
+    double distance = Geolocator.distanceBetween(
+      busLat,
+      busLng,
+      checkpointLat,
+      checkpointLng,
+    );
+
+    return distance <= radius;
+  }
+
+  Future<void> showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'checkpoint_channel',
+          'Checkpoint Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+        );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await notificationsPlugin.show(0, title, body, details);
+  }
+
+  void checkCheckpoint(double lat, double lng) {
+    for (var checkpoint in checkpoints) {
+      final inside = isInsideGeofence(
+        busLat: lat,
+        busLng: lng,
+        checkpointLat: checkpoint['lat'],
+        checkpointLng: checkpoint['lng'],
+        radius: checkpoint['radius'],
+      );
+
+      final checkpointName = checkpoint['name'];
+
+      if (inside && !notifiedCheckpoints.contains(checkpointName)) {
+        notifiedCheckpoints.add(checkpointName);
+
+        print("✅ MASUK CHECKPOINT: $checkpointName");
+
+        showNotification("Checkpoint", "Bus mendekati $checkpointName");
+      }
+    }
   }
 
   // =========================
