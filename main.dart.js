@@ -50564,7 +50564,7 @@ $0(){A.bu(this.a,!1).bF(!0)},
 $S:0}
 A.pE.prototype={
 a1(){var s=t.e,r=t.N,q=t.z
-return new A.a2j(A.b([],s),A.b([],t._I),A.b([],t._6),A.b([],t.UE),A.aY9(null,null),$.b2w(),A.aK(r),A.b([A.a_(["name","Terminal Awal","lat",-7.9504767,"lng",112.6665545,"color",B.c9],r,q),A.a_(["name","SPBU Cipali KM 102","lat",-6.123456,"lng",107.123456,"color",B.ba],r,q),A.a_(["name","RM Padang Sederhana","lat",-6.54321,"lng",108.54321,"color",B.ba],r,q),A.a_(["name","RM Ngawi Indah","lat",-7.403,"lng",111.446,"color",B.ba],r,q),A.a_(["name","SPBU PERTAMINA Rest Area","lat",-7.7,"lng",112.1,"color",B.ba],r,q),A.a_(["name","Rest Area KM 575","lat",-7.8,"lng",112.3,"color",B.ba],r,q),A.a_(["name","Terminal Tujuan","lat",-7.951,"lng",112.667,"color",B.aY],r,q)],s),null)}}
+return new A.a2j(A.b([],s),A.b([],t._I),A.b([],t._6),A.b([],t.UE),A.aY9(null,null),$.b2w(),A.aK(r),A.b([A.a_(["name","Terminal Awal","lat",-7.9504767,"lng",112.6665545,"radius",120,"color",B.c9],r,q),A.a_(["name","SPBU Cipali KM 102","lat",-6.123456,"lng",107.123456,"radius",120,"color",B.ba],r,q),A.a_(["name","RM Padang Sederhana","lat",-6.54321,"lng",108.54321,"radius",120,"color",B.ba],r,q),A.a_(["name","RM Ngawi Indah","lat",-7.403,"lng",111.446,"radius",120,"color",B.ba],r,q),A.a_(["name","SPBU PERTAMINA Rest Area","lat",-7.7,"lng",112.1,"radius",120,"color",B.ba],r,q),A.a_(["name","Rest Area KM 575","lat",-7.8,"lng",112.3,"radius",120,"color",B.ba],r,q),A.a_(["name","Terminal Tujuan","lat",-7.951,"lng",112.667,"radius",120,"color",B.aY],r,q)],s),null)}}
 A.a2j.prototype={
 aj(){var s=this
 s.abG()
@@ -50622,9 +50622,9 @@ return A.u($async$AU,r)},
 B2(){var s=this.d,r=t.A_,q=A.a1(new A.cm(new A.a0(s,new A.aIK(),A.a2(s).h("a0<1,f3?>")),r),r.h("o.E"))
 this.K(new A.aIL(this,q))},
 I0(a){return this.agd(a)},
-agd(a2){var s=0,r=A.v(t.H),q,p=this,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1
-var $async$I0=A.q(function(a4,a5){if(a4===1)return A.r(a5,r)
-while(true)switch(s){case 0:try{o=J.V(a2,"route")
+agd(a1){var s=0,r=A.v(t.H),q,p=this,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0
+var $async$I0=A.q(function(a3,a4){if(a3===1)return A.r(a4,r)
+while(true)switch(s){case 0:try{o=J.V(a1,"route")
 if(o==null){A.bo("\u274c ROUTE NULL")
 s=1
 break}n=typeof o=="string"?B.r.by(0,o,null):o
@@ -50634,16 +50634,14 @@ m=e
 p.K(new A.aIH(p,m))
 l=A.b([],t._I)
 k=A.b([],t.UE)
-f=p.at
-B.b.Z(f)
-for(d=f.length,c=t.p,b=t.ex,a=0;a<f.length;f.length===d||(0,A.J)(f),++a){j=f[a]
+for(f=p.at,d=t.p,c=t.ex,b=0;b<7;++b){j=f[b]
 i=new A.dE(J.V(j,"lat"),J.V(j,"lng"))
 h=J.V(j,"color")
-a0=new A.aI(8,8)
-J.ha(l,new A.f3(i,A.bd(A.b([A.iv(B.qu,h,null,35),A.cN(null,A.ae(J.V(j,"name"),null,null,null,B.Zh,null,null,null),B.u,null,null,new A.cx(B.j,null,null,new A.cQ(a0,a0,a0,a0),null,null,B.a6),null,null,null,null,B.KI,null,null,null)],c),B.q,B.l,B.p,0,B.t),140,60))
-J.ha(k,new A.w6(i,120,h.b6(0.25),2,h,!0,b))}p.K(new A.aII(p,l,k))
+a=new A.aI(8,8)
+J.ha(l,new A.f3(i,A.bd(A.b([A.iv(B.qu,h,null,35),A.cN(null,A.ae(J.V(j,"name"),null,null,null,B.Zh,null,null,null),B.u,null,null,new A.cx(B.j,null,null,new A.cQ(a,a,a,a),null,null,B.a6),null,null,null,null,B.KI,null,null,null)],d),B.q,B.l,B.p,0,B.t),140,60))
+J.ha(k,new A.w6(i,120,h.b6(0.25),2,h,!0,c))}p.K(new A.aII(p,l,k))
 if(J.bZ(m)!==0)p.w.aDo(J.vL(m),15)
-A.bo("\u2705 ROUTE DIGAMBAR")}catch(a3){g=A.a5(a3)
+A.bo("\u2705 ROUTE DIGAMBAR")}catch(a2){g=A.a5(a2)
 A.bo("\u274c DRAW ROUTE ERROR: "+A.k(g))}case 1:return A.t(q,r)}})
 return A.u($async$I0,r)},
 zM(a,b,c){return this.a6Z(0,b,c)},
@@ -50653,16 +50651,16 @@ while(true)switch(s){case 0:s=2
 return A.w(q.Q.GC(0,0,b,c,B.G9),$async$zM)
 case 2:return A.t(null,r)}})
 return A.u($async$zM,r)},
-ax6(a,b){var s,r,q,p,o,n,m,l,k,j
-for(s=this.at,r=s.length,q=this.as,p=0;p<s.length;s.length===r||(0,A.J)(s),++p){o=s[p]
-n=o.i(0,"lat")
-m=o.i(0,"lng")
-l=o.i(0,"radius")
-k=$.Be().a0t(a,b,n,m)
-j=o.i(0,"name")
-if(k<=l&&!q.q(0,j)){q.D(0,j)
-A.aUu("\u2705 MASUK CHECKPOINT: "+A.k(j))
-this.zM(0,"Checkpoint","Bus mendekati "+A.k(j))}}},
+ax6(a,b){var s,r,q,p,o,n,m,l,k
+for(s=this.at,r=this.as,q=0;q<7;++q){p=s[q]
+o=p.i(0,"lat")
+n=p.i(0,"lng")
+m=p.i(0,"radius")
+l=$.Be().a0t(a,b,o,n)
+k=p.i(0,"name")
+if(l<=m&&!r.q(0,k)){r.D(0,k)
+A.aUu("\u2705 MASUK CHECKPOINT: "+A.k(k))
+this.zM(0,"Checkpoint","Bus mendekati "+A.k(k))}}},
 G(a){var s,r,q,p,o,n,m,l,k=this,j=null
 k.qZ(a)
 s=A.jK(j,B.hR,B.D5)
