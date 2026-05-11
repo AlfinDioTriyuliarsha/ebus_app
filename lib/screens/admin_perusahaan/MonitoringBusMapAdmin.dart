@@ -46,63 +46,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
   final Set<String> notifiedCheckpoints = {};
 
-  List<Map<String, dynamic>> checkpoints = [
-    {
-      "name": "Terminal Awal",
-      "lat": -7.9504767,
-      "lng": 112.6665545,
-      "radius": 120.0,
-      "color": Colors.green,
-    },
-
-    {
-      "name": "SPBU Cipali KM 102",
-      "lat": -6.123456,
-      "lng": 107.123456,
-      "radius": 120.0,
-      "color": Colors.orange,
-    },
-
-    {
-      "name": "RM Padang Sederhana",
-      "lat": -6.543210,
-      "lng": 108.543210,
-      "radius": 120.0,
-      "color": Colors.orange,
-    },
-
-    {
-      "name": "RM Ngawi Indah",
-      "lat": -7.403000,
-      "lng": 111.446000,
-      "radius": 120.0,
-      "color": Colors.orange,
-    },
-
-    {
-      "name": "SPBU PERTAMINA Rest Area",
-      "lat": -7.700000,
-      "lng": 112.100000,
-      "radius": 120.0,
-      "color": Colors.orange,
-    },
-
-    {
-      "name": "Rest Area KM 575",
-      "lat": -7.800000,
-      "lng": 112.300000,
-      "radius": 120.0,
-      "color": Colors.orange,
-    },
-
-    {
-      "name": "Terminal Tujuan",
-      "lat": -7.9510000,
-      "lng": 112.6670000,
-      "radius": 120.0,
-      "color": Colors.red,
-    },
-  ];
+  List<dynamic> geofenceData = [];
 
   @override
   void initState() {
@@ -216,26 +160,52 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   // =========================
   // FETCH AWAL
   // =========================
-  // ignore: unused_element
-  Future<void> _fetchBuses() async {
+  Future<void> fetchGeofence(int routeId) async {
     try {
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/routes/$routeId/geofence"),
       );
 
-      final data = jsonDecode(res.body)['data'];
+      final data = jsonDecode(res.body);
 
-      setState(() {
-        _busData = List<Map<String, dynamic>>.from(data);
-      });
+      if (data['success']) {
+        List<dynamic> temp = [];
 
-      _generateRealtimeMarkers();
+        // TERMINAL AWAL
+        temp.add({
+          "name": data['terminal_awal']['nama_terminal'],
+          "lat": data['terminal_awal']['lat'],
+          "lng": data['terminal_awal']['lng'],
+          "radius": 1000.0,
+          "type": "terminal_awal",
+        });
+
+        // CHECKPOINT
+        for (var cp in data['checkpoints']) {
+          temp.add({
+            "name": cp['nama'],
+            "lat": cp['lat'],
+            "lng": cp['lng'],
+            "radius": 1000.0,
+            "type": "checkpoint",
+          });
+        }
+
+        // TERMINAL TUJUAN
+        temp.add({
+          "name": data['terminal_tujuan']['nama_terminal'],
+          "lat": data['terminal_tujuan']['lat'],
+          "lng": data['terminal_tujuan']['lng'],
+          "radius": 1000.0,
+          "type": "terminal_tujuan",
+        });
+
+        setState(() {
+          geofenceData = temp;
+        });
+      }
     } catch (e) {
-      print("❌ FETCH ERROR: $e");
-
-      _generateRealtimeMarkers();
+      print("FETCH GEOFENCE ERROR: $e");
     }
   }
 
@@ -315,6 +285,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         );
       }).toList();
 
+      await fetchGeofence(bus['route_id']);
+
       // ================= POLYLINE =================
       setState(() {
         _polylines = [
@@ -327,10 +299,18 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       final geofenceCircles = <CircleMarker>[];
 
-      for (var checkpoint in checkpoints) {
+      for (var checkpoint in geofenceData) {
         final point = LatLng(checkpoint['lat'], checkpoint['lng']);
 
-        final Color zoneColor = checkpoint['color'];
+        Color zoneColor = Colors.orange;
+
+        if (checkpoint['type'] == 'terminal_awal') {
+          zoneColor = Colors.green;
+        }
+
+        if (checkpoint['type'] == 'terminal_tujuan') {
+          zoneColor = Colors.red;
+        }
 
         // ================= MARKER =================
         checkpointMarkers.add(
@@ -368,11 +348,16 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         geofenceCircles.add(
           CircleMarker(
             point: point,
-            radius: 120,
+
+            radius: checkpoint['radius'],
+
             useRadiusInMeter: true,
-            color: zoneColor.withOpacity(0.25),
+
+            color: zoneColor.withOpacity(0.3),
+
             borderColor: zoneColor,
-            borderStrokeWidth: 2,
+
+            borderStrokeWidth: 3,
           ),
         );
       }
@@ -382,11 +367,23 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         _markers.addAll(checkpointMarkers);
 
         _geofenceCircles = geofenceCircles;
+        print("TOTAL GEOFENCE: ${_geofenceCircles.length}");
+
+        final allPoints = checkpoints
+            .map((e) => LatLng(e['lat'], e['lng']))
+            .toList();
+
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: LatLngBounds.fromPoints(allPoints),
+            padding: const EdgeInsets.all(50),
+          ),
+        );
       });
 
       // ================= AUTO MOVE =================
       if (points.isNotEmpty) {
-        _mapController.move(points.first, 15);
+        _mapController.move(points.first, 7);
       }
 
       print("✅ ROUTE DIGAMBAR");
@@ -449,7 +446,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   }
 
   void checkCheckpoint(double lat, double lng) {
-    for (var checkpoint in checkpoints) {
+    for (var checkpoint in geofenceData) {
       final inside = isInsideGeofence(
         busLat: lat,
         busLng: lng,

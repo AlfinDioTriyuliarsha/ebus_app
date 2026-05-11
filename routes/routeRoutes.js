@@ -420,4 +420,81 @@ router.get("/direction", async (req, res) => {
     }
 });
 
+router.get("/:id/geofence", async (req, res) => {
+  try {
+    const routeId = req.params.id;
+
+    // ================= ROUTE =================
+    const routeResult = await pool.query(
+      `
+      SELECT *
+      FROM routes
+      WHERE id = $1
+      `,
+      [routeId]
+    );
+
+    const route = routeResult.rows[0];
+
+    if (!route) {
+      return res.status(404).json({
+        success: false,
+        message: "Route tidak ditemukan",
+      });
+    }
+
+    // ================= TERMINAL AWAL =================
+    const terminalAwal = await pool.query(
+      `
+      SELECT *
+      FROM terminals
+      WHERE id = $1
+      `,
+      [route.start_terminal_id]
+    );
+
+    // ================= TERMINAL TUJUAN =================
+    const terminalTujuan = await pool.query(
+      `
+      SELECT *
+      FROM terminals
+      WHERE id = $1
+      `,
+      [route.end_terminal_id]
+    );
+
+    // ================= CHECKPOINT =================
+    const checkpoints = await pool.query(
+      `
+      SELECT
+        c.id,
+        c.nama,
+        c.lat,
+        c.lng,
+        c.tipe
+      FROM route_checkpoints rc
+      JOIN checkpoints c
+      ON rc.checkpoint_id = c.id
+      WHERE rc.route_id = $1
+      `,
+      [routeId]
+    );
+
+    res.json({
+      success: true,
+      terminal_awal: terminalAwal.rows[0],
+      terminal_tujuan: terminalTujuan.rows[0],
+      checkpoints: checkpoints.rows,
+    });
+
+  } catch (e) {
+    console.log("GEOFENCE ERROR:", e);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+});
+
 module.exports = router;
