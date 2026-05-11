@@ -46,21 +46,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
   final Set<String> notifiedCheckpoints = {};
 
-  final List<Map<String, dynamic>> checkpoints = [
-    {
-      'name': 'Rumah Makan',
-      'lat': -7.9504767,
-      'lng': 112.6665545,
-      'radius': 100.0,
-    },
-
-    {
-      'name': 'Terminal',
-      'lat': -7.9510000,
-      'lng': 112.6670000,
-      'radius': 100.0,
-    },
-  ];
+  List<Map<String, dynamic>> checkpoints = [];
 
   @override
   void initState() {
@@ -285,23 +271,37 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       final geofenceCircles = <CircleMarker>[];
 
+      checkpoints.clear();
+
       List<int> checkpointIndexes = [0, 5, 10, points.length - 1];
 
       for (int i in checkpointIndexes) {
         final point = points[i];
 
         String title = "";
+        Color zoneColor = Colors.orange;
 
         // ================= NAMA CHECKPOINT =================
         if (i == 0) {
           title = "Terminal Awal";
+          zoneColor = Colors.green;
         } else if (i == points.length - 1) {
           title = "Terminal Tujuan";
+          zoneColor = Colors.red;
         } else if (i == 5) {
           title = "Checkpoint A";
+          zoneColor = Colors.orange;
         } else if (i == 10) {
           title = "Checkpoint B";
+          zoneColor = Colors.orange;
         }
+
+        checkpoints.add({
+          'name': title,
+          'lat': point.latitude,
+          'lng': point.longitude,
+          'radius': 80.0,
+        });
 
         // ================= MARKER =================
         checkpointMarkers.add(
@@ -311,7 +311,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             height: 60,
             child: Column(
               children: [
-                const Icon(Icons.location_on, color: Colors.red, size: 35),
+                Icon(Icons.location_on, color: zoneColor, size: 35),
 
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -344,18 +344,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
             useRadiusInMeter: true,
 
-            color: i == 0
-                ? Colors.green.withOpacity(0.25)
-                : i == points.length - 1
-                ? Colors.red.withOpacity(0.25)
-                : Colors.orange.withOpacity(0.25),
+            color: zoneColor.withOpacity(0.25),
 
-            borderColor: i == 0
-                ? Colors.green
-                : i == points.length - 1
-                ? Colors.red
-                : Colors.orange,
-
+            borderColor: zoneColor,
+            
             borderStrokeWidth: 2,
           ),
         );
