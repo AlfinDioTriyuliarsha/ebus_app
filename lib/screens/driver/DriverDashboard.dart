@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geolocator_android/geolocator_android.dart';
 
 class DriverDashboard extends StatefulWidget {
   final String email;
@@ -28,6 +29,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
   bool isLoading = true;
 
   bool gpsConnected = false;
+
+  bool trackingStarted = false;
 
   String gpsStatus = "Mencari GPS...";
 
@@ -161,7 +164,6 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
       if (!mounted) return;
 
-      // ================= GPS OFF =================
       if (!serviceEnabled) {
         setState(() {
           gpsConnected = false;
@@ -171,16 +173,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
         return;
       }
 
-      // ================= CHECK LAST UPDATE =================
-      if (lastGpsUpdate != null) {
-        final diff = DateTime.now().difference(lastGpsUpdate!);
-
-        if (diff.inSeconds > 10) {
-          setState(() {
-            gpsConnected = false;
-            gpsStatus = "GPS Aktif";
-          });
-        }
+      // ================= TRACKING MASIH AKTIF =================
+      if (trackingStarted) {
+        setState(() {
+          gpsConnected = true;
+        });
       }
     });
   }
@@ -234,9 +231,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // ================= START STREAM =================
     _gpsStream =
         Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 5,
+          locationSettings: AndroidSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            distanceFilter: 3,
+            forceLocationManager: true,
+            intervalDuration: const Duration(seconds: 3),
           ),
         ).listen((Position position) async {
           print("📍 GPS: ${position.latitude}, ${position.longitude}");
@@ -390,11 +389,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
               // ================= START TRACKING =================
               ElevatedButton(
                 onPressed: () async {
+                  trackingStarted = true;
+
                   await startLiveTracking();
 
-                  if (!mounted) return;
-
                   _startGpsChecker();
+
+                  if (!mounted) return;
 
                   setState(() {});
 
@@ -418,6 +419,32 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   );
                 },
                 child: const Text("Mulai Tracking Bus"),
+              ),
+
+              // ================= STOP TRACKING =================
+              const SizedBox(height: 15),
+
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+
+                onPressed: () async {
+                  trackingStarted = false;
+
+                  await _gpsStream?.cancel();
+
+                  _gpsChecker?.cancel();
+
+                  if (!mounted) return;
+
+                  setState(() {
+                    gpsConnected = false;
+                    gpsStatus = "Tracking Dihentikan";
+                  });
+
+                  print("🛑 TRACKING STOPPED");
+                },
+
+                child: const Text("Sampai Tujuan / Stop Tracking"),
               ),
             ],
           ),
