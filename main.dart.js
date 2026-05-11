@@ -50622,33 +50622,36 @@ return A.u($async$AU,r)},
 B2(){var s=this.d,r=t.A_,q=A.a0(new A.cm(new A.a_(s,new A.aIK(),A.a1(s).h("a_<1,f3?>")),r),r.h("o.E"))
 this.K(new A.aIL(this,q))},
 I0(a){return this.agd(a)},
-agd(a0){var s=0,r=A.v(t.H),q,p=this,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a
-var $async$I0=A.q(function(a2,a3){if(a2===1)return A.r(a3,r)
-while(true)switch(s){case 0:try{o=J.Y(a0,"route")
+agd(a4){var s=0,r=A.v(t.H),q,p=this,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3
+var $async$I0=A.q(function(a6,a7){if(a6===1)return A.r(a7,r)
+while(true)switch(s){case 0:try{o=J.Y(a4,"route")
 if(o==null){A.bo("\u274c ROUTE NULL")
 s=1
 break}n=typeof o=="string"?B.r.by(0,o,null):o
-f=J.ie(n,new A.aIG(),t.uj)
-e=A.a0(f,f.$ti.h("ar.E"))
-m=e
+e=J.ie(n,new A.aIG(),t.uj)
+d=A.a0(e,e.$ti.h("ar.E"))
+m=d
 p.K(new A.aIH(p,m))
 l=A.b([],t._I)
 k=A.b([],t.UE)
-for(j=0,f=t.ex,d=t.p;j<J.bQ(m);++j){i=J.Y(m,j)
-h=""
-if(J.d(j,0))h="Terminal Awal"
-else if(J.d(j,J.bQ(m)-1))h="Terminal Tujuan"
-else h="Checkpoint "+A.k(j)
-c=new A.aI(8,8)
-J.ha(l,new A.f3(i,A.bd(A.b([B.LT,A.cN(null,A.ae(h,null,null,null,B.Zi,null,null,null),B.u,null,null,new A.cx(B.j,null,null,new A.cR(c,c,c,c),null,null,B.a6),null,null,null,null,B.KI,null,null,null)],d),B.q,B.l,B.p,0,B.t),120,60))
-if(J.d(j,0))c=A.aJ(64,B.bA.D()>>>16&255,B.bA.D()>>>8&255,B.bA.D()&255)
-else c=J.d(j,J.bQ(m)-1)?A.aJ(64,B.aA.D()>>>16&255,B.aA.D()>>>8&255,B.aA.D()&255):A.aJ(64,B.be.D()>>>16&255,B.be.D()>>>8&255,B.be.D()&255)
-if(J.d(j,0))b=B.bA
-else b=J.d(j,J.bQ(m)-1)?B.aA:B.be
-J.ha(k,new A.w6(i,80,c,2,b,!0,f))}p.K(new A.aII(p,l,k))
+j=A.b([0,5,10,J.bQ(m)-1],t.t)
+for(e=j,c=e.length,b=t.ex,a=t.p,a0=0;a0<e.length;e.length===c||(0,A.J)(e),++a0){i=e[a0]
+h=J.Y(m,i)
+g=""
+if(J.d(i,0))g="Terminal Awal"
+else if(J.d(i,J.bQ(m)-1))g="Terminal Tujuan"
+else if(J.d(i,5))g="Checkpoint A"
+else if(J.d(i,10))g="Checkpoint B"
+a1=new A.aI(8,8)
+J.ha(l,new A.f3(h,A.bd(A.b([B.LT,A.cN(null,A.ae(g,null,null,null,B.Zi,null,null,null),B.u,null,null,new A.cx(B.j,null,null,new A.cR(a1,a1,a1,a1),null,null,B.a6),null,null,null,null,B.KI,null,null,null)],a),B.q,B.l,B.p,0,B.t),120,60))
+if(J.d(i,0))a1=A.aJ(64,B.bA.D()>>>16&255,B.bA.D()>>>8&255,B.bA.D()&255)
+else a1=J.d(i,J.bQ(m)-1)?A.aJ(64,B.aA.D()>>>16&255,B.aA.D()>>>8&255,B.aA.D()&255):A.aJ(64,B.be.D()>>>16&255,B.be.D()>>>8&255,B.be.D()&255)
+if(J.d(i,0))a2=B.bA
+else a2=J.d(i,J.bQ(m)-1)?B.aA:B.be
+J.ha(k,new A.w6(h,80,a1,2,a2,!0,b))}p.K(new A.aII(p,l,k))
 if(J.bQ(m)!==0)p.w.aDo(J.vL(m),15)
-A.bo("\u2705 ROUTE DIGAMBAR")}catch(a1){g=A.a5(a1)
-A.bo("\u274c DRAW ROUTE ERROR: "+A.k(g))}case 1:return A.t(q,r)}})
+A.bo("\u2705 ROUTE DIGAMBAR")}catch(a5){f=A.a5(a5)
+A.bo("\u274c DRAW ROUTE ERROR: "+A.k(f))}case 1:return A.t(q,r)}})
 return A.u($async$I0,r)},
 zM(a,b,c){return this.a6Z(0,b,c)},
 a6Z(a,b,c){var s=0,r=A.v(t.H),q=this
