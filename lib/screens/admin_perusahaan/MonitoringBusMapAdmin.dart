@@ -51,6 +51,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       "name": "Terminal Awal",
       "lat": -7.9504767,
       "lng": 112.6665545,
+      "radius": 120.0,
       "color": Colors.green,
     },
 
@@ -58,6 +59,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       "name": "SPBU Cipali KM 102",
       "lat": -6.123456,
       "lng": 107.123456,
+      "radius": 120.0,
       "color": Colors.orange,
     },
 
@@ -65,6 +67,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       "name": "RM Padang Sederhana",
       "lat": -6.543210,
       "lng": 108.543210,
+      "radius": 120.0,
       "color": Colors.orange,
     },
 
@@ -72,6 +75,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       "name": "RM Ngawi Indah",
       "lat": -7.403000,
       "lng": 111.446000,
+      "radius": 120.0,
       "color": Colors.orange,
     },
 
@@ -79,6 +83,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       "name": "SPBU PERTAMINA Rest Area",
       "lat": -7.700000,
       "lng": 112.100000,
+      "radius": 120.0,
       "color": Colors.orange,
     },
 
@@ -86,6 +91,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       "name": "Rest Area KM 575",
       "lat": -7.800000,
       "lng": 112.300000,
+      "radius": 120.0,
       "color": Colors.orange,
     },
 
@@ -93,6 +99,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       "name": "Terminal Tujuan",
       "lat": -7.9510000,
       "lng": 112.6670000,
+      "radius": 120.0,
       "color": Colors.red,
     },
   ];
@@ -319,8 +326,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       final checkpointMarkers = <Marker>[];
 
       final geofenceCircles = <CircleMarker>[];
-
-      checkpoints.clear();
 
       for (var checkpoint in checkpoints) {
         final point = LatLng(checkpoint['lat'], checkpoint['lng']);
