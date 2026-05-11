@@ -33,6 +33,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   List<Map<String, dynamic>> _busData = [];
   List<Marker> _markers = [];
   List<Polyline> _polylines = [];
+  List<CircleMarker> _geofenceCircles = [];
 
   final MapController _mapController = MapController();
   late WebSocketChannel channel;
@@ -118,21 +119,13 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
               );
 
               if (index != -1) {
-                _busData[index]['latitude'] =
-                    bus['latitude'];
+                _busData[index]['latitude'] = bus['latitude'];
 
-                _busData[index]['longitude'] =
-                    bus['longitude'];
+                _busData[index]['longitude'] = bus['longitude'];
 
-                final lat = double.tryParse(
-                      bus['latitude'].toString(),
-                    ) ??
-                    0;
+                final lat = double.tryParse(bus['latitude'].toString()) ?? 0;
 
-                final lng = double.tryParse(
-                      bus['longitude'].toString(),
-                    ) ??
-                    0;
+                final lng = double.tryParse(bus['longitude'].toString()) ?? 0;
 
                 checkCheckpoint(lat, lng);
               }
@@ -287,36 +280,93 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         ];
       });
 
-      // ================= CHECKPOINT =================
-      final checkpointMarkers = checkpoints.map((c) {
-        return Marker(
-          point: LatLng(c['lat'], c['lng']),
-          width: 40,
-          height: 40,
-          child: Column(
-            children: [
-              const Icon(
-                Icons.location_on,
-                color: Colors.red,
-                size: 30,
-              ),
+      // ================= MARKER CHECKPOINT =================
+      final checkpointMarkers = <Marker>[];
 
-              Text(
-                c['name'],
-                style: const TextStyle(fontSize: 10),
-              ),
-            ],
+      final geofenceCircles = <CircleMarker>[];
+
+      for (int i = 0; i < points.length; i++) {
+        final point = points[i];
+
+        String title = "";
+
+        // ================= NAMA CHECKPOINT =================
+        if (i == 0) {
+          title = "Terminal Awal";
+        } else if (i == points.length - 1) {
+          title = "Terminal Tujuan";
+        } else {
+          title = "Checkpoint ${i}";
+        }
+
+        // ================= MARKER =================
+        checkpointMarkers.add(
+          Marker(
+            point: point,
+            width: 120,
+            height: 60,
+            child: Column(
+              children: [
+                const Icon(Icons.location_on, color: Colors.red, size: 35),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
-      }).toList();
 
+        // ================= GEOFENCE =================
+        geofenceCircles.add(
+          CircleMarker(
+            point: point,
+
+            radius: 80,
+
+            useRadiusInMeter: true,
+
+            color: i == 0
+                ? Colors.green.withOpacity(0.25)
+                : i == points.length - 1
+                ? Colors.red.withOpacity(0.25)
+                : Colors.orange.withOpacity(0.25),
+
+            borderColor: i == 0
+                ? Colors.green
+                : i == points.length - 1
+                ? Colors.red
+                : Colors.orange,
+
+            borderStrokeWidth: 2,
+          ),
+        );
+      }
+
+      // ================= UPDATE UI =================
       setState(() {
         _markers.addAll(checkpointMarkers);
+
+        _geofenceCircles = geofenceCircles;
       });
 
       // ================= AUTO MOVE =================
       if (points.isNotEmpty) {
-        _mapController.move(points.first, 8);
+        _mapController.move(points.first, 15);
       }
 
       print("✅ ROUTE DIGAMBAR");
@@ -433,6 +483,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
               // ================= POLYLINE =================
               PolylineLayer(polylines: _polylines),
+
+              // ================= GEOFENCE =================
+              CircleLayer(circles: _geofenceCircles),
 
               // ================= MARKER =================
               MarkerLayer(markers: _markers),
