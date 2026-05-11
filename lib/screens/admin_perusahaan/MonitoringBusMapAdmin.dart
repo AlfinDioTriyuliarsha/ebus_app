@@ -285,7 +285,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       final geofenceCircles = <CircleMarker>[];
 
-      for (int i = 0; i < points.length; i++) {
+      List<int> checkpointIndexes = [0, 5, 10, points.length - 1];
+
+      for (int i in checkpointIndexes) {
         final point = points[i];
 
         String title = "";
@@ -295,8 +297,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           title = "Terminal Awal";
         } else if (i == points.length - 1) {
           title = "Terminal Tujuan";
-        } else {
-          title = "Checkpoint ${i}";
+        } else if (i == 5) {
+          title = "Checkpoint A";
+        } else if (i == 10) {
+          title = "Checkpoint B";
         }
 
         // ================= MARKER =================
