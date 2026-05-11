@@ -46,7 +46,56 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
   final Set<String> notifiedCheckpoints = {};
 
-  List<Map<String, dynamic>> checkpoints = [];
+  List<Map<String, dynamic>> checkpoints = [
+    {
+      "name": "Terminal Awal",
+      "lat": -7.9504767,
+      "lng": 112.6665545,
+      "color": Colors.green,
+    },
+
+    {
+      "name": "SPBU Cipali KM 102",
+      "lat": -6.123456,
+      "lng": 107.123456,
+      "color": Colors.orange,
+    },
+
+    {
+      "name": "RM Padang Sederhana",
+      "lat": -6.543210,
+      "lng": 108.543210,
+      "color": Colors.orange,
+    },
+
+    {
+      "name": "RM Ngawi Indah",
+      "lat": -7.403000,
+      "lng": 111.446000,
+      "color": Colors.orange,
+    },
+
+    {
+      "name": "SPBU PERTAMINA Rest Area",
+      "lat": -7.700000,
+      "lng": 112.100000,
+      "color": Colors.orange,
+    },
+
+    {
+      "name": "Rest Area KM 575",
+      "lat": -7.800000,
+      "lng": 112.300000,
+      "color": Colors.orange,
+    },
+
+    {
+      "name": "Terminal Tujuan",
+      "lat": -7.9510000,
+      "lng": 112.6670000,
+      "color": Colors.red,
+    },
+  ];
 
   @override
   void initState() {
@@ -273,41 +322,16 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       checkpoints.clear();
 
-      List<int> checkpointIndexes = [0, 5, 10, points.length - 1];
+      for (var checkpoint in checkpoints) {
+        final point = LatLng(checkpoint['lat'], checkpoint['lng']);
 
-      for (int i in checkpointIndexes) {
-        final point = points[i];
-
-        String title = "";
-        Color zoneColor = Colors.orange;
-
-        // ================= NAMA CHECKPOINT =================
-        if (i == 0) {
-          title = "Terminal Awal";
-          zoneColor = Colors.green;
-        } else if (i == points.length - 1) {
-          title = "Terminal Tujuan";
-          zoneColor = Colors.red;
-        } else if (i == 5) {
-          title = "Checkpoint A";
-          zoneColor = Colors.orange;
-        } else if (i == 10) {
-          title = "Checkpoint B";
-          zoneColor = Colors.orange;
-        }
-
-        checkpoints.add({
-          'name': title,
-          'lat': point.latitude,
-          'lng': point.longitude,
-          'radius': 80.0,
-        });
+        final Color zoneColor = checkpoint['color'];
 
         // ================= MARKER =================
         checkpointMarkers.add(
           Marker(
             point: point,
-            width: 120,
+            width: 140,
             height: 60,
             child: Column(
               children: [
@@ -323,7 +347,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    title,
+                    checkpoint['name'],
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -339,15 +363,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         geofenceCircles.add(
           CircleMarker(
             point: point,
-
-            radius: 80,
-
+            radius: 120,
             useRadiusInMeter: true,
-
             color: zoneColor.withOpacity(0.25),
-
             borderColor: zoneColor,
-            
             borderStrokeWidth: 2,
           ),
         );
