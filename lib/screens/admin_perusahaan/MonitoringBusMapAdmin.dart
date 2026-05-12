@@ -39,7 +39,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   late WebSocketChannel channel;
 
   int? selectedBusId;
-  bool _userInteracting = false;
 
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -61,8 +60,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   double distance = 0;
   double duration = 0;
 
-  // ignore: prefer_final_fields
-  bool _isAnimating = false;
   // ignore: annotate_overrides
   bool get wantKeepAlive => true;
 
@@ -75,6 +72,26 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     );
 
     await notificationsPlugin.initialize(settings);
+  }
+
+  Future<void> _fetchBuses() async {
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
+
+      final data = jsonDecode(res.body)['data'];
+
+      setState(() {
+        _busData = List<Map<String, dynamic>>.from(data);
+      });
+
+      _generateRealtimeMarkers();
+    } catch (e) {
+      print("FETCH BUS ERROR: $e");
+    }
   }
 
   // =========================
@@ -269,21 +286,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   // =========================
   Future<void> _drawRoute(Map<String, dynamic> bus) async {
     try {
-      final routeData = bus['route'];
+      final points = await fetchRoutePath(bus['route_id']);
 
-      if (routeData == null) {
-        print("❌ ROUTE NULL");
+      if (points.isEmpty) {
+        print("❌ ROUTE KOSONG");
         return;
       }
-
-      List decoded = routeData is String ? jsonDecode(routeData) : routeData;
-
-      List<LatLng> points = decoded.map<LatLng>((p) {
-        return LatLng(
-          double.parse(p['lat'].toString()),
-          double.parse(p['lng'].toString()),
-        );
-      }).toList();
 
       await fetchGeofence(bus['route_id']);
 
@@ -364,13 +372,23 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       // ================= UPDATE UI =================
       setState(() {
-        _markers.addAll(checkpointMarkers);
+        _markers = [
+          ..._markers.where(
+            (m) => m.child.toString().contains("directions_bus"),
+          ),
+          ...checkpointMarkers,
+        ];
 
         _geofenceCircles = geofenceCircles;
         print("TOTAL GEOFENCE: ${_geofenceCircles.length}");
 
-        final allPoints = checkpoints
-            .map((e) => LatLng(e['lat'], e['lng']))
+        final allPoints = geofenceData
+            .map(
+              (e) => LatLng(
+                double.parse(e['lat'].toString()),
+                double.parse(e['lng'].toString()),
+              ),
+            )
             .toList();
 
         _mapController.fitCamera(
@@ -389,6 +407,30 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       print("✅ ROUTE DIGAMBAR");
     } catch (e) {
       print("❌ DRAW ROUTE ERROR: $e");
+    }
+  }
+
+  Future<List<LatLng>> fetchRoutePath(int routeId) async {
+    try {
+      final res = await http.get(Uri.parse("${ApiService.baseUrl}/api/routes"));
+
+      final data = jsonDecode(res.body);
+
+      final routes = data['data'];
+
+      final route = routes.firstWhere((r) => r['id'] == routeId);
+
+      final path = route['path'];
+
+      return List.from(path).map<LatLng>((p) {
+        return LatLng(
+          double.parse(p['lat'].toString()),
+          double.parse(p['lng'].toString()),
+        );
+      }).toList();
+    } catch (e) {
+      print("FETCH ROUTE PATH ERROR: $e");
+      return [];
     }
   }
 
@@ -485,11 +527,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             options: MapOptions(
               initialCenter: const LatLng(-7.9839, 112.6214),
               initialZoom: 6,
-              onPositionChanged: (position, hasGesture) {
-                if (hasGesture) {
-                  _userInteracting = true;
-                }
-              },
             ),
             children: [
               TileLayer(
