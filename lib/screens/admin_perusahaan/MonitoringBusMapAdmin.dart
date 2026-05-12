@@ -428,6 +428,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         orElse: () => null,
       );
 
+      if (route == null) {
+        print("❌ ROUTE TIDAK DITEMUKAN");
+        return [];
+      }
+
       // ================= ROUTE TIDAK ADA =================
       if (route == null) {
         print("❌ ROUTE TIDAK DITEMUKAN");
