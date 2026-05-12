@@ -216,6 +216,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
       }
     }
 
+    // ================= BACKGROUND LOCATION =================
+    if (permission == LocationPermission.whileInUse) {
+      permission = await Geolocator.requestPermission();
+    }
+
     if (permission == LocationPermission.deniedForever) {
       setState(() {
         gpsConnected = false;
@@ -232,10 +237,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
     _gpsStream =
         Geolocator.getPositionStream(
           locationSettings: AndroidSettings(
-            accuracy: LocationAccuracy.bestForNavigation,
-            distanceFilter: 3,
-            forceLocationManager: true,
-            intervalDuration: const Duration(seconds: 3),
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+            intervalDuration: const Duration(seconds: 5),
           ),
         ).listen((Position position) async {
           print("📍 GPS: ${position.latitude}, ${position.longitude}");

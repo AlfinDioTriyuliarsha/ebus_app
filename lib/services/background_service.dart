@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
-int globalBusId = 0;
+import 'api_service.dart';
 
-Future<void> initializeService(int busId) async {
-  globalBusId = busId;
-
+Future<void> initializeService() async {
   final service = FlutterBackgroundService();
 
   await service.configure(
@@ -16,38 +15,43 @@ Future<void> initializeService(int busId) async {
       onStart: onStart,
       isForegroundMode: true,
       autoStart: true,
+      notificationChannelId: 'ebus_tracking',
+      initialNotificationTitle: 'E-Bus Tracking',
+      initialNotificationContent: 'Tracking bus berjalan',
+      foregroundServiceNotificationId: 888,
     ),
+
     iosConfiguration: IosConfiguration(),
   );
 
   service.startService();
 }
 
-// 🔥 INI YANG JALAN DI BACKGROUND
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) {
   Timer.periodic(const Duration(seconds: 5), (timer) async {
+
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      print("📍 BG GPS: ${position.latitude}, ${position.longitude}");
-
-      // 🔥 KIRIM KE SERVER
-      await http.put(
-        Uri.parse(
-          "https://ebusapp-production-4fdd.up.railway.app/api/buses/update-location/$globalBusId",
-        ),
-
-        headers: {"Content-Type": "application/json"},
+      await http.post(
+        Uri.parse("${ApiService.baseUrl}/api/location/update"),
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: jsonEncode({
+          "bus_id": 3,
           "latitude": position.latitude,
           "longitude": position.longitude,
         }),
       );
+
+      print("BACKGROUND LOCATION SENT");
+
     } catch (e) {
-      print("❌ BG ERROR: $e");
+      print(e);
     }
   });
 }
