@@ -47,7 +47,7 @@ dependencies:
   flutter_facebook_auth: ^6.1.0
   fl_chart: ^0.66.0
   image_picker: ^1.0.7
-  shared_preferences: ^2.2.0
+  shared_preferences: ^2.2.2
   geolocator: ^11.0.0
   flutter_local_notifications: ^17.1.2
   permission_handler: ^11.3.1

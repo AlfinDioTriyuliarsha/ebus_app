@@ -3,10 +3,12 @@ import 'dart:convert';
 
 import 'package:ebus_app/screens/admin_perusahaan/MonitoringBusMapAdmin.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_android/geolocator_android.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DriverDashboard extends StatefulWidget {
   final String email;
@@ -41,8 +43,6 @@ class _DriverDashboardState extends State<DriverDashboard> {
   bool websocketConnected = false;
 
   int? companyId;
-
-  StreamSubscription<Position>? _gpsStream;
 
   Timer? _gpsChecker;
 
@@ -182,107 +182,10 @@ class _DriverDashboardState extends State<DriverDashboard> {
     });
   }
 
-  // ================= START TRACKING =================
-  Future<void> startLiveTracking() async {
-    bool serviceEnabled;
-
-    LocationPermission permission;
-
-    // ================= GPS ENABLE =================
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
-    if (!serviceEnabled) {
-      setState(() {
-        gpsConnected = false;
-        gpsStatus = "GPS OFF";
-      });
-
-      return;
-    }
-
-    // ================= CHECK PERMISSION =================
-    permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-
-      if (permission == LocationPermission.denied) {
-        setState(() {
-          gpsConnected = false;
-          gpsStatus = "Permission Ditolak";
-        });
-
-        return;
-      }
-    }
-
-    // ================= BACKGROUND LOCATION =================
-    if (permission == LocationPermission.whileInUse) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      setState(() {
-        gpsConnected = false;
-        gpsStatus = "Permission Permanen Ditolak";
-      });
-
-      return;
-    }
-
-    // ================= CANCEL STREAM LAMA =================
-    await _gpsStream?.cancel();
-
-    // ================= START STREAM =================
-    _gpsStream =
-        Geolocator.getPositionStream(
-          locationSettings: AndroidSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 5,
-            intervalDuration: const Duration(seconds: 5),
-          ),
-        ).listen((Position position) async {
-          print("📍 GPS: ${position.latitude}, ${position.longitude}");
-
-          if (!mounted) return;
-
-          setState(() {
-            gpsConnected = true;
-
-            gpsStatus =
-                "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
-
-            gpsAccuracy = position.accuracy;
-
-            lastGpsUpdate = DateTime.now();
-          });
-
-          try {
-            final response = await http.put(
-              Uri.parse(
-                "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
-              ),
-              headers: {"Content-Type": "application/json"},
-              body: jsonEncode({
-                "latitude": position.latitude,
-                "longitude": position.longitude,
-              }),
-            );
-
-            print("✅ UPDATE GPS: ${response.body}");
-          } catch (e) {
-            print("❌ GPS UPDATE ERROR: $e");
-          }
-        });
-  }
-
   // ================= DISPOSE =================
   @override
   void dispose() {
-    _gpsStream?.cancel();
-
     _gpsChecker?.cancel();
-
     super.dispose();
   }
 
@@ -393,9 +296,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
               // ================= START TRACKING =================
               ElevatedButton(
                 onPressed: () async {
-                  trackingStarted = true;
+                  final prefs = await SharedPreferences.getInstance();
 
-                  await startLiveTracking();
+                  await prefs.setInt("bus_id", widget.busId);
+
+                  final service = FlutterBackgroundService();
+
+                  await service.startService();
+
+                  trackingStarted = true;
 
                   _startGpsChecker();
 
@@ -432,9 +341,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
 
                 onPressed: () async {
-                  trackingStarted = false;
+                  final prefs = await SharedPreferences.getInstance();
 
-                  await _gpsStream?.cancel();
+                  await prefs.remove("bus_id");
+
+                  final service = FlutterBackgroundService();
+
+                  service.invoke("stopService");
+
+                  trackingStarted = false;
 
                   _gpsChecker?.cancel();
 
