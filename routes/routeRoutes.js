@@ -24,10 +24,19 @@ router.get("/", async (req, res) => {
     const { company_id } = req.query;
 
     try {
-        const result = await pool.query(
-            "SELECT * FROM routes WHERE company_id = $1 ORDER BY id DESC",
-            [company_id]
-        );
+
+        let result;
+
+        if (company_id) {
+            result = await pool.query(
+                "SELECT * FROM routes WHERE company_id = $1 ORDER BY id DESC",
+                [company_id]
+            );
+        } else {
+            result = await pool.query(
+                "SELECT * FROM routes ORDER BY id DESC"
+            );
+        }
 
         res.json({
             success: true,
@@ -36,6 +45,7 @@ router.get("/", async (req, res) => {
 
     } catch (err) {
         console.error("GET ROUTES ERROR:", err);
+
         res.status(500).json({
             success: false,
             error: err.message

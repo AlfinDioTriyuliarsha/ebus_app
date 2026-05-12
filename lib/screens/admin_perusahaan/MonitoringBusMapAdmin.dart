@@ -412,17 +412,19 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
   Future<List<LatLng>> fetchRoutePath(int routeId) async {
     try {
-      final res = await http.get(Uri.parse("${ApiService.baseUrl}/api/routes"));
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}",
+        ),
+      );
 
       final data = jsonDecode(res.body);
 
       final routes = data['data'];
 
-      // ================= DEBUG =================
       print("ROUTE ID BUS: $routeId");
       print("SEMUA ROUTE: $routes");
 
-      // ================= CARI ROUTE =================
       final route = routes.firstWhere(
         (r) => r['id'].toString() == routeId.toString(),
         orElse: () => null,
@@ -433,15 +435,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         return [];
       }
 
-      // ================= ROUTE TIDAK ADA =================
-      if (route == null) {
-        print("❌ ROUTE TIDAK DITEMUKAN");
-        return [];
-      }
-
       final path = route['path'];
 
-      // ================= PATH KOSONG =================
       if (path == null || path.isEmpty) {
         print("❌ PATH KOSONG");
         return [];
