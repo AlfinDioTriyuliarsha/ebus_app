@@ -418,9 +418,29 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       final routes = data['data'];
 
-      final route = routes.firstWhere((r) => r['id'] == routeId);
+      // ================= DEBUG =================
+      print("ROUTE ID BUS: $routeId");
+      print("SEMUA ROUTE: $routes");
+
+      // ================= CARI ROUTE =================
+      final route = routes.firstWhere(
+        (r) => r['id'].toString() == routeId.toString(),
+        orElse: () => null,
+      );
+
+      // ================= ROUTE TIDAK ADA =================
+      if (route == null) {
+        print("❌ ROUTE TIDAK DITEMUKAN");
+        return [];
+      }
 
       final path = route['path'];
+
+      // ================= PATH KOSONG =================
+      if (path == null || path.isEmpty) {
+        print("❌ PATH KOSONG");
+        return [];
+      }
 
       return List.from(path).map<LatLng>((p) {
         return LatLng(
