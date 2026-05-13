@@ -49629,7 +49629,7 @@ o=t.N
 n=A.a3(["Content-Type","application/json"],o,o)
 m=t.z
 s=2
-return A.x(A.i9(p,B.q.dJ(A.a3(["company_id",q.a.c,"nama_rute",A.k(e.i(0,"nama_terminal"))+" - "+A.k(c.i(0,"nama_terminal")),"start",A.a3(["lat",e.i(0,"lat"),"lng",e.i(0,"lng")],o,m),"checkpoint_a",A.a3(["lat",a.i(0,"lat"),"lng",a.i(0,"lng")],o,m),"checkpoint_b",A.a3(["lat",b.i(0,"lat"),"lng",b.i(0,"lng")],o,m),"end",A.a3(["lat",c.i(0,"lat"),"lng",c.i(0,"lng")],o,m),"route_mode",d],o,t.K),null),n),$async$Ce)
+return A.x(A.i9(p,B.q.dJ(A.a3(["company_id",q.a.c,"nama_rute",A.k(e.i(0,"nama_terminal"))+" - "+A.k(c.i(0,"nama_terminal")),"start",A.a3(["lat",e.i(0,"lat"),"lng",e.i(0,"lng")],o,m),"checkpoint_a",A.a3(["lat",a.i(0,"lat"),"lng",a.i(0,"lng")],o,m),"checkpoint_b",A.a3(["lat",b.i(0,"lat"),"lng",b.i(0,"lng")],o,m),"end",A.a3(["lat",c.i(0,"lat"),"lng",c.i(0,"lng")],o,m),"start_terminal_id",e.i(0,"id"),"end_terminal_id",c.i(0,"id"),"route_mode",d],o,m),null),n),$async$Ce)
 case 2:l=g
 A.bi("AUTO STATUS: "+l.b)
 A.bi("AUTO BODY: "+A.bp(A.bo(l.e)).aR(0,l.w))
