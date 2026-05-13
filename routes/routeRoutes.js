@@ -107,13 +107,29 @@ router.post("/auto-route", async (req, res) => {
             company_id,
             nama_rute,
             start,
+            end,
             checkpoint_a,
             checkpoint_b,
-            end,
-            route_mode
+            route_mode,
+
+            start_terminal_id,
+            end_terminal_id
         } = req.body;
 
         console.log("BODY:", req.body);
+
+        if (
+            !company_id ||
+            !start ||
+            !end ||
+            !start_terminal_id ||
+            !end_terminal_id
+        ) {
+            return res.status(400).json({
+                success: false,
+                error: "Data terminal wajib"
+            });
+        }
 
         // ================= VALIDASI =================
         if (!company_id || !start || !end) {
@@ -261,9 +277,11 @@ router.post("/auto-route", async (req, res) => {
                 titik_awal,
                 titik_tujuan,
                 path,
-                jarak_estimasi
+                jarak_estimasi,
+                start_terminal_id,
+                end_terminal_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
             `,
             [
@@ -277,7 +295,11 @@ router.post("/auto-route", async (req, res) => {
 
                 JSON.stringify(path),
 
-                distance
+                distance,
+
+                start_terminal_id,
+
+                end_terminal_id
             ]
         );
 

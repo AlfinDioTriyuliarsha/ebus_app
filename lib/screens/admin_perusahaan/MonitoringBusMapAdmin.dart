@@ -189,13 +189,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         List<dynamic> temp = [];
 
         // TERMINAL AWAL
-        temp.add({
-          "name": data['terminal_awal']['nama_terminal'],
-          "lat": data['terminal_awal']['lat'],
-          "lng": data['terminal_awal']['lng'],
-          "radius": 1000.0,
-          "type": "terminal_awal",
-        });
+        if (data['terminal_awal'] != null) {
+          temp.add({
+            "name": data['terminal_awal']['nama_terminal'],
+            "lat": data['terminal_awal']['lat'],
+            "lng": data['terminal_awal']['lng'],
+            "radius": 1000.0,
+            "type": "terminal_awal",
+          });
+        }
 
         // CHECKPOINT
         for (var cp in data['checkpoints']) {
@@ -209,13 +211,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         }
 
         // TERMINAL TUJUAN
-        temp.add({
-          "name": data['terminal_tujuan']['nama_terminal'],
-          "lat": data['terminal_tujuan']['lat'],
-          "lng": data['terminal_tujuan']['lng'],
-          "radius": 1000.0,
-          "type": "terminal_tujuan",
-        });
+        if (data['terminal_tujuan'] != null) {
+          temp.add({
+            "name": data['terminal_tujuan']['nama_terminal'],
+            "lat": data['terminal_tujuan']['lat'],
+            "lng": data['terminal_tujuan']['lng'],
+            "radius": 1000.0,
+            "type": "terminal_tujuan",
+          });
+        }
 
         setState(() {
           geofenceData = temp;
