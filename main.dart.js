@@ -50553,11 +50553,9 @@ case 6:n=c
 i=n
 m=B.q.bu(0,A.bp(A.bo(i.e)).aR(0,i.w),null)
 if(J.R(m,"success")){l=[]
-i=t.N
-h=t.z
-J.fy(l,A.a3(["name",J.R(J.R(m,"terminal_awal"),"nama_terminal"),"lat",J.R(J.R(m,"terminal_awal"),"lat"),"lng",J.R(J.R(m,"terminal_awal"),"lng"),"radius",1000,"type","terminal_awal"],i,h))
-for(g=J.be(J.R(m,"checkpoints"));g.u();){k=g.gM(g)
-J.fy(l,A.a3(["name",J.R(k,"nama"),"lat",J.R(k,"lat"),"lng",J.R(k,"lng"),"radius",1000,"type","checkpoint"],i,h))}J.fy(l,A.a3(["name",J.R(J.R(m,"terminal_tujuan"),"nama_terminal"),"lat",J.R(J.R(m,"terminal_tujuan"),"lat"),"lng",J.R(J.R(m,"terminal_tujuan"),"lng"),"radius",1000,"type","terminal_tujuan"],i,h))
+if(J.R(m,"terminal_awal")!=null)J.fy(l,A.a3(["name",J.R(J.R(m,"terminal_awal"),"nama_terminal"),"lat",J.R(J.R(m,"terminal_awal"),"lat"),"lng",J.R(J.R(m,"terminal_awal"),"lng"),"radius",1000,"type","terminal_awal"],t.N,t.z))
+for(i=J.be(J.R(m,"checkpoints")),h=t.N,g=t.z;i.u();){k=i.gM(i)
+J.fy(l,A.a3(["name",J.R(k,"nama"),"lat",J.R(k,"lat"),"lng",J.R(k,"lng"),"radius",1000,"type","checkpoint"],h,g))}if(J.R(m,"terminal_tujuan")!=null)J.fy(l,A.a3(["name",J.R(J.R(m,"terminal_tujuan"),"nama_terminal"),"lat",J.R(J.R(m,"terminal_tujuan"),"lat"),"lng",J.R(J.R(m,"terminal_tujuan"),"lng"),"radius",1000,"type","terminal_tujuan"],h,g))
 o.K(new A.aIp(o,l))}q=1
 s=5
 break
