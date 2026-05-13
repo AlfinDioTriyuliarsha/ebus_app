@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ebus_app/services/api_service.dart';
+// ignore: unused_import
 import 'package:ebus_app/super_admin/PengaturanAkunPage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -25,16 +26,13 @@ StreamSubscription<Position>? positionStream;
 
 // ================= INITIALIZE SERVICE =================
 Future<void> initializeService() async {
-
   // WEB TIDAK SUPPORT
   if (kIsWeb) return;
 
   final service = FlutterBackgroundService();
 
   await service.configure(
-
     androidConfiguration: AndroidConfiguration(
-
       onStart: onStart,
 
       autoStart: false,
@@ -55,12 +53,9 @@ Future<void> initializeService() async {
 // ================= BACKGROUND SERVICE =================
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-
   // ================= STOP SERVICE =================
   if (service is AndroidServiceInstance) {
-
     service.on("stopService").listen((event) async {
-
       await positionStream?.cancel();
 
       service.stopSelf();
@@ -75,7 +70,6 @@ void onStart(ServiceInstance service) async {
   final busId = prefs.getInt("bus_id");
 
   if (busId == null) {
-
     print("❌ BUS ID TIDAK DITEMUKAN");
 
     return;
@@ -85,61 +79,48 @@ void onStart(ServiceInstance service) async {
   await positionStream?.cancel();
 
   // ================= START STREAM BARU =================
-  positionStream = Geolocator.getPositionStream(
+  positionStream =
+      Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
 
-    locationSettings: const LocationSettings(
-
-      accuracy: LocationAccuracy.high,
-
-      distanceFilter: 5,
-    ),
-
-  ).listen((Position position) async {
-
-    print(
-      "📍 BACKGROUND GPS: "
-      "${position.latitude}, "
-      "${position.longitude}",
-    );
-
-    try {
-
-      final response = await http.put(
-
-        Uri.parse(
-          "https://ebusapp-production-4fdd.up.railway.app/api/buses/update-location/$busId",
+          distanceFilter: 5,
         ),
+      ).listen((Position position) async {
+        print(
+          "📍 BACKGROUND GPS: "
+          "${position.latitude}, "
+          "${position.longitude}",
+        );
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+        try {
+          final response = await http.put(
+            Uri.parse(
+              "https://ebusapp-production-4fdd.up.railway.app/api/buses/update-location/$busId",
+            ),
 
-        body: jsonEncode({
+            headers: {"Content-Type": "application/json"},
 
-          "latitude": position.latitude,
+            body: jsonEncode({
+              "latitude": position.latitude,
 
-          "longitude": position.longitude,
-        }),
-      );
+              "longitude": position.longitude,
+            }),
+          );
 
-      print("✅ BACKGROUND UPDATE SUCCESS: ${response.statusCode}");
-
-    } catch (e) {
-
-      print("❌ BACKGROUND GPS ERROR: $e");
-    }
-  });
+          print("✅ BACKGROUND UPDATE SUCCESS: ${response.statusCode}");
+        } catch (e) {
+          print("❌ BACKGROUND GPS ERROR: $e");
+        }
+      });
 }
 
 // ================= MAIN =================
 void main() async {
-
   WidgetsFlutterBinding.ensureInitialized();
 
   // ================= BACKGROUND SERVICE =================
-  if (!kIsWeb &&
-      defaultTargetPlatform == TargetPlatform.android) {
-
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     await initializeService();
   }
 
@@ -148,9 +129,7 @@ void main() async {
 
   // ================= FACEBOOK LOGIN =================
   if (kIsWeb) {
-
     await FacebookAuth.i.webAndDesktopInitialize(
-
       appId: "1234567890",
 
       cookie: true,
@@ -166,30 +145,23 @@ void main() async {
 
 // ================= APP =================
 class EBusApp extends StatelessWidget {
-
   const EBusApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-
     return MaterialApp(
-
       title: 'E-Bus App',
 
       debugShowCheckedModeBanner: false,
 
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
 
       home: const LoginScreen(),
 
       routes: {
-
         '/login': (context) => const LoginScreen(),
 
-        '/forgot-password': (context) =>
-            const ForgotPasswordScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
       },
     );
   }
