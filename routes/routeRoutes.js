@@ -181,6 +181,8 @@ router.post("/auto-route", async (req, res) => {
 
         try {
 
+            console.log("REQUEST BODY:", requestBody);
+
             const ors = await axios.post(
                 "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
                 requestBody,
@@ -232,7 +234,7 @@ router.post("/auto-route", async (req, res) => {
         } catch (err) {
 
             console.log(
-                "ORS ERROR:",
+                "ORS ERROR FULL:",
                 err.response?.data || err.message
             );
 
@@ -307,33 +309,67 @@ router.post("/auto-route", async (req, res) => {
 // DELETE AUTO ROUTE 
 // =======================
 router.delete("/:id", async (req, res) => {
+
+  const client = await pool.connect();
+
   try {
+
+    await client.query("BEGIN");
+
     const { id } = req.params;
 
-    const result = await pool.query(
-      "DELETE FROM routes WHERE id = $1 RETURNING *",
+    // ================= DELETE RELATION =================
+    await client.query(
+      `
+      DELETE FROM route_checkpoints
+      WHERE route_id = $1
+      `,
+      [id]
+    );
+
+    // ================= DELETE ROUTE =================
+    const result = await client.query(
+      `
+      DELETE FROM routes
+      WHERE id = $1
+      RETURNING *
+      `,
       [id]
     );
 
     if (result.rows.length === 0) {
+
+      await client.query("ROLLBACK");
+
       return res.status(404).json({
         success: false,
         message: "Route tidak ditemukan",
       });
     }
 
+    await client.query("COMMIT");
+
     res.json({
       success: true,
       message: "Route berhasil dihapus",
       data: result.rows[0],
     });
+
   } catch (err) {
+
+    await client.query("ROLLBACK");
+
     console.error("DELETE ROUTE ERROR:", err);
 
     res.status(500).json({
       success: false,
       error: err.message,
     });
+
+  } finally {
+
+    client.release();
+
   }
 });
 
