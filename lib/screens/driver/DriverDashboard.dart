@@ -46,6 +46,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
   Timer? _gpsChecker;
 
+  StreamSubscription<Position>? _gpsStream;
+
   // ================= INIT =================
   @override
   void initState() {
@@ -182,10 +184,84 @@ class _DriverDashboardState extends State<DriverDashboard> {
     });
   }
 
+  Future<void> startLiveTracking() async {
+    bool serviceEnabled;
+
+    LocationPermission permission;
+
+    // ================= GPS ENABLE =================
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      setState(() {
+        gpsConnected = false;
+        gpsStatus = "GPS OFF";
+      });
+
+      return;
+    }
+
+    // ================= PERMISSION =================
+    permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      setState(() {
+        gpsConnected = false;
+        gpsStatus = "Permission Ditolak";
+      });
+
+      return;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      setState(() {
+        gpsConnected = false;
+        gpsStatus = "Permission Permanen Ditolak";
+      });
+
+      return;
+    }
+
+    // ================= CANCEL STREAM LAMA =================
+    await _gpsStream?.cancel();
+
+    // ================= START STREAM =================
+    _gpsStream =
+        Geolocator.getPositionStream(
+          locationSettings: AndroidSettings(
+            accuracy: LocationAccuracy.high,
+
+            distanceFilter: 5,
+
+            intervalDuration: const Duration(seconds: 5),
+          ),
+        ).listen((Position position) async {
+          print("📍 UI GPS: ${position.latitude}");
+
+          if (!mounted) return;
+
+          setState(() {
+            gpsConnected = true;
+
+            gpsStatus =
+                "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
+
+            gpsAccuracy = position.accuracy;
+
+            lastGpsUpdate = DateTime.now();
+          });
+        });
+  }
+
   // ================= DISPOSE =================
   @override
   void dispose() {
     _gpsChecker?.cancel();
+    _gpsStream?.cancel();
     super.dispose();
   }
 
@@ -307,6 +383,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   trackingStarted = true;
 
                   _startGpsChecker();
+
+                  await startLiveTracking();
 
                   if (!mounted) return;
 
