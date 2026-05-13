@@ -105,28 +105,20 @@ class _ManajemenRutePageState extends State<ManajemenRutePage> {
             "${startTerminal['nama_terminal']} - ${endTerminal['nama_terminal']}",
 
         // ================= START =================
-        "start": {
-          "lat": startTerminal['lat'],
-          "lng": startTerminal['lng'],
-        },
+        "start": {"lat": startTerminal['lat'], "lng": startTerminal['lng']},
 
         // ================= CHECKPOINT A =================
-        "checkpoint_a": {
-          "lat": checkpointA['lat'],
-          "lng": checkpointA['lng'],
-        },
+        "checkpoint_a": {"lat": checkpointA['lat'], "lng": checkpointA['lng']},
 
         // ================= CHECKPOINT B =================
-        "checkpoint_b": {
-          "lat": checkpointB['lat'],
-          "lng": checkpointB['lng'],
-        },
+        "checkpoint_b": {"lat": checkpointB['lat'], "lng": checkpointB['lng']},
+
+        // ================= PENTING =================
+        "checkpoint_a_id": checkpointA['id'],
+        "checkpoint_b_id": checkpointB['id'],
 
         // ================= END =================
-        "end": {
-          "lat": endTerminal['lat'],
-          "lng": endTerminal['lng'],
-        },
+        "end": {"lat": endTerminal['lat'], "lng": endTerminal['lng']},
 
         // ================= PENTING =================
         "start_terminal_id": startTerminal['id'],

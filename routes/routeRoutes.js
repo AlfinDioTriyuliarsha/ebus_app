@@ -108,8 +108,13 @@ router.post("/auto-route", async (req, res) => {
             nama_rute,
             start,
             end,
+
             checkpoint_a,
             checkpoint_b,
+
+            checkpoint_a_id,
+            checkpoint_b_id,
+
             route_mode,
 
             start_terminal_id,
@@ -302,6 +307,34 @@ router.post("/auto-route", async (req, res) => {
                 end_terminal_id
             ]
         );
+
+        const routeId = result.rows[0].id;
+
+        // ================= SIMPAN CHECKPOINT A =================
+        if (checkpoint_a_id) {
+
+            await pool.query(
+                `
+                INSERT INTO route_checkpoints
+                (route_id, checkpoint_id)
+                VALUES ($1, $2)
+                `,
+                [routeId, checkpoint_a_id]
+            );
+        }
+
+        // ================= SIMPAN CHECKPOINT B =================
+        if (checkpoint_b_id) {
+
+            await pool.query(
+                `
+                INSERT INTO route_checkpoints
+                (route_id, checkpoint_id)
+                VALUES ($1, $2)
+                `,
+                [routeId, checkpoint_b_id]
+            );
+        }
 
         // ================= RESPONSE =================
         res.json({
