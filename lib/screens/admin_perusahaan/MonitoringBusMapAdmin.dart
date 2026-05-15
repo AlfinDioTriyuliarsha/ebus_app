@@ -60,6 +60,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   double distance = 0;
   double duration = 0;
 
+  String perjalananStatus = "Hijau";
+  Color statusColor = Colors.green;
+
+  Timer? etaTimer;
+
   // ignore: annotate_overrides
   bool get wantKeepAlive => true;
 
@@ -103,7 +108,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     );
 
     channel.stream.listen(
-      (message) {
+      (message) async {
         try {
           print("🔥 WS MESSAGE: $message");
 
@@ -116,28 +121,84 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
             if (bus == null) return;
 
-            setState(() {
-              final index = _busData.indexWhere(
-                (b) => b['id'].toString() == bus['bus_id'].toString(),
-              );
+            final lat =
+                double.tryParse(
+                  bus['latitude'].toString(),
+                ) ??
+                0;
 
-              if (index != -1) {
-                _busData[index]['latitude'] = bus['latitude'];
+            final lng =
+                double.tryParse(
+                  bus['longitude'].toString(),
+                ) ??
+                0;
 
-                _busData[index]['longitude'] = bus['longitude'];
+            // ================= UPDATE DATA BUS =================
+            final index = _busData.indexWhere(
+              (b) =>
+                  b['id'].toString() ==
+                  bus['bus_id'].toString(),
+            );
 
-                final lat = double.tryParse(bus['latitude'].toString()) ?? 0;
+            if (index != -1) {
+              _busData[index]['latitude'] =
+                  bus['latitude'];
 
-                final lng = double.tryParse(bus['longitude'].toString()) ?? 0;
+              _busData[index]['longitude'] =
+                  bus['longitude'];
+            }
 
-                checkCheckpoint(lat, lng);
+            // ================= CHECKPOINT =================
+            checkCheckpoint(lat, lng);
+
+            // ================= ETA REALTIME =================
+            if (selectedBusId != null &&
+                selectedBusId == bus['bus_id']) {
+
+              if (geofenceData.isNotEmpty) {
+
+                etaTimer?.cancel();
+
+                etaTimer = Timer(
+                  const Duration(seconds: 5),
+                  () async {
+
+                    await calculateETA(
+                      startLat: lat,
+                      startLng: lng,
+
+                      endLat: double.parse(
+                        geofenceData.last['lat']
+                            .toString(),
+                      ),
+
+                      endLng: double.parse(
+                        geofenceData.last['lng']
+                            .toString(),
+                      ),
+                    );
+                  },
+                );
               }
+            }
+
+            // ================= UPDATE MARKER =================
+            setState(() {
 
               _markers = _busData
                   .map((b) {
-                    final lat = double.tryParse(b['latitude'].toString()) ?? 0;
 
-                    final lng = double.tryParse(b['longitude'].toString()) ?? 0;
+                    final lat =
+                        double.tryParse(
+                          b['latitude'].toString(),
+                        ) ??
+                        0;
+
+                    final lng =
+                        double.tryParse(
+                          b['longitude'].toString(),
+                        ) ??
+                        0;
 
                     if (lat == 0 || lng == 0) {
                       return null;
@@ -147,10 +208,18 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                       point: LatLng(lat, lng),
                       width: 50,
                       height: 50,
+
                       child: Column(
                         children: [
-                          const Icon(Icons.directions_bus, color: Colors.green),
-                          Text(b['plat_nomor'] ?? ''),
+
+                          const Icon(
+                            Icons.directions_bus,
+                            color: Colors.green,
+                          ),
+
+                          Text(
+                            b['plat_nomor'] ?? '',
+                          ),
                         ],
                       ),
                     );
@@ -163,14 +232,20 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           print("❌ WS ERROR PARSE: $e");
         }
       },
-      onError: (e) => print("❌ WS ERROR: $e"),
-      onDone: () => print("⚠️ WS CLOSED"),
+
+      onError: (e) =>
+          print("❌ WS ERROR: $e"),
+
+      onDone: () =>
+          print("⚠️ WS CLOSED"),
     );
   }
 
   @override
   void dispose() {
-    channel.sink.close(); // 🔥 WAJIB
+    etaTimer?.cancel();
+
+    channel.sink.close();
     super.dispose();
   }
 
@@ -248,6 +323,95 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     final coords = data['routes'][0]['geometry']['coordinates'];
 
     return coords.map<LatLng>((c) => LatLng(c[1], c[0])).toList();
+  }
+
+  // =======================
+  //calculate
+  // =======================
+  Future<void> calculateETA({
+    required double startLat,
+    required double startLng,
+    required double endLat,
+    required double endLng,
+  }) async {
+
+    try {
+
+      final url =
+          "https://router.project-osrm.org/route/v1/driving/"
+          "$startLng,$startLat;$endLng,$endLat"
+          "?overview=false";
+
+      final response = await http.get(
+        Uri.parse(url),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (data['routes'] != null &&
+          data['routes'].isNotEmpty) {
+
+        final route = data['routes'][0];
+
+        setState(() {
+
+          // meter
+          distance = route['distance'];
+
+          // detik
+          duration = route['duration'];
+        });
+
+        determineStatus();
+      }
+
+    } catch (e) {
+
+      print("CALCULATE ETA ERROR: $e");
+    }
+  }
+
+  void determineStatus() {
+
+    double durationHours = duration / 3600;
+
+    // ================= HIJAU =================
+    if (durationHours <= 1) {
+
+      setState(() {
+
+        perjalananStatus =
+            "Hijau - Perjalanan Lancar";
+
+        statusColor = Colors.green;
+      });
+    }
+
+    // ================= KUNING =================
+    else if (
+        durationHours > 1 &&
+        durationHours <= 4) {
+
+      setState(() {
+
+        perjalananStatus =
+            "Kuning - Kendala Ringan";
+
+        statusColor = Colors.orange;
+      });
+    }
+
+    // ================= MERAH =================
+    else {
+
+      setState(() {
+
+        perjalananStatus =
+            "Merah - Kendala Berat";
+
+        statusColor = Colors.red;
+      });
+    }
   }
 
   // =========================
@@ -376,16 +540,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       // ================= UPDATE UI =================
       setState(() {
-
         // regenerate marker bus
         final busMarkers = _busData
             .map((b) {
+              final lat = double.tryParse(b['latitude'].toString()) ?? 0;
 
-              final lat =
-                  double.tryParse(b['latitude'].toString()) ?? 0;
-
-              final lng =
-                  double.tryParse(b['longitude'].toString()) ?? 0;
+              final lng = double.tryParse(b['longitude'].toString()) ?? 0;
 
               if (lat == 0 || lng == 0) {
                 return null;
@@ -397,10 +557,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                 height: 50,
                 child: Column(
                   children: [
-                    const Icon(
-                      Icons.directions_bus,
-                      color: Colors.green,
-                    ),
+                    const Icon(Icons.directions_bus, color: Colors.green),
                     Text(b['plat_nomor'] ?? ''),
                   ],
                 ),
@@ -409,10 +566,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             .whereType<Marker>()
             .toList();
 
-        _markers = [
-          ...busMarkers,
-          ...checkpointMarkers,
-        ];
+        _markers = [...busMarkers, ...checkpointMarkers];
 
         _geofenceCircles = geofenceCircles;
         print("TOTAL GEOFENCE: ${_geofenceCircles.length}");
@@ -629,7 +783,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                       ),
                     ],
 
-                    onChanged: (int? val) {
+                    onChanged: (int? val) async {
                       setState(() {
                         selectedBusId = val;
                       });
@@ -652,13 +806,101 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
                       final bus = found.first;
 
-                      _drawRoute(bus);
+                      // ================= DRAW ROUTE =================
+                      await _drawRoute(bus);
 
+                      // ================= AMBIL POSISI BUS =================
+                      final lat =
+                          double.tryParse(
+                            bus['latitude'].toString(),
+                          ) ??
+                          0;
+
+                      final lng =
+                          double.tryParse(
+                            bus['longitude'].toString(),
+                          ) ??
+                          0;
+
+                      // ================= HITUNG ETA =================
+                      if (geofenceData.isNotEmpty) {
+
+                        await calculateETA(
+
+                          startLat: lat,
+                          startLng: lng,
+
+                          endLat: double.parse(
+                            geofenceData.last['lat']
+                                .toString(),
+                          ),
+
+                          endLng: double.parse(
+                            geofenceData.last['lng']
+                                .toString(),
+                          ),
+                        );
+                      }
+
+                      // ================= UPDATE MARKER =================
                       _generateRealtimeMarkers();
                     },
                   ),
-                  Text("Jarak: ${(distance / 1000).toStringAsFixed(1)} km"),
-                  Text("ETA: ${(duration / 60).toStringAsFixed(0)} menit"),
+                  Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+
+                    children: [
+
+                      // ================= JARAK =================
+                      Text(
+                        "Jarak: ${(distance / 1000).toStringAsFixed(1)} km",
+
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      // ================= ETA =================
+                      Text(
+                        "ETA: ${(duration / 60).toStringAsFixed(0)} menit",
+
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // ================= STATUS =================
+                      Row(
+                        children: [
+
+                          Icon(
+                            Icons.circle,
+                            color: statusColor,
+                            size: 14,
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          Expanded(
+                            child: Text(
+
+                              perjalananStatus,
+
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
