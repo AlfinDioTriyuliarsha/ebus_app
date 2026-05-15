@@ -65,6 +65,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
   Timer? etaTimer;
 
+  LatLng? previousPosition;
+
+  DateTime? previousTime;
+
+  double currentSpeed = 0;
+
   // ignore: annotate_overrides
   bool get wantKeepAlive => true;
 
@@ -121,84 +127,51 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
             if (bus == null) return;
 
-            final lat =
-                double.tryParse(
-                  bus['latitude'].toString(),
-                ) ??
-                0;
+            final lat = double.tryParse(bus['latitude'].toString()) ?? 0;
 
-            final lng =
-                double.tryParse(
-                  bus['longitude'].toString(),
-                ) ??
-                0;
+            final lng = double.tryParse(bus['longitude'].toString()) ?? 0;
 
             // ================= UPDATE DATA BUS =================
             final index = _busData.indexWhere(
-              (b) =>
-                  b['id'].toString() ==
-                  bus['bus_id'].toString(),
+              (b) => b['id'].toString() == bus['bus_id'].toString(),
             );
 
             if (index != -1) {
-              _busData[index]['latitude'] =
-                  bus['latitude'];
+              _busData[index]['latitude'] = bus['latitude'];
 
-              _busData[index]['longitude'] =
-                  bus['longitude'];
+              _busData[index]['longitude'] = bus['longitude'];
             }
 
             // ================= CHECKPOINT =================
             checkCheckpoint(lat, lng);
 
+            calculateSpeed(lat, lng);
+
             // ================= ETA REALTIME =================
-            if (selectedBusId != null &&
-                selectedBusId == bus['bus_id']) {
-
+            if (selectedBusId != null && selectedBusId == bus['bus_id']) {
               if (geofenceData.isNotEmpty) {
-
                 etaTimer?.cancel();
 
-                etaTimer = Timer(
-                  const Duration(seconds: 5),
-                  () async {
+                etaTimer = Timer(const Duration(seconds: 5), () async {
+                  await calculateETA(
+                    startLat: lat,
+                    startLng: lng,
 
-                    await calculateETA(
-                      startLat: lat,
-                      startLng: lng,
+                    endLat: double.parse(geofenceData.last['lat'].toString()),
 
-                      endLat: double.parse(
-                        geofenceData.last['lat']
-                            .toString(),
-                      ),
-
-                      endLng: double.parse(
-                        geofenceData.last['lng']
-                            .toString(),
-                      ),
-                    );
-                  },
-                );
+                    endLng: double.parse(geofenceData.last['lng'].toString()),
+                  );
+                });
               }
             }
 
             // ================= UPDATE MARKER =================
             setState(() {
-
               _markers = _busData
                   .map((b) {
+                    final lat = double.tryParse(b['latitude'].toString()) ?? 0;
 
-                    final lat =
-                        double.tryParse(
-                          b['latitude'].toString(),
-                        ) ??
-                        0;
-
-                    final lng =
-                        double.tryParse(
-                          b['longitude'].toString(),
-                        ) ??
-                        0;
+                    final lng = double.tryParse(b['longitude'].toString()) ?? 0;
 
                     if (lat == 0 || lng == 0) {
                       return null;
@@ -211,15 +184,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
                       child: Column(
                         children: [
+                          const Icon(Icons.directions_bus, color: Colors.green),
 
-                          const Icon(
-                            Icons.directions_bus,
-                            color: Colors.green,
-                          ),
-
-                          Text(
-                            b['plat_nomor'] ?? '',
-                          ),
+                          Text(b['plat_nomor'] ?? ''),
                         ],
                       ),
                     );
@@ -233,11 +200,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         }
       },
 
-      onError: (e) =>
-          print("❌ WS ERROR: $e"),
+      onError: (e) => print("❌ WS ERROR: $e"),
 
-      onDone: () =>
-          print("⚠️ WS CLOSED"),
+      onDone: () => print("⚠️ WS CLOSED"),
     );
   }
 
@@ -334,27 +299,20 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     required double endLat,
     required double endLng,
   }) async {
-
     try {
-
       final url =
           "https://router.project-osrm.org/route/v1/driving/"
           "$startLng,$startLat;$endLng,$endLat"
           "?overview=false";
 
-      final response = await http.get(
-        Uri.parse(url),
-      );
+      final response = await http.get(Uri.parse(url));
 
       final data = jsonDecode(response.body);
 
-      if (data['routes'] != null &&
-          data['routes'].isNotEmpty) {
-
+      if (data['routes'] != null && data['routes'].isNotEmpty) {
         final route = data['routes'][0];
 
         setState(() {
-
           // meter
           distance = route['distance'];
 
@@ -364,50 +322,102 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
         determineStatus();
       }
-
     } catch (e) {
-
       print("CALCULATE ETA ERROR: $e");
     }
   }
 
   void determineStatus() {
-
     double durationHours = duration / 3600;
 
     // ================= HIJAU =================
     if (durationHours <= 1) {
-
       setState(() {
-
-        perjalananStatus =
-            "Hijau - Perjalanan Lancar";
+        perjalananStatus = "Hijau - Perjalanan Lancar";
 
         statusColor = Colors.green;
       });
     }
-
     // ================= KUNING =================
-    else if (
-        durationHours > 1 &&
-        durationHours <= 4) {
-
+    else if (durationHours > 1 && durationHours <= 4) {
       setState(() {
-
-        perjalananStatus =
-            "Kuning - Kendala Ringan";
+        perjalananStatus = "Kuning - Kendala Ringan";
 
         statusColor = Colors.orange;
       });
     }
-
     // ================= MERAH =================
     else {
-
       setState(() {
+        perjalananStatus = "Merah - Kendala Berat";
 
-        perjalananStatus =
-            "Merah - Kendala Berat";
+        statusColor = Colors.red;
+      });
+    }
+  }
+
+  void calculateSpeed(double lat, double lng) {
+    final now = DateTime.now();
+
+    // ================= POSISI PERTAMA =================
+    if (previousPosition == null || previousTime == null) {
+      previousPosition = LatLng(lat, lng);
+
+      previousTime = now;
+
+      return;
+    }
+
+    // ================= HITUNG JARAK =================
+    double movedDistance = Geolocator.distanceBetween(
+      previousPosition!.latitude,
+      previousPosition!.longitude,
+
+      lat,
+      lng,
+    );
+
+    // ================= HITUNG WAKTU =================
+    double seconds = now.difference(previousTime!).inSeconds.toDouble();
+
+    if (seconds > 0) {
+      // m/s -> km/h
+      currentSpeed = (movedDistance / seconds) * 3.6;
+
+      print(
+        "KECEPATAN BUS: "
+        "${currentSpeed.toStringAsFixed(1)} km/h",
+      );
+
+      determineTrafficStatus();
+    }
+
+    previousPosition = LatLng(lat, lng);
+
+    previousTime = now;
+  }
+
+  void determineTrafficStatus() {
+    // ================= LANCAR =================
+    if (currentSpeed > 30) {
+      setState(() {
+        perjalananStatus = "Hijau - Perjalanan Lancar";
+
+        statusColor = Colors.green;
+      });
+    }
+    // ================= PADAT =================
+    else if (currentSpeed > 10 && currentSpeed <= 30) {
+      setState(() {
+        perjalananStatus = "Kuning - Lalu Lintas Padat";
+
+        statusColor = Colors.orange;
+      });
+    }
+    // ================= MACET =================
+    else {
+      setState(() {
+        perjalananStatus = "Merah - Kemacetan Tinggi";
 
         statusColor = Colors.red;
       });
@@ -811,33 +821,23 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
                       // ================= AMBIL POSISI BUS =================
                       final lat =
-                          double.tryParse(
-                            bus['latitude'].toString(),
-                          ) ??
-                          0;
+                          double.tryParse(bus['latitude'].toString()) ?? 0;
 
                       final lng =
-                          double.tryParse(
-                            bus['longitude'].toString(),
-                          ) ??
-                          0;
+                          double.tryParse(bus['longitude'].toString()) ?? 0;
 
                       // ================= HITUNG ETA =================
                       if (geofenceData.isNotEmpty) {
-
                         await calculateETA(
-
                           startLat: lat,
                           startLng: lng,
 
                           endLat: double.parse(
-                            geofenceData.last['lat']
-                                .toString(),
+                            geofenceData.last['lat'].toString(),
                           ),
 
                           endLng: double.parse(
-                            geofenceData.last['lng']
-                                .toString(),
+                            geofenceData.last['lng'].toString(),
                           ),
                         );
                       }
@@ -847,18 +847,14 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                     },
                   ),
                   Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
 
                     children: [
-
                       // ================= JARAK =================
                       Text(
                         "Jarak: ${(distance / 1000).toStringAsFixed(1)} km",
 
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
 
                       const SizedBox(height: 5),
@@ -867,9 +863,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                       Text(
                         "ETA: ${(duration / 60).toStringAsFixed(0)} menit",
 
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
 
                       const SizedBox(height: 10),
@@ -877,18 +871,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                       // ================= STATUS =================
                       Row(
                         children: [
-
-                          Icon(
-                            Icons.circle,
-                            color: statusColor,
-                            size: 14,
-                          ),
+                          Icon(Icons.circle, color: statusColor, size: 14),
 
                           const SizedBox(width: 8),
 
                           Expanded(
                             child: Text(
-
                               perjalananStatus,
 
                               style: TextStyle(
