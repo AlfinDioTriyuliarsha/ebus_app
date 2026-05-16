@@ -32,6 +32,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   bool gpsConnected = false;
 
   bool trackingStarted = false;
+  bool restoredTracking = false;
 
   String gpsStatus = "Mencari GPS...";
 
@@ -59,6 +60,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     restoreTracking();
   }
 
+  // ================= RESTORE TRACKING =================
   Future<void> restoreTracking() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -66,10 +68,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     if (busId != null) {
       trackingStarted = true;
+      restoredTracking = true;
 
       _startGpsChecker();
 
       await startForegroundTracking();
+
+      if (!mounted) return;
 
       setState(() {
         gpsConnected = true;
@@ -168,9 +173,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
       if (res.statusCode == 201) {
         if (!mounted) return;
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Berhasil daftar driver")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Berhasil daftar driver")),
+        );
 
         checkDriver();
       }
@@ -183,27 +188,30 @@ class _DriverDashboardState extends State<DriverDashboard> {
   void _startGpsChecker() {
     _gpsChecker?.cancel();
 
-    _gpsChecker = Timer.periodic(const Duration(seconds: 5), (timer) async {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    _gpsChecker = Timer.periodic(
+      const Duration(seconds: 5),
+      (timer) async {
+        bool serviceEnabled =
+            await Geolocator.isLocationServiceEnabled();
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (!serviceEnabled) {
-        setState(() {
-          gpsConnected = false;
-          gpsStatus = "GPS OFF";
-        });
+        if (!serviceEnabled) {
+          setState(() {
+            gpsConnected = false;
+            gpsStatus = "GPS OFF";
+          });
 
-        return;
-      }
+          return;
+        }
 
-      // ================= TRACKING MASIH AKTIF =================
-      if (trackingStarted) {
-        setState(() {
-          gpsConnected = true;
-        });
-      }
-    });
+        if (trackingStarted) {
+          setState(() {
+            gpsConnected = true;
+          });
+        }
+      },
+    );
   }
 
   // ================= FOREGROUND TRACKING =================
@@ -261,9 +269,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     _gpsStream = Geolocator.getPositionStream(
       locationSettings: AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-
         distanceFilter: 3,
-
         intervalDuration: const Duration(seconds: 2),
 
         foregroundNotificationConfig:
@@ -281,6 +287,27 @@ class _DriverDashboardState extends State<DriverDashboard> {
         "${position.longitude}",
       );
 
+      // ================= KIRIM KE SERVER =================
+      try {
+        await http.put(
+          Uri.parse(
+            "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+          ),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode({
+            "latitude": position.latitude,
+            "longitude": position.longitude,
+          }),
+        );
+
+        print("✅ GPS SENT");
+      } catch (e) {
+        print("❌ SEND GPS ERROR: $e");
+      }
+
+      // ================= UPDATE UI =================
       if (!mounted) return;
 
       setState(() {
@@ -309,26 +336,35 @@ class _DriverDashboardState extends State<DriverDashboard> {
   // ================= UI =================
   @override
   Widget build(BuildContext context) {
-    // ================= LOADING =================
     if (isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
 
     // ================= BELUM TERDAFTAR =================
     if (!isRegistered) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Driver Dashboard")),
+        appBar: AppBar(
+          title: const Text("Driver Dashboard"),
+        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text("Anda belum terdaftar sebagai driver"),
+              const Text(
+                "Anda belum terdaftar sebagai driver",
+              ),
 
               const SizedBox(height: 20),
 
               ElevatedButton(
                 onPressed: registerDriver,
-                child: const Text("Daftar sebagai Driver"),
+                child: const Text(
+                  "Daftar sebagai Driver",
+                ),
               ),
             ],
           ),
@@ -339,18 +375,27 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // ================= BELUM ADA BUS =================
     if (widget.busId == 0) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Driver Dashboard")),
-        body: const Center(child: Text("Menunggu assign bus dari admin")),
+        appBar: AppBar(
+          title: const Text("Driver Dashboard"),
+        ),
+        body: const Center(
+          child: Text(
+            "Menunggu assign bus dari admin",
+          ),
+        ),
       );
     }
 
     // ================= DASHBOARD =================
     return Scaffold(
-      appBar: AppBar(title: const Text("Driver Dashboard")),
+      appBar: AppBar(
+        title: const Text("Driver Dashboard"),
+      ),
       body: Center(
         child: SingleChildScrollView(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment:
+                MainAxisAlignment.center,
             children: [
               Text("Email: ${widget.email}"),
 
@@ -363,24 +408,34 @@ class _DriverDashboardState extends State<DriverDashboard> {
               // ================= GPS STATUS =================
               Container(
                 padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.symmetric(horizontal: 20),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                ),
                 decoration: BoxDecoration(
                   color: gpsConnected
                       ? Colors.green.shade100
                       : Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius:
+                      BorderRadius.circular(12),
                   border: Border.all(
-                    color: gpsConnected ? Colors.green : Colors.red,
+                    color: gpsConnected
+                        ? Colors.green
+                        : Colors.red,
                   ),
                 ),
                 child: Column(
                   children: [
                     Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisSize:
+                          MainAxisSize.min,
                       children: [
                         Icon(
-                          gpsConnected ? Icons.gps_fixed : Icons.gps_off,
-                          color: gpsConnected ? Colors.green : Colors.red,
+                          gpsConnected
+                              ? Icons.gps_fixed
+                              : Icons.gps_off,
+                          color: gpsConnected
+                              ? Colors.green
+                              : Colors.red,
                         ),
 
                         const SizedBox(width: 10),
@@ -388,8 +443,11 @@ class _DriverDashboardState extends State<DriverDashboard> {
                         Text(
                           gpsStatus,
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: gpsConnected ? Colors.green : Colors.red,
+                            fontWeight:
+                                FontWeight.bold,
+                            color: gpsConnected
+                                ? Colors.green
+                                : Colors.red,
                           ),
                         ),
                       ],
@@ -413,57 +471,135 @@ class _DriverDashboardState extends State<DriverDashboard> {
               // ================= START TRACKING =================
               ElevatedButton(
                 onPressed: () async {
-                  bool serviceEnabled =
-                      await Geolocator.isLocationServiceEnabled();
+                  if (trackingStarted &&
+                      restoredTracking == false) {
+                    if (!mounted) return;
 
-                  if (!mounted) return;
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("GPS belum aktif")),
-                  );
-
-                  LocationPermission permission =
-                      await Geolocator.checkPermission();
-
-                  if (permission == LocationPermission.denied) {
-                    permission = await Geolocator.requestPermission();
-                  }
-
-                  if (!mounted) return;
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Permission GPS ditolak")),
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Tracking sudah aktif",
+                        ),
+                      ),
                     );
 
-                  final prefs = await SharedPreferences.getInstance();
+                    return;
+                  }
 
-                  await prefs.setInt("bus_id", widget.busId);
+                  bool serviceEnabled =
+                      await Geolocator
+                          .isLocationServiceEnabled();
 
-                  final service = FlutterBackgroundService();
+                  if (!serviceEnabled) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "GPS belum aktif",
+                        ),
+                      ),
+                    );
+
+                    return;
+                  }
+
+                  LocationPermission permission =
+                      await Geolocator
+                          .checkPermission();
+
+                  if (permission ==
+                      LocationPermission.denied) {
+                    permission =
+                        await Geolocator
+                            .requestPermission();
+                  }
+
+                  if (permission ==
+                          LocationPermission.denied ||
+                      permission ==
+                          LocationPermission
+                              .deniedForever) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Permission GPS ditolak",
+                        ),
+                      ),
+                    );
+
+                    return;
+                  }
+
+                  // ================= START TRACKING API =================
+                  await http.put(
+                    Uri.parse(
+                      "${ApiService.baseUrl}/api/buses/start-tracking/${widget.busId}",
+                    ),
+                  );
+
+                  // ================= SAVE PREFS =================
+                  final prefs =
+                      await SharedPreferences
+                          .getInstance();
+
+                  await prefs.setInt(
+                    "bus_id",
+                    widget.busId,
+                  );
+
+                  // ================= START SERVICE =================
+                  final service =
+                      FlutterBackgroundService();
 
                   await service.startService();
 
+                  // ================= START FOREGROUND =================
+                  await startForegroundTracking();
+
                   trackingStarted = true;
 
+                  restoredTracking = false;
+
                   _startGpsChecker();
+
+                  if (!mounted) return;
 
                   setState(() {
                     gpsConnected = true;
                     gpsStatus = "Tracking aktif";
                   });
 
-                  if (!mounted) return;
+                  print("✅ TRACKING STARTED");
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Company tidak ditemukan")),
+                  // ================= CHECK COMPANY =================
+                  if (companyId == null) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Company tidak ditemukan",
+                        ),
+                      ),
                     );
+
+                    return;
+                  }
 
                   if (!mounted) return;
 
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => MonitoringBusMapAdmin(
+                      builder: (context) =>
+                          MonitoringBusMapAdmin(
                         companyId: companyId!,
                         busId: widget.busId,
                         userId: widget.userId,
@@ -471,26 +607,47 @@ class _DriverDashboardState extends State<DriverDashboard> {
                     ),
                   );
                 },
-
-                child: const Text("Mulai Tracking Bus"),
+                child: const Text(
+                  "Mulai Tracking Bus",
+                ),
               ),
 
               // ================= STOP TRACKING =================
               const SizedBox(height: 15),
 
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                ),
                 onPressed: () async {
-                  final prefs = await SharedPreferences.getInstance();
+                  // ================= STOP TRACKING API =================
+                  await http.put(
+                    Uri.parse(
+                      "${ApiService.baseUrl}/api/buses/stop-tracking/${widget.busId}",
+                    ),
+                  );
+
+                  // ================= HAPUS PREFS =================
+                  final prefs =
+                      await SharedPreferences
+                          .getInstance();
 
                   await prefs.remove("bus_id");
 
-                  final service = FlutterBackgroundService();
+                  // ================= STOP SERVICE =================
+                  final service =
+                      FlutterBackgroundService();
 
                   service.invoke("stopService");
 
+                  // ================= STOP STREAM =================
+                  await _gpsStream?.cancel();
+
+                  _gpsStream = null;
+
                   trackingStarted = false;
+
+                  restoredTracking = false;
 
                   _gpsChecker?.cancel();
 
@@ -498,13 +655,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
                   setState(() {
                     gpsConnected = false;
-                    gpsStatus = "Tracking Dihentikan";
+                    gpsStatus =
+                        "Tracking Dihentikan";
                   });
 
                   print("🛑 TRACKING STOPPED");
                 },
-
-                child: const Text("Sampai Tujuan / Stop Tracking"),
+                child: const Text(
+                  "Sampai Tujuan / Stop Tracking",
+                ),
               ),
             ],
           ),
