@@ -7,7 +7,6 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geolocator_android/geolocator_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DriverDashboard extends StatefulWidget {
@@ -56,6 +55,29 @@ class _DriverDashboardState extends State<DriverDashboard> {
     checkDriver();
 
     getCompany();
+
+    restoreTracking();
+  }
+
+  Future<void> restoreTracking() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final busId = prefs.getInt("bus_id");
+
+    if (busId != null) {
+      trackingStarted = true;
+
+      _startGpsChecker();
+
+      await startForegroundTracking();
+
+      setState(() {
+        gpsConnected = true;
+        gpsStatus = "Tracking aktif";
+      });
+
+      print("✅ TRACKING RESTORED");
+    }
   }
 
   // ================= GET DRIVER =================
@@ -184,15 +206,17 @@ class _DriverDashboardState extends State<DriverDashboard> {
     });
   }
 
-  Future<void> startLiveTracking() async {
+  // ================= FOREGROUND TRACKING =================
+  Future<void> startForegroundTracking() async {
     bool serviceEnabled;
-
     LocationPermission permission;
 
     // ================= GPS ENABLE =================
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
+      if (!mounted) return;
+
       setState(() {
         gpsConnected = false;
         gpsStatus = "GPS OFF";
@@ -209,6 +233,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
 
     if (permission == LocationPermission.denied) {
+      if (!mounted) return;
+
       setState(() {
         gpsConnected = false;
         gpsStatus = "Permission Ditolak";
@@ -218,6 +244,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
     }
 
     if (permission == LocationPermission.deniedForever) {
+      if (!mounted) return;
+
       setState(() {
         gpsConnected = false;
         gpsStatus = "Permission Permanen Ditolak";
@@ -230,38 +258,51 @@ class _DriverDashboardState extends State<DriverDashboard> {
     await _gpsStream?.cancel();
 
     // ================= START STREAM =================
-    _gpsStream =
-        Geolocator.getPositionStream(
-          locationSettings: AndroidSettings(
-            accuracy: LocationAccuracy.high,
+    _gpsStream = Geolocator.getPositionStream(
+      locationSettings: AndroidSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
 
-            distanceFilter: 5,
+        distanceFilter: 3,
 
-            intervalDuration: const Duration(seconds: 5),
-          ),
-        ).listen((Position position) async {
-          print("📍 UI GPS: ${position.latitude}");
+        intervalDuration: const Duration(seconds: 2),
 
-          if (!mounted) return;
+        foregroundNotificationConfig:
+            const ForegroundNotificationConfig(
+          notificationTitle: "E-Bus Tracking Aktif",
+          notificationText:
+              "Lokasi bus sedang berjalan di background",
+          enableWakeLock: true,
+        ),
+      ),
+    ).listen((Position position) async {
+      print(
+        "📍 FOREGROUND GPS: "
+        "${position.latitude}, "
+        "${position.longitude}",
+      );
 
-          setState(() {
-            gpsConnected = true;
+      if (!mounted) return;
 
-            gpsStatus =
-                "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
+      setState(() {
+        gpsConnected = true;
 
-            gpsAccuracy = position.accuracy;
+        gpsStatus =
+            "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
 
-            lastGpsUpdate = DateTime.now();
-          });
-        });
+        gpsAccuracy = position.accuracy;
+
+        lastGpsUpdate = DateTime.now();
+      });
+    });
   }
 
   // ================= DISPOSE =================
   @override
   void dispose() {
     _gpsChecker?.cancel();
+
     _gpsStream?.cancel();
+
     super.dispose();
   }
 
@@ -372,6 +413,28 @@ class _DriverDashboardState extends State<DriverDashboard> {
               // ================= START TRACKING =================
               ElevatedButton(
                 onPressed: () async {
+                  bool serviceEnabled =
+                      await Geolocator.isLocationServiceEnabled();
+
+                  if (!mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("GPS belum aktif")),
+                  );
+
+                  LocationPermission permission =
+                      await Geolocator.checkPermission();
+
+                  if (permission == LocationPermission.denied) {
+                    permission = await Geolocator.requestPermission();
+                  }
+
+                  if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Permission GPS ditolak")),
+                    );
+
                   final prefs = await SharedPreferences.getInstance();
 
                   await prefs.setInt("bus_id", widget.busId);
@@ -384,19 +447,18 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
                   _startGpsChecker();
 
-                  await startLiveTracking();
+                  setState(() {
+                    gpsConnected = true;
+                    gpsStatus = "Tracking aktif";
+                  });
 
                   if (!mounted) return;
 
-                  setState(() {});
-
-                  if (companyId == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Company tidak ditemukan")),
                     );
 
-                    return;
-                  }
+                  if (!mounted) return;
 
                   Navigator.push(
                     context,
@@ -409,6 +471,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                     ),
                   );
                 },
+
                 child: const Text("Mulai Tracking Bus"),
               ),
 

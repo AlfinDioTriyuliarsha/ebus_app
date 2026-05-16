@@ -8,7 +8,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -36,7 +35,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   List<CircleMarker> _geofenceCircles = [];
 
   final MapController _mapController = MapController();
-  late WebSocketChannel channel;
 
   int? selectedBusId;
 
@@ -53,7 +51,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
     initNotifications();
 
-    _initWebSocket();
+    _startRealtimePolling();
     _fetchBuses();
   }
 
@@ -64,10 +62,13 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   Color statusColor = Colors.green;
 
   Timer? etaTimer;
+  Timer? realtimeTimer;
 
   LatLng? previousPosition;
 
   DateTime? previousTime;
+
+  Map<int, LatLng> smoothPositions = {};
 
   double currentSpeed = 0;
 
@@ -105,112 +106,66 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     }
   }
 
-  // =========================
-  // INIT WEBSOCKET
-  // =========================
-  void _initWebSocket() {
-    channel = WebSocketChannel.connect(
-      Uri.parse('wss://ebusapp-production-4fdd.up.railway.app'),
-    );
+  void _startRealtimePolling() {
+    realtimeTimer?.cancel();
 
-    channel.stream.listen(
-      (message) async {
-        try {
-          print("🔥 WS MESSAGE: $message");
+    realtimeTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      try {
+        final res = await http.get(
+          Uri.parse(
+            "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+          ),
+        );
 
-          final data = jsonDecode(message);
+        final data = jsonDecode(res.body)['data'];
 
-          if (data == null) return;
+        if (!mounted) return;
 
-          if (data['type'] == 'bus_location') {
-            final bus = data['data'];
+        setState(() {
+          _busData = List<Map<String, dynamic>>.from(data);
+        });
 
-            if (bus == null) return;
+        // ================= UPDATE MARKER =================
+        _generateRealtimeMarkers();
 
-            final lat = double.tryParse(bus['latitude'].toString()) ?? 0;
+        // ================= CHECKPOINT =================
+        for (var bus in _busData) {
+          final lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
 
-            final lng = double.tryParse(bus['longitude'].toString()) ?? 0;
+          final lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
 
-            // ================= UPDATE DATA BUS =================
-            final index = _busData.indexWhere(
-              (b) => b['id'].toString() == bus['bus_id'].toString(),
-            );
+          if (lat == 0 || lng == 0) continue;
 
-            if (index != -1) {
-              _busData[index]['latitude'] = bus['latitude'];
+          checkCheckpoint(lat, lng);
 
-              _busData[index]['longitude'] = bus['longitude'];
+          calculateSpeed(lat, lng);
+
+          // ================= ETA =================
+          if (selectedBusId != null && selectedBusId == bus['id']) {
+            if (geofenceData.isNotEmpty) {
+              await calculateETA(
+                startLat: lat,
+                startLng: lng,
+                endLat: double.parse(geofenceData.last['lat'].toString()),
+                endLng: double.parse(geofenceData.last['lng'].toString()),
+              );
             }
-
-            // ================= CHECKPOINT =================
-            checkCheckpoint(lat, lng);
-
-            calculateSpeed(lat, lng);
-
-            // ================= ETA REALTIME =================
-            if (selectedBusId != null && selectedBusId == bus['bus_id']) {
-              if (geofenceData.isNotEmpty) {
-                etaTimer?.cancel();
-
-                etaTimer = Timer(const Duration(seconds: 5), () async {
-                  await calculateETA(
-                    startLat: lat,
-                    startLng: lng,
-
-                    endLat: double.parse(geofenceData.last['lat'].toString()),
-
-                    endLng: double.parse(geofenceData.last['lng'].toString()),
-                  );
-                });
-              }
-            }
-
-            // ================= UPDATE MARKER =================
-            setState(() {
-              _markers = _busData
-                  .map((b) {
-                    final lat = double.tryParse(b['latitude'].toString()) ?? 0;
-
-                    final lng = double.tryParse(b['longitude'].toString()) ?? 0;
-
-                    if (lat == 0 || lng == 0) {
-                      return null;
-                    }
-
-                    return Marker(
-                      point: LatLng(lat, lng),
-                      width: 50,
-                      height: 50,
-
-                      child: Column(
-                        children: [
-                          const Icon(Icons.directions_bus, color: Colors.green),
-
-                          Text(b['plat_nomor'] ?? ''),
-                        ],
-                      ),
-                    );
-                  })
-                  .whereType<Marker>()
-                  .toList();
-            });
           }
-        } catch (e) {
-          print("❌ WS ERROR PARSE: $e");
         }
-      },
 
-      onError: (e) => print("❌ WS ERROR: $e"),
-
-      onDone: () => print("⚠️ WS CLOSED"),
-    );
+        print("✅ REALTIME UPDATED");
+      } catch (e) {
+        print("❌ POLLING ERROR: $e");
+      }
+    });
   }
 
   @override
   void dispose() {
     etaTimer?.cancel();
 
-    channel.sink.close();
+    realtimeTimer?.cancel();
+
     super.dispose();
   }
 
@@ -431,23 +386,71 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     final markers = _busData
         .map((bus) {
           double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+
           double lng =
               double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
 
           if (lat == 0 || lng == 0) return null;
 
+          final oldPos = smoothPositions[bus['id']];
+
+          LatLng smoothPos = LatLng(lat, lng);
+
+          // ================= SMOOTH MOVEMENT =================
+          if (oldPos != null) {
+            smoothPos = LatLng(
+              oldPos.latitude + ((lat - oldPos.latitude) * 0.3),
+              oldPos.longitude + ((lng - oldPos.longitude) * 0.3),
+            );
+          }
+
+          // simpan posisi terbaru
+          smoothPositions[bus['id']] = smoothPos;
+
           return Marker(
-            point: LatLng(lat, lng),
-            width: 50,
-            height: 50,
-            child: Column(
-              children: [
-                const Icon(Icons.directions_bus, color: Colors.green),
-                Text(
-                  bus['plat_nomor'] ?? '',
-                  style: const TextStyle(fontSize: 10),
-                ),
-              ],
+            point: smoothPos,
+            width: 60,
+            height: 60,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 800),
+
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: 0.9 + (value * 0.1),
+                  child: child,
+                );
+              },
+
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.directions_bus,
+                    color: Colors.green,
+                    size: 35,
+                  ),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+
+                    child: Text(
+                      bus['plat_nomor'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         })

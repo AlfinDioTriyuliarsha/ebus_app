@@ -81,10 +81,19 @@ void onStart(ServiceInstance service) async {
   // ================= START STREAM BARU =================
   positionStream =
       Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+        locationSettings: AndroidSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
 
-          distanceFilter: 5,
+          distanceFilter: 3,
+
+          intervalDuration: const Duration(seconds: 2),
+
+          foregroundNotificationConfig:
+              const ForegroundNotificationConfig(
+            notificationTitle: "E-Bus Tracking",
+            notificationText: "Tracking bus sedang berjalan",
+            enableWakeLock: true,
+          ),
         ),
       ).listen((Position position) async {
         print(
