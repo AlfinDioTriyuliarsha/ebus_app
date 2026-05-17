@@ -35,6 +35,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   List<CircleMarker> _geofenceCircles = [];
   List<Marker> _checkpointMarkers = [];
 
+  final Map<int, LatLng> previousPositions = {};
+  final Map<int, DateTime> previousTimes = {};
+  final Map<int, double> busSpeeds = {};
+
   final MapController _mapController = MapController();
 
   int? selectedBusId;
@@ -139,7 +143,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
           checkCheckpoint(lat, lng);
 
-          calculateSpeed(lat, lng);
+          calculateSpeed(bus['id'], lat, lng);
 
           // ================= ETA =================
           if (selectedBusId != null && selectedBusId == bus['id']) {
@@ -312,45 +316,42 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     }
   }
 
-  void calculateSpeed(double lat, double lng) {
+  void calculateSpeed(int busId, double lat, double lng) {
     final now = DateTime.now();
 
-    // ================= POSISI PERTAMA =================
-    if (previousPosition == null || previousTime == null) {
-      previousPosition = LatLng(lat, lng);
-
-      previousTime = now;
-
+    if (!previousPositions.containsKey(busId)) {
+      previousPositions[busId] = LatLng(lat, lng);
+      previousTimes[busId] = now;
       return;
     }
 
-    // ================= HITUNG JARAK =================
-    double movedDistance = Geolocator.distanceBetween(
-      previousPosition!.latitude,
-      previousPosition!.longitude,
+    final oldPos = previousPositions[busId]!;
 
+    final oldTime = previousTimes[busId]!;
+
+    double movedDistance = Geolocator.distanceBetween(
+      oldPos.latitude,
+      oldPos.longitude,
       lat,
       lng,
     );
 
-    // ================= HITUNG WAKTU =================
-    double seconds = now.difference(previousTime!).inSeconds.toDouble();
+    double seconds = now.difference(oldTime).inSeconds.toDouble();
 
-    if (seconds > 0) {
-      // m/s -> km/h
-      currentSpeed = (movedDistance / seconds) * 3.6;
+    if (seconds <= 0) return;
 
-      print(
-        "KECEPATAN BUS: "
-        "${currentSpeed.toStringAsFixed(1)} km/h",
-      );
+    double speed = (movedDistance / seconds) * 3.6;
+
+    if (speed < 200) {
+      busSpeeds[busId] = speed;
+
+      print("🚌 BUS $busId SPEED: ${speed.toStringAsFixed(1)} km/h");
 
       determineTrafficStatus();
     }
 
-    previousPosition = LatLng(lat, lng);
-
-    previousTime = now;
+    previousPositions[busId] = LatLng(lat, lng);
+    previousTimes[busId] = now;
   }
 
   void determineTrafficStatus() {
@@ -467,7 +468,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       await fetchGeofence(bus['route_id']);
 
+      // ================= CHECKPOINT =================
       final checkpointMarkers = <Marker>[];
+
       final geofenceCircles = <CircleMarker>[];
 
       for (var checkpoint in geofenceData) {
@@ -490,10 +493,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           Marker(
             point: point,
             width: 100,
-            height: 50,
+            height: 40,
             child: Column(
               children: [
-                Icon(Icons.location_on, color: zoneColor, size: 28),
+                Icon(Icons.location_on, color: zoneColor, size: 25),
 
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -510,7 +513,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                       fontSize: 8,
                       fontWeight: FontWeight.bold,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -530,17 +532,48 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         );
       }
 
+      // ================= BUS MARKER =================
+      final busMarkers = _busData
+          .map((b) {
+            final lat = double.tryParse(b['latitude']?.toString() ?? "0") ?? 0;
+
+            final lng = double.tryParse(b['longitude']?.toString() ?? "0") ?? 0;
+
+            if (lat == 0 || lng == 0) {
+              return null;
+            }
+
+            return Marker(
+              point: LatLng(lat, lng),
+              width: 50,
+              height: 50,
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.directions_bus,
+                    color: Colors.green,
+                    size: 30,
+                  ),
+                  Text(
+                    b['plat_nomor'] ?? '',
+                    style: const TextStyle(fontSize: 8),
+                  ),
+                ],
+              ),
+            );
+          })
+          .whereType<Marker>()
+          .toList();
+
       setState(() {
-        _checkpointMarkers = checkpointMarkers;
-
-        _geofenceCircles = geofenceCircles;
-
         _polylines = [
           Polyline(points: points, strokeWidth: 5, color: Colors.blue),
         ];
-      });
 
-      _generateRealtimeMarkers();
+        _markers = [...busMarkers, ...checkpointMarkers];
+
+        _geofenceCircles = geofenceCircles;
+      });
 
       _mapController.fitCamera(
         CameraFit.bounds(
@@ -549,7 +582,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         ),
       );
 
-      print("✅ ROUTE BERHASIL");
+      print("✅ ROUTE DIGAMBAR");
     } catch (e) {
       print("❌ DRAW ROUTE ERROR: $e");
     }
@@ -558,20 +591,40 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   Future<List<LatLng>> fetchRoutePath(int routeId) async {
     try {
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/routes/$routeId"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}",
+        ),
       );
+
+      print("ROUTE RESPONSE: ${res.body}");
 
       final data = jsonDecode(res.body);
 
       if (data['success'] != true) {
+        print("❌ API ROUTE FAILED");
         return [];
       }
 
-      final path = data['data']['path'];
+      final routes = data['data'];
 
-      if (path == null) {
+      final route = routes.firstWhere(
+        (r) => r['id'].toString() == routeId.toString(),
+        orElse: () => null,
+      );
+
+      if (route == null) {
+        print("❌ ROUTE TIDAK DITEMUKAN");
         return [];
       }
+
+      final path = route['path'];
+
+      if (path == null || path.isEmpty) {
+        print("❌ PATH KOSONG");
+        return [];
+      }
+
+      print("✅ TOTAL TITIK ROUTE: ${path.length}");
 
       return List.from(path).map<LatLng>((p) {
         return LatLng(
