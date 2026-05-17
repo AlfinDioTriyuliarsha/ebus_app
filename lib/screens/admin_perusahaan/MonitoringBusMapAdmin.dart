@@ -35,8 +35,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   List<CircleMarker> _geofenceCircles = [];
   List<Marker> _checkpointMarkers = [];
 
-  final Map<int, LatLng> previousPositions = {};
-  final Map<int, DateTime> previousTimes = {};
   final Map<int, double> busSpeeds = {};
 
   final MapController _mapController = MapController();
@@ -69,13 +67,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   Timer? etaTimer;
   Timer? realtimeTimer;
 
-  LatLng? previousPosition;
-
-  DateTime? previousTime;
-
   Map<int, LatLng> smoothPositions = {};
 
-  double currentSpeed = 0;
+  final Map<int, LatLng> previousPositions = {};
+  final Map<int, DateTime> previousTimes = {};
+  final Map<int, double> currentSpeeds = {};
 
   // ignore: annotate_overrides
   bool get wantKeepAlive => true;
@@ -319,9 +315,14 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   void calculateSpeed(int busId, double lat, double lng) {
     final now = DateTime.now();
 
+    // ================= PERTAMA =================
     if (!previousPositions.containsKey(busId)) {
       previousPositions[busId] = LatLng(lat, lng);
+
       previousTimes[busId] = now;
+
+      currentSpeeds[busId] = 0;
+
       return;
     }
 
@@ -329,53 +330,63 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
     final oldTime = previousTimes[busId]!;
 
-    double movedDistance = Geolocator.distanceBetween(
+    // ================= HITUNG JARAK =================
+    final movedDistance = Geolocator.distanceBetween(
       oldPos.latitude,
       oldPos.longitude,
       lat,
       lng,
     );
 
-    double seconds = now.difference(oldTime).inSeconds.toDouble();
+    // ================= HITUNG WAKTU =================
+    final seconds = now.difference(oldTime).inSeconds.toDouble();
 
     if (seconds <= 0) return;
 
+    // ================= KM/H =================
     double speed = (movedDistance / seconds) * 3.6;
 
-    if (speed < 200) {
-      busSpeeds[busId] = speed;
+    // ================= FILTER GPS LONCAT =================
+    if (speed > 150) {
+      print("⚠️ GPS LONCAT BUS $busId");
 
-      print("🚌 BUS $busId SPEED: ${speed.toStringAsFixed(1)} km/h");
-
-      determineTrafficStatus();
+      return;
     }
 
+    // ================= FILTER DIAM =================
+    if (movedDistance < 3) {
+      speed = 0;
+    }
+
+    currentSpeeds[busId] = speed;
+
+    print("🚌 BUS $busId SPEED: ${speed.toStringAsFixed(1)} km/h");
+
+    // update posisi
     previousPositions[busId] = LatLng(lat, lng);
+
     previousTimes[busId] = now;
+
+    // update status hanya untuk bus terpilih
+    if (selectedBusId == busId) {
+      determineTrafficStatus(speed);
+    }
   }
 
-  void determineTrafficStatus() {
-    // ================= LANCAR =================
-    if (currentSpeed > 30) {
+  void determineTrafficStatus(double speed) {
+    if (speed > 30) {
       setState(() {
-        perjalananStatus = "Hijau - Perjalanan Lancar";
-
+        perjalananStatus = "Hijau - Lancar";
         statusColor = Colors.green;
       });
-    }
-    // ================= PADAT =================
-    else if (currentSpeed > 10 && currentSpeed <= 30) {
+    } else if (speed > 10) {
       setState(() {
-        perjalananStatus = "Kuning - Lalu Lintas Padat";
-
+        perjalananStatus = "Kuning - Padat";
         statusColor = Colors.orange;
       });
-    }
-    // ================= MACET =================
-    else {
+    } else {
       setState(() {
-        perjalananStatus = "Merah - Kemacetan Tinggi";
-
+        perjalananStatus = "Merah - Macet";
         statusColor = Colors.red;
       });
     }
@@ -427,24 +438,17 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             height: 55,
             child: Column(
               children: [
-                const Icon(Icons.directions_bus, color: Colors.green, size: 32),
+                Text(
+                  bus['plat_nomor'] ?? '',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
 
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    bus['plat_nomor'] ?? '',
-                    style: const TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                Text(
+                  "${currentSpeeds[bus['id']]?.toStringAsFixed(1) ?? '0'} km/h",
+                  style: const TextStyle(fontSize: 9),
                 ),
               ],
             ),
