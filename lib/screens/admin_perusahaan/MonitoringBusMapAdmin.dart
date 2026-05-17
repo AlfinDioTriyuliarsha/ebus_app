@@ -354,8 +354,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     }
 
     // ================= FILTER DIAM =================
-    if (movedDistance < 3) {
+    if (movedDistance < 8) {
       speed = 0;
+
+      // JANGAN UPDATE POSITION
+      return;
     }
 
     currentSpeeds[busId] = speed;
@@ -398,16 +401,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   void _generateRealtimeMarkers() {
     final markers = _busData
         .where((bus) {
-          // =========================
-          // JIKA PILIH SEMUA
-          // =========================
+          // FILTER BUS
           if (selectedBusId == null) {
             return true;
           }
 
-          // =========================
-          // HANYA BUS TERPILIH
-          // =========================
           return bus['id'] == selectedBusId;
         })
         .map((bus) {
@@ -418,37 +416,62 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
           if (lat == 0 || lng == 0) return null;
 
-          final oldPos = smoothPositions[bus['id']];
+          // ================= POSITION ASLI =================
+          final newPosition = LatLng(lat, lng);
 
-          LatLng smoothPos = LatLng(lat, lng);
+          // ================= POSITION SEBELUMNYA =================
+          final oldPosition = smoothPositions[bus['id']];
 
-          // ================= SMOOTH =================
-          if (oldPos != null) {
-            smoothPos = LatLng(
-              oldPos.latitude + ((lat - oldPos.latitude) * 0.3),
-              oldPos.longitude + ((lng - oldPos.longitude) * 0.3),
+          LatLng finalPosition = newPosition;
+
+          // ================= SMOOTH POSITION =================
+          if (oldPosition != null) {
+            finalPosition = LatLng(
+              oldPosition.latitude +
+                  ((newPosition.latitude - oldPosition.latitude) * 0.15),
+
+              oldPosition.longitude +
+                  ((newPosition.longitude - oldPosition.longitude) * 0.15),
             );
           }
 
-          smoothPositions[bus['id']] = smoothPos;
+          smoothPositions[bus['id']] = finalPosition;
 
           return Marker(
-            point: smoothPos,
-            width: 55,
-            height: 55,
+            point: finalPosition,
+            width: 90,
+            height: 70,
             child: Column(
               children: [
-                Text(
-                  bus['plat_nomor'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                const Icon(Icons.directions_bus, color: Colors.green, size: 32),
 
-                Text(
-                  "${currentSpeeds[bus['id']]?.toStringAsFixed(1) ?? '0'} km/h",
-                  style: const TextStyle(fontSize: 9),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+
+                  child: Column(
+                    children: [
+                      Text(
+                        bus['plat_nomor'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      Text(
+                        "${currentSpeeds[bus['id']]?.toStringAsFixed(1) ?? '0'} km/h",
+                        style: const TextStyle(fontSize: 8),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -545,39 +568,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         );
       }
 
-      // ================= BUS MARKER =================
-      final busMarkers = _busData
-          .map((b) {
-            final lat = double.tryParse(b['latitude']?.toString() ?? "0") ?? 0;
-
-            final lng = double.tryParse(b['longitude']?.toString() ?? "0") ?? 0;
-
-            if (lat == 0 || lng == 0) {
-              return null;
-            }
-
-            return Marker(
-              point: LatLng(lat, lng),
-              width: 50,
-              height: 50,
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.directions_bus,
-                    color: Colors.green,
-                    size: 30,
-                  ),
-                  Text(
-                    b['plat_nomor'] ?? '',
-                    style: const TextStyle(fontSize: 8),
-                  ),
-                ],
-              ),
-            );
-          })
-          .whereType<Marker>()
-          .toList();
-
       setState(() {
         _polylines = [
           Polyline(points: points, strokeWidth: 5, color: Colors.blue),
@@ -585,10 +575,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
         _checkpointMarkers = checkpointMarkers;
 
-        _markers = [...busMarkers, ..._checkpointMarkers];
-
         _geofenceCircles = geofenceCircles;
       });
+
+      _generateRealtimeMarkers();
 
       _mapController.fitCamera(
         CameraFit.bounds(
