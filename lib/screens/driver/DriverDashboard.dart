@@ -314,13 +314,34 @@ class _DriverDashboardState extends State<DriverDashboard>
 
   // ================= LOGOUT =================
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    await prefs.clear();
+      // ================= HAPUS SEMUA SESSION =================
+      await prefs.clear();
 
-    if (!mounted) return;
+      // ================= STOP TRACKING =================
+      final service = FlutterBackgroundService();
 
-    Navigator.of(context).popUntil((route) => route.isFirst);
+      service.invoke("stopService");
+
+      await _gpsStream?.cancel();
+
+      _gpsChecker?.cancel();
+
+      trackingStarted = false;
+
+      if (!mounted) return;
+
+      // ================= PINDAH KE LOGIN =================
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login',
+        (route) => false,
+      );
+    } catch (e) {
+      print("❌ LOGOUT ERROR: $e");
+    }
   }
 
   // ================= DISPOSE =================
@@ -600,72 +621,117 @@ class _DriverDashboardState extends State<DriverDashboard>
             // ================= BUTTON START =================
             GestureDetector(
               onTap: () async {
-                if (trackingStarted &&
-                    restoredTracking == false) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text("Tracking sudah aktif"),
-                    ),
+                try {
+                  // ================= CEK COMPANY =================
+                  if (companyId == null) {
+                    await getCompany();
+                  }
+
+                  if (companyId == null) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Company belum ditemukan"),
+                      ),
+                    );
+
+                    return;
+                  }
+
+                  // ================= CEK GPS =================
+                  bool serviceEnabled =
+                      await Geolocator.isLocationServiceEnabled();
+
+                  if (!serviceEnabled) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("GPS belum aktif"),
+                      ),
+                    );
+
+                    return;
+                  }
+
+                  // ================= PERMISSION =================
+                  LocationPermission permission =
+                      await Geolocator.checkPermission();
+
+                  if (permission == LocationPermission.denied) {
+                    permission =
+                        await Geolocator.requestPermission();
+                  }
+
+                  if (permission ==
+                          LocationPermission.denied ||
+                      permission ==
+                          LocationPermission.deniedForever) {
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content:
+                            Text("Permission lokasi ditolak"),
+                      ),
+                    );
+
+                    return;
+                  }
+
+                  // ================= SAVE PREF =================
+                  final prefs =
+                      await SharedPreferences.getInstance();
+
+                  await prefs.setInt(
+                    "bus_id",
+                    widget.busId,
                   );
 
-                  return;
-                }
+                  // ================= START SERVICE =================
+                  final service = FlutterBackgroundService();
 
-                bool serviceEnabled =
-                    await Geolocator
-                        .isLocationServiceEnabled();
+                  await service.startService();
 
-                if (!serviceEnabled) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(
-                    const SnackBar(
-                      content: Text("GPS belum aktif"),
+                  // ================= START TRACKING =================
+                  await startForegroundTracking();
+
+                  trackingStarted = true;
+
+                  _startGpsChecker();
+
+                  if (!mounted) return;
+
+                  setState(() {
+                    gpsConnected = true;
+                    gpsStatus = "Tracking aktif";
+                  });
+
+                  print("✅ TRACKING STARTED");
+
+                  // ================= NAVIGATE =================
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MonitoringBusMapAdmin(
+                        companyId: companyId!,
+                        busId: widget.busId,
+                        userId: widget.userId,
+                      ),
                     ),
                   );
+                } catch (e) {
+                  print("❌ START TRACKING ERROR: $e");
 
-                  return;
-                }
+                  if (!mounted) return;
 
-                final prefs =
-                    await SharedPreferences
-                        .getInstance();
-
-                await prefs.setInt(
-                  "bus_id",
-                  widget.busId,
-                );
-
-                final service =
-                    FlutterBackgroundService();
-
-                await service.startService();
-
-                await startForegroundTracking();
-
-                trackingStarted = true;
-
-                _startGpsChecker();
-
-                if (!mounted) return;
-
-                setState(() {
-                  gpsConnected = true;
-                  gpsStatus = "Tracking aktif";
-                });
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        MonitoringBusMapAdmin(
-                      companyId: companyId!,
-                      busId: widget.busId,
-                      userId: widget.userId,
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("ERROR: $e"),
                     ),
-                  ),
-                );
+                  );
+                }
               },
               child: AnimatedContainer(
                 duration:
