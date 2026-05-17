@@ -172,6 +172,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         }
 
         print("✅ REALTIME UPDATED");
+        print("BUS RESPONSE: ${res.body}");
       } catch (e) {
         print("❌ POLLING ERROR: $e");
       }

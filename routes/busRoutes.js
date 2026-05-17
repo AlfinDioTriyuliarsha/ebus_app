@@ -202,7 +202,7 @@ router.put("/update-location/:id", async (req, res) => {
     const { id } = req.params;
     const { latitude, longitude } = req.body;
 
-    if (!latitude || !longitude) {
+    if (latitude == null || longitude == null) {
         return res.status(400).json({
             success: false,
             error: "Latitude & Longitude wajib"

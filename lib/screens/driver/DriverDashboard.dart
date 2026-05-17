@@ -683,6 +683,12 @@ class _DriverDashboardState extends State<DriverDashboard>
 
                   await service.startService();
 
+                  final startRes = await http.put(
+                    Uri.parse(
+                      "${ApiService.baseUrl}/api/buses/start-tracking/${widget.busId}",
+                    ),
+                  );
+
                   // ================= START TRACKING =================
                   await startForegroundTracking();
 
@@ -773,6 +779,12 @@ class _DriverDashboardState extends State<DriverDashboard>
                 await prefs.remove("bus_id");
 
                 final service = FlutterBackgroundService();
+
+                await http.put(
+                  Uri.parse(
+                    "${ApiService.baseUrl}/api/buses/stop-tracking/${widget.busId}",
+                  ),
+                );
 
                 service.invoke("stopService");
 
