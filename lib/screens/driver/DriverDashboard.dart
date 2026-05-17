@@ -689,6 +689,9 @@ class _DriverDashboardState extends State<DriverDashboard>
                     ),
                   );
 
+                  print("START TRACKING: ${startRes.statusCode}");
+                  print(startRes.body);
+
                   // ================= START TRACKING =================
                   await startForegroundTracking();
 
