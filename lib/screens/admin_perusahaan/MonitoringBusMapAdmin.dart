@@ -398,8 +398,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   void _generateRealtimeMarkers() {
     final markers = _busData
         .where((bus) {
-          // hanya bus tracking aktif
-          if (bus['is_tracking'] != 1) {
+          // hanya tampil jika tracking aktif
+          if (bus['is_tracking'] != true && bus['is_tracking'] != 1) {
             return false;
           }
 
@@ -417,15 +417,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
           if (lat == 0 || lng == 0) return null;
 
-          // ================= POSITION ASLI =================
           final newPosition = LatLng(lat, lng);
 
-          // ================= POSITION SEBELUMNYA =================
           final oldPosition = smoothPositions[bus['id']];
 
           LatLng finalPosition = newPosition;
 
-          // ================= SMOOTH POSITION =================
           if (oldPosition != null) {
             finalPosition = LatLng(
               oldPosition.latitude +
@@ -439,7 +436,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           smoothPositions[bus['id']] = finalPosition;
 
           return Marker(
-            point: LatLng(lat, lng),
+            point: finalPosition,
             width: 80,
             height: 80,
             child: Column(
@@ -451,10 +448,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                     horizontal: 6,
                     vertical: 2,
                   ),
+
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                   ),
+
                   child: Column(
                     children: [
                       Text(
