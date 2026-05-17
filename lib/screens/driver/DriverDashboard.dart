@@ -57,18 +57,12 @@ class _DriverDashboardState extends State<DriverDashboard>
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(
-      begin: 0.95,
-      end: 1.05,
-    ).animate(
-      CurvedAnimation(
-        parent: _pulseController,
-        curve: Curves.easeInOut,
-      ),
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
     checkDriver();
-    getCompany();
+    getBusCompany();
     restoreTracking();
   }
 
@@ -120,24 +114,27 @@ class _DriverDashboardState extends State<DriverDashboard>
     });
   }
 
-  // ================= GET COMPANY =================
-  Future<void> getCompany() async {
+  // ================= GET BUS COMPANY =================
+  Future<void> getBusCompany() async {
     try {
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/companies/user/${widget.userId}"),
+        Uri.parse("${ApiService.baseUrl}/api/buses/${widget.busId}"),
       );
 
-      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
 
-      if (data['success'] == true) {
-        companyId = data['data']['id'];
+        // ================= AMBIL COMPANY DARI BUS =================
+        companyId = data['data']['company_id'];
+
+        print("✅ COMPANY FROM BUS: $companyId");
 
         if (mounted) {
           setState(() {});
         }
       }
     } catch (e) {
-      print("❌ GET COMPANY ERROR: $e");
+      print("❌ GET BUS COMPANY ERROR: $e");
     }
   }
 
@@ -154,9 +151,7 @@ class _DriverDashboardState extends State<DriverDashboard>
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Company tidak ditemukan"),
-          ),
+          const SnackBar(content: Text("Company tidak ditemukan")),
         );
 
         return;
@@ -166,9 +161,7 @@ class _DriverDashboardState extends State<DriverDashboard>
 
       final res = await http.post(
         Uri.parse("${ApiService.baseUrl}/api/drivers"),
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_id": widget.userId,
           "email": widget.email,
@@ -180,11 +173,9 @@ class _DriverDashboardState extends State<DriverDashboard>
       if (res.statusCode == 201) {
         if (!mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Berhasil daftar driver"),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Berhasil daftar driver")));
 
         checkDriver();
       }
@@ -197,30 +188,26 @@ class _DriverDashboardState extends State<DriverDashboard>
   void _startGpsChecker() {
     _gpsChecker?.cancel();
 
-    _gpsChecker = Timer.periodic(
-      const Duration(seconds: 5),
-      (timer) async {
-        bool serviceEnabled =
-            await Geolocator.isLocationServiceEnabled();
+    _gpsChecker = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        if (!serviceEnabled) {
-          setState(() {
-            gpsConnected = false;
-            gpsStatus = "GPS OFF";
-          });
+      if (!serviceEnabled) {
+        setState(() {
+          gpsConnected = false;
+          gpsStatus = "GPS OFF";
+        });
 
-          return;
-        }
+        return;
+      }
 
-        if (trackingStarted) {
-          setState(() {
-            gpsConnected = true;
-          });
-        }
-      },
-    );
+      if (trackingStarted) {
+        setState(() {
+          gpsConnected = true;
+        });
+      }
+    });
   }
 
   // ================= START TRACKING =================
@@ -228,8 +215,7 @@ class _DriverDashboardState extends State<DriverDashboard>
     bool serviceEnabled;
     LocationPermission permission;
 
-    serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
       if (!mounted) return;
@@ -245,13 +231,11 @@ class _DriverDashboardState extends State<DriverDashboard>
     permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
+      permission = await Geolocator.requestPermission();
     }
 
     if (permission == LocationPermission.denied ||
-        permission ==
-            LocationPermission.deniedForever) {
+        permission == LocationPermission.deniedForever) {
       if (!mounted) return;
 
       setState(() {
@@ -264,52 +248,49 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     await _gpsStream?.cancel();
 
-    _gpsStream = Geolocator.getPositionStream(
-      locationSettings: AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3,
-        intervalDuration: const Duration(seconds: 2),
-        foregroundNotificationConfig:
-            const ForegroundNotificationConfig(
-          notificationTitle: "E-Bus Tracking Aktif",
-          notificationText:
-              "Lokasi bus sedang berjalan di background",
-          enableWakeLock: true,
-        ),
-      ),
-    ).listen((Position position) async {
-      try {
-        await http.put(
-          Uri.parse(
-            "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+    _gpsStream =
+        Geolocator.getPositionStream(
+          locationSettings: AndroidSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            distanceFilter: 3,
+            intervalDuration: const Duration(seconds: 2),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: "E-Bus Tracking Aktif",
+              notificationText: "Lokasi bus sedang berjalan di background",
+              enableWakeLock: true,
+            ),
           ),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: jsonEncode({
-            "latitude": position.latitude,
-            "longitude": position.longitude,
-          }),
-        );
+        ).listen((Position position) async {
+          try {
+            await http.put(
+              Uri.parse(
+                "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+              ),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "latitude": position.latitude,
+                "longitude": position.longitude,
+              }),
+            );
 
-        print("✅ GPS SENT");
-      } catch (e) {
-        print("❌ SEND GPS ERROR: $e");
-      }
+            print("✅ GPS SENT");
+          } catch (e) {
+            print("❌ SEND GPS ERROR: $e");
+          }
 
-      if (!mounted) return;
+          if (!mounted) return;
 
-      setState(() {
-        gpsConnected = true;
+          setState(() {
+            gpsConnected = true;
 
-        gpsStatus =
-            "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
+            gpsStatus =
+                "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
 
-        gpsAccuracy = position.accuracy;
+            gpsAccuracy = position.accuracy;
 
-        lastGpsUpdate = DateTime.now();
-      });
-    });
+            lastGpsUpdate = DateTime.now();
+          });
+        });
   }
 
   // ================= LOGOUT =================
@@ -334,11 +315,7 @@ class _DriverDashboardState extends State<DriverDashboard>
       if (!mounted) return;
 
       // ================= PINDAH KE LOGIN =================
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/login',
-        (route) => false,
-      );
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     } catch (e) {
       print("❌ LOGOUT ERROR: $e");
     }
@@ -357,11 +334,7 @@ class _DriverDashboardState extends State<DriverDashboard>
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (!isRegistered) {
@@ -384,9 +357,7 @@ class _DriverDashboardState extends State<DriverDashboard>
         foregroundColor: Colors.black,
         title: const Text(
           "Driver Dashboard",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           PopupMenuButton<String>(
@@ -422,10 +393,7 @@ class _DriverDashboardState extends State<DriverDashboard>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
                 gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF0F172A),
-                    Color(0xFF1E3A8A),
-                  ],
+                  colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -437,19 +405,16 @@ class _DriverDashboardState extends State<DriverDashboard>
               ),
 
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       ScaleTransition(
                         scale: _pulseAnimation,
                         child: Container(
-                          padding:
-                              const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white
-                                .withOpacity(0.15),
+                            color: Colors.white.withOpacity(0.15),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -463,26 +428,19 @@ class _DriverDashboardState extends State<DriverDashboard>
                       const Spacer(),
 
                       Container(
-                        padding:
-                            const EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: gpsConnected
-                              ? Colors.green
-                              : Colors.red,
-                          borderRadius:
-                              BorderRadius.circular(20),
+                          color: gpsConnected ? Colors.green : Colors.red,
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          gpsConnected
-                              ? "ONLINE"
-                              : "OFFLINE",
+                          gpsConnected ? "ONLINE" : "OFFLINE",
                           style: const TextStyle(
                             color: Colors.white,
-                            fontWeight:
-                                FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -504,18 +462,14 @@ class _DriverDashboardState extends State<DriverDashboard>
 
                   Text(
                     "Bus ID : ${widget.busId}",
-                    style: const TextStyle(
-                      color: Colors.white70,
-                    ),
+                    style: const TextStyle(color: Colors.white70),
                   ),
 
                   const SizedBox(height: 8),
 
                   Text(
                     "User ID : ${widget.userId}",
-                    style: const TextStyle(
-                      color: Colors.white70,
-                    ),
+                    style: const TextStyle(color: Colors.white70),
                   ),
                 ],
               ),
@@ -549,12 +503,8 @@ class _DriverDashboardState extends State<DriverDashboard>
                             ? Colors.green.shade100
                             : Colors.red.shade100,
                         child: Icon(
-                          gpsConnected
-                              ? Icons.gps_fixed
-                              : Icons.gps_off,
-                          color: gpsConnected
-                              ? Colors.green
-                              : Colors.red,
+                          gpsConnected ? Icons.gps_fixed : Icons.gps_off,
+                          color: gpsConnected ? Colors.green : Colors.red,
                         ),
                       ),
 
@@ -562,18 +512,14 @@ class _DriverDashboardState extends State<DriverDashboard>
 
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               gpsStatus,
                               style: TextStyle(
-                                fontWeight:
-                                    FontWeight.bold,
+                                fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: gpsConnected
-                                    ? Colors.green
-                                    : Colors.red,
+                                color: gpsConnected ? Colors.green : Colors.red,
                               ),
                             ),
 
@@ -581,9 +527,7 @@ class _DriverDashboardState extends State<DriverDashboard>
 
                             Text(
                               "Akurasi GPS : ${gpsAccuracy.toStringAsFixed(1)} m",
-                              style: const TextStyle(
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(color: Colors.grey),
                             ),
                           ],
                         ),
@@ -624,16 +568,14 @@ class _DriverDashboardState extends State<DriverDashboard>
                 try {
                   // ================= CEK COMPANY =================
                   if (companyId == null) {
-                    await getCompany();
+                    await getBusCompany();
                   }
 
                   if (companyId == null) {
                     if (!mounted) return;
 
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Company belum ditemukan"),
-                      ),
+                      const SnackBar(content: Text("Company belum ditemukan")),
                     );
 
                     return;
@@ -647,9 +589,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                     if (!mounted) return;
 
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("GPS belum aktif"),
-                      ),
+                      const SnackBar(content: Text("GPS belum aktif")),
                     );
 
                     return;
@@ -660,20 +600,16 @@ class _DriverDashboardState extends State<DriverDashboard>
                       await Geolocator.checkPermission();
 
                   if (permission == LocationPermission.denied) {
-                    permission =
-                        await Geolocator.requestPermission();
+                    permission = await Geolocator.requestPermission();
                   }
 
-                  if (permission ==
-                          LocationPermission.denied ||
-                      permission ==
-                          LocationPermission.deniedForever) {
+                  if (permission == LocationPermission.denied ||
+                      permission == LocationPermission.deniedForever) {
                     if (!mounted) return;
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content:
-                            Text("Permission lokasi ditolak"),
+                        content: Text("Permission lokasi ditolak"),
                       ),
                     );
 
@@ -681,13 +617,9 @@ class _DriverDashboardState extends State<DriverDashboard>
                   }
 
                   // ================= SAVE PREF =================
-                  final prefs =
-                      await SharedPreferences.getInstance();
+                  final prefs = await SharedPreferences.getInstance();
 
-                  await prefs.setInt(
-                    "bus_id",
-                    widget.busId,
-                  );
+                  await prefs.setInt("bus_id", widget.busId);
 
                   // ================= START SERVICE =================
                   final service = FlutterBackgroundService();
@@ -710,6 +642,16 @@ class _DriverDashboardState extends State<DriverDashboard>
 
                   print("✅ TRACKING STARTED");
 
+                  if (companyId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Company ID tidak ditemukan"),
+                      ),
+                    );
+
+                    return;
+                  }
+
                   // ================= NAVIGATE =================
                   Navigator.push(
                     context,
@@ -726,33 +668,23 @@ class _DriverDashboardState extends State<DriverDashboard>
 
                   if (!mounted) return;
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("ERROR: $e"),
-                    ),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text("ERROR: $e")));
                 }
               },
               child: AnimatedContainer(
-                duration:
-                    const Duration(milliseconds: 400),
+                duration: const Duration(milliseconds: 400),
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 22,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 22),
                 decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(24),
                   gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF22C55E),
-                      Color(0xFF16A34A),
-                    ],
+                    colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color:
-                          Colors.green.withOpacity(0.4),
+                      color: Colors.green.withOpacity(0.4),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -760,8 +692,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                 ),
 
                 child: const Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.play_arrow_rounded,
@@ -790,14 +721,11 @@ class _DriverDashboardState extends State<DriverDashboard>
             // ================= STOP BUTTON =================
             GestureDetector(
               onTap: () async {
-                final prefs =
-                    await SharedPreferences
-                        .getInstance();
+                final prefs = await SharedPreferences.getInstance();
 
                 await prefs.remove("bus_id");
 
-                final service =
-                    FlutterBackgroundService();
+                final service = FlutterBackgroundService();
 
                 service.invoke("stopService");
 
@@ -811,31 +739,22 @@ class _DriverDashboardState extends State<DriverDashboard>
 
                 setState(() {
                   gpsConnected = false;
-                  gpsStatus =
-                      "Tracking Dihentikan";
+                  gpsStatus = "Tracking Dihentikan";
                 });
 
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(
-                  const SnackBar(
-                    content:
-                        Text("Tracking dihentikan"),
-                  ),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Tracking dihentikan")),
                 );
               },
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 22,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 22),
                 decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(24),
                   color: Colors.red,
                   boxShadow: [
                     BoxShadow(
-                      color:
-                          Colors.red.withOpacity(0.3),
+                      color: Colors.red.withOpacity(0.3),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -843,8 +762,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                 ),
 
                 child: const Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.stop_circle_outlined,
@@ -875,8 +793,7 @@ class _DriverDashboardState extends State<DriverDashboard>
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                borderRadius:
-                    BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(24),
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
@@ -887,24 +804,16 @@ class _DriverDashboardState extends State<DriverDashboard>
               ),
 
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     "Informasi Tracking",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
 
                   const SizedBox(height: 15),
 
-                  _buildInfoTile(
-                    Icons.location_on,
-                    "Status GPS",
-                    gpsStatus,
-                  ),
+                  _buildInfoTile(Icons.location_on, "Status GPS", gpsStatus),
 
                   _buildInfoTile(
                     Icons.speed,
@@ -927,46 +836,32 @@ class _DriverDashboardState extends State<DriverDashboard>
   }
 
   // ================= WIDGET =================
-  Widget _buildInfoTile(
-    IconData icon,
-    String title,
-    String value,
-  ) {
+  Widget _buildInfoTile(IconData icon, String title, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor:
-                Colors.blue.withOpacity(0.1),
-            child: Icon(
-              icon,
-              color: Colors.blue,
-            ),
+            backgroundColor: Colors.blue.withOpacity(0.1),
+            child: Icon(icon, color: Colors.blue),
           ),
 
           const SizedBox(width: 14),
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 13,
-                  ),
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
 
                 const SizedBox(height: 3),
 
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
