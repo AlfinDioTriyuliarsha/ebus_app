@@ -40,6 +40,7 @@ class _DriverDashboardState extends State<DriverDashboard>
   DateTime? lastGpsUpdate;
 
   int? companyId;
+  int? driverId;
 
   Timer? _gpsChecker;
   StreamSubscription<Position>? _gpsStream;
@@ -61,6 +62,7 @@ class _DriverDashboardState extends State<DriverDashboard>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
+    initializeData();
     checkDriver();
     getBusCompany();
     restoreTracking();
@@ -117,25 +119,76 @@ class _DriverDashboardState extends State<DriverDashboard>
   // ================= GET BUS COMPANY =================
   Future<void> getBusCompany() async {
     try {
+      if (driverId == null) {
+        print("❌ DRIVER ID NULL");
+        return;
+      }
+
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/buses/${widget.busId}"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses",
+        ),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
-        // ================= AMBIL COMPANY DARI BUS =================
-        companyId = data['data']['company_id'];
+        final buses =
+            List<Map<String, dynamic>>.from(data['data']);
 
-        print("✅ COMPANY FROM BUS: $companyId");
+        // ================= CARI BUS BERDASARKAN DRIVER_ID =================
+        final bus = buses.firstWhere(
+          (b) => b['driver_id'] == driverId,
+          orElse: () => {},
+        );
 
-        if (mounted) {
-          setState(() {});
+        if (bus.isNotEmpty) {
+          companyId = bus['company_id'];
+
+          print("✅ COMPANY ID FROM BUS: $companyId");
+
+          if (mounted) {
+            setState(() {});
+          }
+        } else {
+          print("❌ BUS DRIVER TIDAK DITEMUKAN");
         }
       }
     } catch (e) {
       print("❌ GET BUS COMPANY ERROR: $e");
     }
+  }
+
+  // ================= GET DRIVER =================
+  Future<void> getDriverId() async {
+    try {
+      final res = await http.get(
+        Uri.parse("${ApiService.baseUrl}/api/drivers/user/${widget.userId}"),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+
+        if (data['data'] != null) {
+          driverId = data['data']['id'];
+
+          print("✅ DRIVER ID: $driverId");
+        }
+      }
+    } catch (e) {
+      print("❌ GET DRIVER ID ERROR: $e");
+    }
+  }
+
+  // ================= INITIALIZE DATA =================
+  Future<void> initializeData() async {
+    await checkDriver();
+
+    await getDriverId();
+
+    await getBusCompany();
+
+    await restoreTracking();
   }
 
   // ================= REGISTER DRIVER =================
