@@ -167,7 +167,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           calculateSpeed(lat, lng);
 
           // ================= ETA =================
-          if (selectedBusId != null && selectedBusId == bus['id']) {
+          if (selectedBus != null && selectedBus!['id'] == bus['id']) {
             if (geofenceData.isNotEmpty) {
               await calculateETA(
                 startLat: lat,
