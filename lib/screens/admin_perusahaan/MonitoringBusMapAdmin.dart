@@ -57,18 +57,21 @@ class _MonitoringBusMapAdminState
   final Set<String> notifiedCheckpoints = {};
 
   // =========================
-  // PER BUS
+  // SPEED PER BUS
   // =========================
   final Map<int, LatLng> previousPositions = {};
   final Map<int, DateTime> previousTimes = {};
   final Map<int, double> busSpeeds = {};
   final Map<int, LatLng> smoothPositions = {};
 
+  // =========================
+  // ETA
+  // =========================
   double distance = 0;
   double duration = 0;
 
-  String perjalananStatus = "Memuat...";
-  Color statusColor = Colors.green;
+  String perjalananStatus = "Menunggu Data";
+  Color statusColor = Colors.grey;
 
   @override
   void initState() {
@@ -79,6 +82,9 @@ class _MonitoringBusMapAdminState
     _initializeMap();
   }
 
+  // =========================
+  // NOTIFICATION
+  // =========================
   Future<void> initNotifications() async {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -90,6 +96,9 @@ class _MonitoringBusMapAdminState
     await notificationsPlugin.initialize(settings);
   }
 
+  // =========================
+  // INITIAL
+  // =========================
   Future<void> _initializeMap() async {
     await _fetchBuses();
 
@@ -125,13 +134,14 @@ class _MonitoringBusMapAdminState
       print("✅ TOTAL BUS: ${buses.length}");
 
       // =========================
-      // PILIH BUS BERDASARKAN busId
+      // PILIH BUS DEFAULT
       // =========================
-      if (buses.isNotEmpty) {
-        selectedBus = buses.firstWhere(
-          (b) => b['id'] == widget.busId,
-          orElse: () => buses.first,
-        );
+      final validBus = buses.where((b) {
+        return b['route_id'] != null;
+      }).toList();
+
+      if (validBus.isNotEmpty) {
+        selectedBus = validBus.first;
 
         await _drawRoute(selectedBus!);
       }
@@ -143,7 +153,7 @@ class _MonitoringBusMapAdminState
   }
 
   // =========================
-  // REALTIME
+  // REALTIME POLLING
   // =========================
   void _startRealtimePolling() {
     realtimeTimer?.cancel();
@@ -159,7 +169,7 @@ class _MonitoringBusMapAdminState
           );
 
           if (res.statusCode != 200) {
-            print("❌ BUS TIDAK ADA");
+            print("❌ GAGAL FETCH BUS");
             return;
           }
 
@@ -184,16 +194,13 @@ class _MonitoringBusMapAdminState
             selectedBus = updatedBus;
           }
 
-          // =========================
-          // UPDATE MARKER
-          // =========================
           _generateRealtimeMarkers();
 
           // =========================
           // LOOP BUS
           // =========================
           for (var bus in buses) {
-            final busId = bus['id'];
+            final int busId = bus['id'];
 
             final lat =
                 double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
@@ -212,7 +219,9 @@ class _MonitoringBusMapAdminState
 
             calculateSpeed(busId, lat, lng);
 
-            // ================= ETA
+            // =========================
+            // ETA KHUSUS BUS TERPILIH
+            // =========================
             if (selectedBus != null &&
                 selectedBus!['id'] == busId) {
               if (geofenceData.isNotEmpty) {
@@ -239,7 +248,7 @@ class _MonitoringBusMapAdminState
   }
 
   // =========================
-  // SPEED PER BUS
+  // SPEED
   // =========================
   void calculateSpeed(
     int busId,
@@ -274,9 +283,7 @@ class _MonitoringBusMapAdminState
 
     final speed = (movedDistance / seconds) * 3.6;
 
-    // =========================
     // FILTER SPEED TIDAK MASUK AKAL
-    // =========================
     if (speed < 300) {
       busSpeeds[busId] = speed;
 
@@ -284,7 +291,11 @@ class _MonitoringBusMapAdminState
         "🚌 BUS $busId SPEED: ${speed.toStringAsFixed(1)} km/h",
       );
 
-      determineTrafficStatus(speed);
+      // STATUS KHUSUS BUS TERPILIH
+      if (selectedBus != null &&
+          selectedBus!['id'] == busId) {
+        determineTrafficStatus(speed);
+      }
     }
 
     previousPositions[busId] = LatLng(lat, lng);
@@ -292,6 +303,9 @@ class _MonitoringBusMapAdminState
     previousTimes[busId] = now;
   }
 
+  // =========================
+  // STATUS LALU LINTAS
+  // =========================
   void determineTrafficStatus(double speed) {
     if (speed > 30) {
       setState(() {
@@ -312,7 +326,7 @@ class _MonitoringBusMapAdminState
   }
 
   // =========================
-  // MARKER
+  // MARKER REALTIME
   // =========================
   void _generateRealtimeMarkers() {
     final markers = _busData
@@ -494,6 +508,7 @@ class _MonitoringBusMapAdminState
 
       setState(() {
         _checkpointMarkers = checkpointMarkers;
+
         _geofenceCircles = geofenceCircles;
 
         _markers = [
@@ -603,6 +618,9 @@ class _MonitoringBusMapAdminState
     }
   }
 
+  // =========================
+  // ETA
+  // =========================
   Future<void> calculateETA({
     required double startLat,
     required double startLng,
@@ -633,6 +651,9 @@ class _MonitoringBusMapAdminState
     }
   }
 
+  // =========================
+  // CHECKPOINT
+  // =========================
   bool isInsideGeofence({
     required double busLat,
     required double busLng,
@@ -696,10 +717,6 @@ class _MonitoringBusMapAdminState
           )) {
         notifiedCheckpoints.add(checkpointName);
 
-        print(
-          "✅ MASUK CHECKPOINT: $checkpointName",
-        );
-
         showNotification(
           "Checkpoint",
           "Bus mendekati $checkpointName",
@@ -727,24 +744,148 @@ class _MonitoringBusMapAdminState
         title: const Text("Monitoring Armada"),
         backgroundColor: const Color(0xFF001F3F),
       ),
-      body: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter:
-              const LatLng(-7.9839, 112.6214),
-          initialZoom: 6,
-        ),
+      body: Column(
         children: [
-          TileLayer(
-            urlTemplate:
-                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+          // =========================
+          // DROPDOWN
+          // =========================
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.white,
+            child: DropdownButtonFormField<int>(
+              value: selectedBus?['id'],
+              decoration: const InputDecoration(
+                labelText: "Pilih Bus",
+                border: OutlineInputBorder(),
+              ),
+              items: _busData
+                  .where((bus) => bus['route_id'] != null)
+                  .map((bus) {
+                return DropdownMenuItem<int>(
+                  value: bus['id'],
+                  child: Text(
+                    "${bus['plat_nomor']} - ${bus['nama_rute'] ?? 'Tanpa Rute'}",
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) async {
+                if (value == null) return;
+
+                final bus = _busData.firstWhere(
+                  (b) => b['id'] == value,
+                );
+
+                setState(() {
+                  selectedBus = bus;
+                });
+
+                await _drawRoute(bus);
+              },
+            ),
           ),
 
-          PolylineLayer(polylines: _polylines),
+          // =========================
+          // INFO ETA
+          // =========================
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(
+              horizontal: 12,
+            ),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: const [
+                BoxShadow(
+                  blurRadius: 4,
+                  color: Colors.black12,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Bus: ${selectedBus?['plat_nomor'] ?? '-'}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
 
-          CircleLayer(circles: _geofenceCircles),
+                const SizedBox(height: 8),
 
-          MarkerLayer(markers: _markers),
+                Text(
+                  "Jarak: ${(distance / 1000).toStringAsFixed(1)} KM",
+                ),
+
+                Text(
+                  "Estimasi: ${(duration / 60).toStringAsFixed(0)} Menit",
+                ),
+
+                Text(
+                  "Kecepatan: ${busSpeeds[selectedBus?['id']]?.toStringAsFixed(1) ?? '0'} km/h",
+                ),
+
+                const SizedBox(height: 8),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    borderRadius:
+                        BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    perjalananStatus,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // =========================
+          // MAP
+          // =========================
+          Expanded(
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter:
+                    const LatLng(-7.9839, 112.6214),
+                initialZoom: 6,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                ),
+
+                PolylineLayer(
+                  polylines: _polylines,
+                ),
+
+                CircleLayer(
+                  circles: _geofenceCircles,
+                ),
+
+                MarkerLayer(
+                  markers: _markers,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
