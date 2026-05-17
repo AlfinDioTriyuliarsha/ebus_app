@@ -60,7 +60,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   double distance = 0;
   double duration = 0;
 
-  String perjalananStatus = "Hijau";
+  String perjalananStatus = "Memuat data...";
   Color statusColor = Colors.green;
 
   Timer? etaTimer;
@@ -90,28 +90,36 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
   Future<void> _fetchBuses() async {
     try {
-      if (widget.busId == 0) return;
-
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/buses/${widget.busId}"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
       );
-
-      if (res.statusCode != 200) {
-        print("BUS TIDAK DITEMUKAN");
-        return;
-      }
 
       final data = jsonDecode(res.body);
 
+      print("🔥 RAW BUS DATA: ${res.body}");
+
+      if (data['success'] != true) {
+        print("❌ API FAILED");
+        return;
+      }
+
+      final buses = List<Map<String, dynamic>>.from(data['data']);
+
       setState(() {
-        _busData = [data['data']];
+        _busData = buses;
       });
 
-      await _drawRoute(_busData.first);
+      print("✅ TOTAL BUS: ${buses.length}");
+
+      if (buses.isNotEmpty) {
+        await _drawRoute(buses.first);
+      }
 
       _generateRealtimeMarkers();
     } catch (e) {
-      print("FETCH BUS ERROR: $e");
+      print("❌ FETCH BUS ERROR: $e");
     }
   }
 
@@ -132,7 +140,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         final data = jsonDecode(res.body);
 
         setState(() {
-          _busData = [data['data']];
+          _busData = [Map<String, dynamic>.from(data['data'])];
         });
 
         // ================= UPDATE MARKER =================
@@ -466,6 +474,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         })
         .whereType<Marker>()
         .toList();
+    if (markers.isNotEmpty) {
+      _mapController.move(markers.first.point, 15);
+    }
 
     setState(() {
       _markers = markers;
@@ -485,6 +496,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       }
 
       await fetchGeofence(bus['route_id']);
+
+      if (geofenceData.isEmpty) {
+        print("❌ GEOFENCE KOSONG");
+        return;
+      }
 
       // ================= POLYLINE =================
       setState(() {
@@ -589,7 +605,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             .whereType<Marker>()
             .toList();
 
-        _markers = [...busMarkers, ...checkpointMarkers];
+        _markers = [...checkpointMarkers];
+        _generateRealtimeMarkers();
 
         _geofenceCircles = geofenceCircles;
         print("TOTAL GEOFENCE: ${_geofenceCircles.length}");
@@ -625,25 +642,20 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   Future<List<LatLng>> fetchRoutePath(int routeId) async {
     try {
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/routes?company_id=${widget.companyId}",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/routes/$routeId"),
       );
 
       final data = jsonDecode(res.body);
 
-      final routes = data['data'];
+      if (data['success'] != true) {
+        print("❌ API ROUTE GAGAL");
+        return [];
+      }
 
-      print("ROUTE ID BUS: $routeId");
-      print("SEMUA ROUTE: $routes");
-
-      final route = routes.firstWhere(
-        (r) => r['id'].toString() == routeId.toString(),
-        orElse: () => null,
-      );
+      final route = data['data'];
 
       if (route == null) {
-        print("❌ ROUTE TIDAK DITEMUKAN");
+        print("❌ ROUTE NULL");
         return [];
       }
 
@@ -654,7 +666,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         return [];
       }
 
-      return List.from(path).map<LatLng>((p) {
+      return List.from(path).map((p) {
         return LatLng(
           double.parse(p['lat'].toString()),
           double.parse(p['lng'].toString()),

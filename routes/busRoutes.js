@@ -315,56 +315,41 @@ router.get("/driver/:user_id", async (req, res) => {
 });
 
 router.put("/start-tracking/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const result = await pool.query(
-            `UPDATE buses 
-             SET is_tracking = true 
-             WHERE id = $1
-             RETURNING *`,
-            [id]
-        );
+    const result = await pool.query(
+      `UPDATE buses SET is_tracking = true WHERE id = $1 RETURNING *`,
+      [id]
+    );
 
-        res.json({
-            success: true,
-            message: "Tracking dimulai",
-            data: result.rows[0]
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
+    res.json({
+      success: true,
+      message: "Tracking dimulai",
+      data: result.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 router.put("/stop-tracking/:id", async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const result = await pool.query(
-            `UPDATE buses 
-             SET is_tracking = false 
-             WHERE id = $1
-             RETURNING *`,
-            [id]
-        );
+    const result = await pool.query(
+      `UPDATE buses SET is_tracking = false WHERE id = $1 RETURNING *`,
+      [id]
+    );
 
-        res.json({
-            success: true,
-            message: "Tracking dihentikan",
-            data: result.rows[0]
-        });
-
-    } catch (err) {
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
+    res.json({
+      success: true,
+      message: "Tracking dihentikan",
+      data: result.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // =======================

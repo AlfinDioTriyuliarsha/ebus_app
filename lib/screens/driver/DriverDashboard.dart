@@ -58,14 +58,17 @@ class _DriverDashboardState extends State<DriverDashboard>
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _pulseAnimation = Tween<double>(
+      begin: 0.95,
+      end: 1.05,
+    ).animate(
+      CurvedAnimation(
+        parent: _pulseController,
+        curve: Curves.easeInOut,
+      ),
     );
 
     initializeData();
-    checkDriver();
-    getBusCompany();
-    restoreTracking();
   }
 
   // ================= RESTORE =================
@@ -138,8 +141,8 @@ class _DriverDashboardState extends State<DriverDashboard>
 
         // ================= CARI BUS BERDASARKAN DRIVER_ID =================
         final bus = buses.firstWhere(
-          (b) => b['driver_id'] == driverId,
-          orElse: () => {},
+          (b) => b['driver_id'] != null && b['driver_id'] == driverId,
+          orElse: () => <String, dynamic>{},
         );
 
         if (bus.isNotEmpty) {
@@ -186,11 +189,12 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     await getDriverId();
 
-    await getBusCompany();
+    if (driverId != null) {
+      await getBusCompany();
+    }
 
     await restoreTracking();
   }
-
   // ================= REGISTER DRIVER =================
   Future<void> registerDriver() async {
     try {
@@ -315,18 +319,18 @@ class _DriverDashboardState extends State<DriverDashboard>
           ),
         ).listen((Position position) async {
           try {
-            await http.put(
-              Uri.parse(
-                "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
-              ),
-              headers: {"Content-Type": "application/json"},
-              body: jsonEncode({
-                "latitude": position.latitude,
-                "longitude": position.longitude,
-              }),
-            );
+            final res = await http.put(
+                Uri.parse(
+                  "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+                ),
+                headers: {"Content-Type": "application/json"},
+                body: jsonEncode({
+                  "latitude": position.latitude,
+                  "longitude": position.longitude,
+                }),
+              );
 
-            print("✅ GPS SENT");
+            print("GPS RESPONSE: ${res.statusCode} - ${res.body}");
           } catch (e) {
             print("❌ SEND GPS ERROR: $e");
           }
@@ -682,7 +686,9 @@ class _DriverDashboardState extends State<DriverDashboard>
                   // ================= START TRACKING =================
                   await startForegroundTracking();
 
-                  trackingStarted = true;
+                  setState(() {
+                    trackingStarted = true;
+                  });
 
                   _startGpsChecker();
 
