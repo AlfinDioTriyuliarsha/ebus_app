@@ -51,8 +51,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
     initNotifications();
 
-    _startRealtimePolling();
-    _fetchBuses();
+    if (widget.busId != 0) {
+      _startRealtimePolling();
+      _fetchBuses();
+    }
   }
 
   double distance = 0;
@@ -88,9 +90,16 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
   Future<void> _fetchBuses() async {
     try {
+      if (widget.busId == 0) return;
+
       final res = await http.get(
         Uri.parse("${ApiService.baseUrl}/api/buses/${widget.busId}"),
       );
+
+      if (res.statusCode != 200) {
+        print("BUS TIDAK DITEMUKAN");
+        return;
+      }
 
       final data = jsonDecode(res.body);
 
@@ -99,6 +108,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       });
 
       await _drawRoute(_busData.first);
+
       _generateRealtimeMarkers();
     } catch (e) {
       print("FETCH BUS ERROR: $e");
@@ -113,6 +123,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         final res = await http.get(
           Uri.parse("${ApiService.baseUrl}/api/buses/${widget.busId}"),
         );
+
+        if (res.statusCode != 200) {
+          print("BUS TIDAK ADA");
+          return;
+        }
 
         final data = jsonDecode(res.body);
 
