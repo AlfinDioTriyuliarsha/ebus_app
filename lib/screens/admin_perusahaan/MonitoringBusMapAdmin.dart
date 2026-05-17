@@ -30,6 +30,7 @@ class MonitoringBusMapAdmin extends StatefulWidget {
 class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _busData = [];
+  Map<String, dynamic>? selectedBus;
   List<Marker> _markers = [];
   List<Marker> _busMarkers = [];
   List<Marker> _checkpointMarkers = [];
@@ -51,10 +52,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     super.initState();
 
     initNotifications();
-
-    if (widget.busId != 0) {
-      _initializeMap();
-    }
+    _initializeMap();
   }
 
   Future<void> _initializeMap() async {
@@ -119,13 +117,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       print("✅ TOTAL BUS: ${buses.length}");
 
-      final currentBus = buses.firstWhere(
-        (b) => b['id'] == widget.busId,
-        orElse: () => {},
-      );
+      if (buses.isNotEmpty) {
+        selectedBus = buses.first;
 
-      if (currentBus.isNotEmpty) {
-        await _drawRoute(currentBus);
+        await _drawRoute(selectedBus!);
       }
 
       _generateRealtimeMarkers();
@@ -140,7 +135,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     realtimeTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       try {
         final res = await http.get(
-          Uri.parse("${ApiService.baseUrl}/api/buses/${widget.busId}"),
+          Uri.parse(
+            "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+          ),
         );
 
         if (res.statusCode != 200) {
@@ -151,7 +148,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         final data = jsonDecode(res.body);
 
         setState(() {
-          _busData = [Map<String, dynamic>.from(data['data'])];
+          _busData = List<Map<String, dynamic>>.from(data['data']);
         });
 
         // ================= UPDATE MARKER =================
@@ -723,113 +720,70 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         title: const Text("Monitoring Armada"),
         backgroundColor: const Color(0xFF001F3F),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: const LatLng(-7.9839, 112.6214),
-              initialZoom: 6,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                subdomains: const ['a', 'b', 'c'],
-              ),
-
-              // ================= POLYLINE =================
-              PolylineLayer(polylines: _polylines),
-
-              // ================= GEOFENCE =================
-              CircleLayer(circles: _geofenceCircles),
-
-              // ================= MARKER =================
-              MarkerLayer(markers: _markers),
-            ],
-          ),
-
-          Positioned(
-            bottom: 20,
-            left: 20,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _busData.isNotEmpty
-                            ? "Bus: ${_busData.first['plat_nomor']}"
-                            : "Bus tidak ditemukan",
-
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      Text(
-                        perjalananStatus,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+          Expanded(
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: const LatLng(-7.9839, 112.6214),
+                    initialZoom: 6,
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                      subdomains: const ['a', 'b', 'c'],
+                    ),
 
-                    children: [
-                      // ================= JARAK =================
-                      Text(
-                        "Jarak: ${(distance / 1000).toStringAsFixed(1)} km",
+                    // ================= POLYLINE =================
+                    PolylineLayer(polylines: _polylines),
 
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                    // ================= GEOFENCE =================
+                    CircleLayer(circles: _geofenceCircles),
+
+                    // ================= MARKER =================
+                    MarkerLayer(markers: _markers),
+                  ],
+                ),
+
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    color: Colors.white,
+                    child: DropdownButtonFormField<int>(
+                      value: selectedBus?['id'],
+                      decoration: const InputDecoration(
+                        labelText: "Pilih Bus",
+                        border: OutlineInputBorder(),
                       ),
-
-                      const SizedBox(height: 5),
-
-                      // ================= ETA =================
-                      Text(
-                        "ETA: ${(duration / 60).toStringAsFixed(0)} menit",
-
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // ================= STATUS =================
-                      Row(
-                        children: [
-                          Icon(Icons.circle, color: statusColor, size: 14),
-
-                          const SizedBox(width: 8),
-
-                          Expanded(
-                            child: Text(
-                              perjalananStatus,
-
-                              style: TextStyle(
-                                color: statusColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      items: _busData.map((bus) {
+                        return DropdownMenuItem<int>(
+                          value: bus['id'],
+                          child: Text(
+                            "${bus['plat_nomor']} - ${bus['nama_bus'] ?? 'Bus'}",
                           ),
-                        ],
-                      ),
-                    ],
+                        );
+                      }).toList(),
+                      onChanged: (value) async {
+                        final bus = _busData.firstWhere(
+                          (b) => b['id'] == value,
+                        );
+
+                        setState(() {
+                          selectedBus = bus;
+                        });
+
+                        await _drawRoute(bus);
+                      },
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
