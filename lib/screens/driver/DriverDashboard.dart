@@ -703,19 +703,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                     );
 
                     return;
-                  }
-
-                  // ================= NAVIGATE =================
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MonitoringBusMapAdmin(
-                        companyId: companyId!,
-                        busId: widget.busId,
-                        userId: widget.userId,
-                      ),
-                    ),
-                  );
+                  } 
                 } catch (e) {
                   print("❌ START TRACKING ERROR: $e");
 
@@ -838,8 +826,82 @@ class _DriverDashboardState extends State<DriverDashboard>
                 ),
               ),
             ),
-
             const SizedBox(height: 25),
+
+            // ================= MONITORING BUTTON =================
+            const SizedBox(height: 18),
+
+            GestureDetector(
+              onTap: () {
+                if (companyId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Company belum ditemukan"),
+                    ),
+                  );
+
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MonitoringBusMapAdmin(
+                      companyId: companyId!,
+                      busId: widget.busId,
+                      userId: widget.userId,
+                    ),
+                  ),
+                );
+              },
+
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 22),
+
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF2563EB),
+                      Color(0xFF1D4ED8),
+                    ],
+                  ),
+
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.map,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+
+                    SizedBox(width: 10),
+
+                    Text(
+                      "LIHAT MONITORING",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
             // ================= INFO PANEL =================
             Container(

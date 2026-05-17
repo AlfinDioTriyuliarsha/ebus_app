@@ -89,17 +89,16 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   Future<void> _fetchBuses() async {
     try {
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/buses/${widget.busId}"),
       );
 
-      final data = jsonDecode(res.body)['data'];
+      final data = jsonDecode(res.body);
 
       setState(() {
-        _busData = List<Map<String, dynamic>>.from(data);
+        _busData = [data['data']];
       });
 
+      await _drawRoute(_busData.first);
       _generateRealtimeMarkers();
     } catch (e) {
       print("FETCH BUS ERROR: $e");
@@ -112,17 +111,13 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     realtimeTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       try {
         final res = await http.get(
-          Uri.parse(
-            "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-          ),
+          Uri.parse("${ApiService.baseUrl}/api/buses/${widget.busId}"),
         );
 
-        final data = jsonDecode(res.body)['data'];
-
-        if (!mounted) return;
+        final data = jsonDecode(res.body);
 
         setState(() {
-          _busData = List<Map<String, dynamic>>.from(data);
+          _busData = [data['data']];
         });
 
         // ================= UPDATE MARKER =================
@@ -779,75 +774,30 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
               ),
               child: Column(
                 children: [
-                  DropdownButton<int?>(
-                    value: selectedBusId,
-                    hint: const Text("Pilih Bus"),
-                    items: [
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text("Semua"),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _busData.isNotEmpty
+                            ? "Bus: ${_busData.first['plat_nomor']}"
+                            : "Bus tidak ditemukan",
+
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
 
-                      ..._busData.map(
-                        (b) => DropdownMenuItem<int?>(
-                          value: b['id'],
-                          child: Text(b['plat_nomor']),
+                      const SizedBox(height: 10),
+
+                      Text(
+                        perjalananStatus,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
-
-                    onChanged: (int? val) async {
-                      setState(() {
-                        selectedBusId = val;
-                      });
-
-                      if (selectedBusId == null) {
-                        _generateRealtimeMarkers();
-
-                        setState(() {
-                          _polylines = [];
-                        });
-
-                        return;
-                      }
-
-                      final found = _busData.where(
-                        (b) => b['id'] == selectedBusId,
-                      );
-
-                      if (found.isEmpty) return;
-
-                      final bus = found.first;
-
-                      // ================= DRAW ROUTE =================
-                      await _drawRoute(bus);
-
-                      // ================= AMBIL POSISI BUS =================
-                      final lat =
-                          double.tryParse(bus['latitude'].toString()) ?? 0;
-
-                      final lng =
-                          double.tryParse(bus['longitude'].toString()) ?? 0;
-
-                      // ================= HITUNG ETA =================
-                      if (geofenceData.isNotEmpty) {
-                        await calculateETA(
-                          startLat: lat,
-                          startLng: lng,
-
-                          endLat: double.parse(
-                            geofenceData.last['lat'].toString(),
-                          ),
-
-                          endLng: double.parse(
-                            geofenceData.last['lng'].toString(),
-                          ),
-                        );
-                      }
-
-                      // ================= UPDATE MARKER =================
-                      _generateRealtimeMarkers();
-                    },
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
