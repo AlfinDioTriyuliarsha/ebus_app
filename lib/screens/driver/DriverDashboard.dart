@@ -2,11 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ebus_app/screens/admin_perusahaan/MonitoringBusMapAdmin.dart';
+import 'package:ebus_app/screens/login_screen.dart';
+import 'package:ebus_app/services/api_service.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:http/http.dart' as http;
-import 'package:ebus_app/services/api_service.dart';
+
 import 'package:geolocator/geolocator.dart';
+
+import 'package:http/http.dart' as http;
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DriverDashboard extends StatefulWidget {
@@ -30,17 +35,13 @@ class _DriverDashboardState extends State<DriverDashboard> {
   bool isLoading = true;
 
   bool gpsConnected = false;
-
   bool trackingStarted = false;
   bool restoredTracking = false;
 
   String gpsStatus = "Mencari GPS...";
-
   double gpsAccuracy = 0;
 
   DateTime? lastGpsUpdate;
-
-  bool websocketConnected = false;
 
   int? companyId;
 
@@ -54,9 +55,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
     super.initState();
 
     checkDriver();
-
     getCompany();
-
     restoreTracking();
   }
 
@@ -144,17 +143,15 @@ class _DriverDashboardState extends State<DriverDashboard> {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Company tidak ditemukan")),
+          const SnackBar(
+            content: Text("Company tidak ditemukan"),
+          ),
         );
 
         return;
       }
 
       companyId = companyData['data']['id'];
-
-      if (mounted) {
-        setState(() {});
-      }
 
       final res = await http.post(
         Uri.parse("${ApiService.baseUrl}/api/drivers"),
@@ -174,7 +171,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Berhasil daftar driver")),
+          const SnackBar(
+            content: Text("Berhasil daftar driver"),
+          ),
         );
 
         checkDriver();
@@ -271,7 +270,6 @@ class _DriverDashboardState extends State<DriverDashboard> {
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 3,
         intervalDuration: const Duration(seconds: 2),
-
         foregroundNotificationConfig:
             const ForegroundNotificationConfig(
           notificationTitle: "E-Bus Tracking Aktif",
@@ -323,11 +321,33 @@ class _DriverDashboardState extends State<DriverDashboard> {
     });
   }
 
+  // ================= LOGOUT =================
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.clear();
+
+    final service = FlutterBackgroundService();
+
+    service.invoke("stopService");
+
+    await _gpsStream?.cancel();
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
   // ================= DISPOSE =================
   @override
   void dispose() {
     _gpsChecker?.cancel();
-
     _gpsStream?.cancel();
 
     super.dispose();
@@ -336,6 +356,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   // ================= UI =================
   @override
   Widget build(BuildContext context) {
+    // ================= LOADING =================
     if (isLoading) {
       return const Scaffold(
         body: Center(
@@ -347,26 +368,65 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // ================= BELUM TERDAFTAR =================
     if (!isRegistered) {
       return Scaffold(
+        backgroundColor: const Color(0xFFF4F7FE),
         appBar: AppBar(
-          title: const Text("Driver Dashboard"),
+          backgroundColor: const Color(0xFF001F3F),
+          title: const Text(
+            "Driver Dashboard",
+            style: TextStyle(color: Colors.white),
+          ),
         ),
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                "Anda belum terdaftar sebagai driver",
-              ),
-
-              const SizedBox(height: 20),
-
-              ElevatedButton(
-                onPressed: registerDriver,
-                child: const Text(
-                  "Daftar sebagai Driver",
+          child: Container(
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 15,
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.person_off,
+                  size: 90,
+                  color: Colors.orange,
+                ),
+
+                const SizedBox(height: 20),
+
+                const Text(
+                  "Anda belum terdaftar sebagai driver",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF001F3F),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 55),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  onPressed: registerDriver,
+                  icon: const Icon(Icons.app_registration),
+                  label: const Text("Daftar sebagai Driver"),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -375,12 +435,21 @@ class _DriverDashboardState extends State<DriverDashboard> {
     // ================= BELUM ADA BUS =================
     if (widget.busId == 0) {
       return Scaffold(
+        backgroundColor: const Color(0xFFF4F7FE),
         appBar: AppBar(
-          title: const Text("Driver Dashboard"),
+          backgroundColor: const Color(0xFF001F3F),
+          title: const Text(
+            "Driver Dashboard",
+            style: TextStyle(color: Colors.white),
+          ),
         ),
         body: const Center(
           child: Text(
             "Menunggu assign bus dari admin",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       );
@@ -388,48 +457,161 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
     // ================= DASHBOARD =================
     return Scaffold(
+      backgroundColor: const Color(0xFFF4F7FE),
+
       appBar: AppBar(
-        title: const Text("Driver Dashboard"),
+        backgroundColor: const Color(0xFF001F3F),
+        elevation: 0,
+
+        title: const Text(
+          "Driver Dashboard",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        actions: [
+          IconButton(
+            onPressed: () async {
+              final confirm = await showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    title: const Text("Logout"),
+                    content: const Text(
+                      "Apakah anda yakin ingin logout?",
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context, false);
+                        },
+                        child: const Text("Batal"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context, true);
+                        },
+                        child: const Text("Logout"),
+                      ),
+                    ],
+                  );
+                },
+              );
+
+              if (confirm == true) {
+                logout();
+              }
+            },
+            icon: const Icon(
+              Icons.logout,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-            children: [
-              Text("Email: ${widget.email}"),
 
-              Text("User ID: ${widget.userId}"),
-
-              Text("Bus ID: ${widget.busId}"),
-
-              const SizedBox(height: 20),
-
-              // ================= GPS STATUS =================
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 20,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // ================= HEADER CARD =================
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF001F3F),
+                    Color(0xFF003366),
+                  ],
                 ),
-                decoration: BoxDecoration(
-                  color: gpsConnected
-                      ? Colors.green.shade100
-                      : Colors.red.shade100,
-                  borderRadius:
-                      BorderRadius.circular(12),
-                  border: Border.all(
-                    color: gpsConnected
-                        ? Colors.green
-                        : Colors.red,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisSize:
-                          MainAxisSize.min,
-                      children: [
-                        Icon(
+                ],
+              ),
+              child: Column(
+                children: [
+                  const CircleAvatar(
+                    radius: 42,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.person,
+                      size: 50,
+                      color: Color(0xFF001F3F),
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  Text(
+                    widget.email,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      "Bus ID : ${widget.busId}",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+            // ================= STATUS GPS =================
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 15,
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: gpsConnected
+                            ? Colors.green.shade100
+                            : Colors.red.shade100,
+                        child: Icon(
                           gpsConnected
                               ? Icons.gps_fixed
                               : Icons.gps_off,
@@ -437,46 +619,99 @@ class _DriverDashboardState extends State<DriverDashboard> {
                               ? Colors.green
                               : Colors.red,
                         ),
-
-                        const SizedBox(width: 10),
-
-                        Text(
-                          gpsStatus,
-                          style: TextStyle(
-                            fontWeight:
-                                FontWeight.bold,
-                            color: gpsConnected
-                                ? Colors.green
-                                : Colors.red,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    if (lastGpsUpdate != null)
-                      Text(
-                        "Update terakhir: "
-                        "${lastGpsUpdate!.hour}:"
-                        "${lastGpsUpdate!.minute}:"
-                        "${lastGpsUpdate!.second}",
                       ),
-                  ],
-                ),
+
+                      const SizedBox(width: 15),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              gpsStatus,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: gpsConnected
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                            ),
+
+                            const SizedBox(height: 5),
+
+                            Text(
+                              "Akurasi GPS : ${gpsAccuracy.toStringAsFixed(1)} m",
+                              style: const TextStyle(
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  if (lastGpsUpdate != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.access_time,
+                            color: Colors.grey,
+                          ),
+
+                          const SizedBox(width: 10),
+
+                          Expanded(
+                            child: Text(
+                              "Update terakhir : "
+                              "${lastGpsUpdate!.hour.toString().padLeft(2, '0')}:"
+                              "${lastGpsUpdate!.minute.toString().padLeft(2, '0')}:"
+                              "${lastGpsUpdate!.second.toString().padLeft(2, '0')}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
+            ),
 
-              const SizedBox(height: 25),
+            const SizedBox(height: 30),
 
-              // ================= START TRACKING =================
-              ElevatedButton(
+            // ================= START BUTTON =================
+            SizedBox(
+              width: double.infinity,
+              height: 58,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  elevation: 8,
+                  shadowColor: Colors.green.withOpacity(0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+
                 onPressed: () async {
                   if (trackingStarted &&
                       restoredTracking == false) {
                     if (!mounted) return;
 
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
                           "Tracking sudah aktif",
@@ -494,8 +729,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   if (!serviceEnabled) {
                     if (!mounted) return;
 
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
                           "GPS belum aktif",
@@ -507,14 +741,12 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   }
 
                   LocationPermission permission =
-                      await Geolocator
-                          .checkPermission();
+                      await Geolocator.checkPermission();
 
                   if (permission ==
                       LocationPermission.denied) {
                     permission =
-                        await Geolocator
-                            .requestPermission();
+                        await Geolocator.requestPermission();
                   }
 
                   if (permission ==
@@ -524,8 +756,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                               .deniedForever) {
                     if (!mounted) return;
 
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
                           "Permission GPS ditolak",
@@ -543,23 +774,19 @@ class _DriverDashboardState extends State<DriverDashboard> {
                     ),
                   );
 
-                  // ================= SAVE PREFS =================
                   final prefs =
-                      await SharedPreferences
-                          .getInstance();
+                      await SharedPreferences.getInstance();
 
                   await prefs.setInt(
                     "bus_id",
                     widget.busId,
                   );
 
-                  // ================= START SERVICE =================
                   final service =
                       FlutterBackgroundService();
 
                   await service.startService();
 
-                  // ================= START FOREGROUND =================
                   await startForegroundTracking();
 
                   trackingStarted = true;
@@ -577,7 +804,6 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
                   print("✅ TRACKING STARTED");
 
-                  // ================= CHECK COMPANY =================
                   if (companyId == null) {
                     if (!mounted) return;
 
@@ -593,8 +819,6 @@ class _DriverDashboardState extends State<DriverDashboard> {
                     return;
                   }
 
-                  if (!mounted) return;
-
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -607,40 +831,53 @@ class _DriverDashboardState extends State<DriverDashboard> {
                     ),
                   );
                 },
-                child: const Text(
+
+                icon: const Icon(Icons.play_arrow_rounded),
+
+                label: const Text(
                   "Mulai Tracking Bus",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+            ),
 
-              // ================= STOP TRACKING =================
-              const SizedBox(height: 15),
+            const SizedBox(height: 18),
 
-              ElevatedButton(
+            // ================= STOP BUTTON =================
+            SizedBox(
+              width: double.infinity,
+              height: 58,
+              child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  elevation: 8,
+                  shadowColor: Colors.red.withOpacity(0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                 ),
+
                 onPressed: () async {
-                  // ================= STOP TRACKING API =================
                   await http.put(
                     Uri.parse(
                       "${ApiService.baseUrl}/api/buses/stop-tracking/${widget.busId}",
                     ),
                   );
 
-                  // ================= HAPUS PREFS =================
                   final prefs =
-                      await SharedPreferences
-                          .getInstance();
+                      await SharedPreferences.getInstance();
 
                   await prefs.remove("bus_id");
 
-                  // ================= STOP SERVICE =================
                   final service =
                       FlutterBackgroundService();
 
                   service.invoke("stopService");
 
-                  // ================= STOP STREAM =================
                   await _gpsStream?.cancel();
 
                   _gpsStream = null;
@@ -655,18 +892,24 @@ class _DriverDashboardState extends State<DriverDashboard> {
 
                   setState(() {
                     gpsConnected = false;
-                    gpsStatus =
-                        "Tracking Dihentikan";
+                    gpsStatus = "Tracking Dihentikan";
                   });
 
                   print("🛑 TRACKING STOPPED");
                 },
-                child: const Text(
+
+                icon: const Icon(Icons.stop_circle_outlined),
+
+                label: const Text(
                   "Sampai Tujuan / Stop Tracking",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
