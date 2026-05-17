@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+// ignore: library_prefixes
 import 'dart:math' as Math;
 
-import 'package:ebus_app/services/api_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:http/http.dart' as http;
+import 'package:ebus_app/services/api_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MonitoringBusMapAdmin extends StatefulWidget {
   final int companyId;
@@ -23,55 +24,27 @@ class MonitoringBusMapAdmin extends StatefulWidget {
   });
 
   @override
-  State<MonitoringBusMapAdmin> createState() =>
-      _MonitoringBusMapAdminState();
+  State<MonitoringBusMapAdmin> createState() => _MonitoringBusMapAdminState();
 }
 
-class _MonitoringBusMapAdminState
-    extends State<MonitoringBusMapAdmin>
+class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
+  List<Map<String, dynamic>> _busData = [];
+  List<Marker> _markers = [];
+  List<Polyline> _polylines = [];
+  List<CircleMarker> _geofenceCircles = [];
+  List<Marker> _checkpointMarkers = [];
 
   final MapController _mapController = MapController();
+
+  int? selectedBusId;
 
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  List<Map<String, dynamic>> _busData = [];
-
-  Map<String, dynamic>? selectedBus;
-
-  List<Marker> _markers = [];
-  List<Marker> _busMarkers = [];
-  List<Marker> _checkpointMarkers = [];
-
-  List<Polyline> _polylines = [];
-
-  List<CircleMarker> _geofenceCircles = [];
-
-  List<dynamic> geofenceData = [];
-
-  Timer? realtimeTimer;
-
   final Set<String> notifiedCheckpoints = {};
 
-  // =========================
-  // SPEED PER BUS
-  // =========================
-  final Map<int, LatLng> previousPositions = {};
-  final Map<int, DateTime> previousTimes = {};
-  final Map<int, double> busSpeeds = {};
-  final Map<int, LatLng> smoothPositions = {};
-
-  // =========================
-  // ETA
-  // =========================
-  double distance = 0;
-  double duration = 0;
-
-  String perjalananStatus = "Menunggu Data";
-  Color statusColor = Colors.grey;
+  List<dynamic> geofenceData = [];
 
   @override
   void initState() {
@@ -79,12 +52,30 @@ class _MonitoringBusMapAdminState
 
     initNotifications();
 
-    _initializeMap();
+    _startRealtimePolling();
+    _fetchBuses();
   }
 
-  // =========================
-  // NOTIFICATION
-  // =========================
+  double distance = 0;
+  double duration = 0;
+
+  String perjalananStatus = "Hijau";
+  Color statusColor = Colors.green;
+
+  Timer? etaTimer;
+  Timer? realtimeTimer;
+
+  LatLng? previousPosition;
+
+  DateTime? previousTime;
+
+  Map<int, LatLng> smoothPositions = {};
+
+  double currentSpeed = 0;
+
+  // ignore: annotate_overrides
+  bool get wantKeepAlive => true;
+
   Future<void> initNotifications() async {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -96,18 +87,6 @@ class _MonitoringBusMapAdminState
     await notificationsPlugin.initialize(settings);
   }
 
-  // =========================
-  // INITIAL
-  // =========================
-  Future<void> _initializeMap() async {
-    await _fetchBuses();
-
-    _startRealtimePolling();
-  }
-
-  // =========================
-  // FETCH BUS
-  // =========================
   Future<void> _fetchBuses() async {
     try {
       final res = await http.get(
@@ -116,460 +95,88 @@ class _MonitoringBusMapAdminState
         ),
       );
 
-      final data = jsonDecode(res.body);
-
-      print("🔥 RAW BUS DATA: ${res.body}");
-
-      if (data['success'] != true) {
-        print("❌ API FAILED");
-        return;
-      }
-
-      final buses = List<Map<String, dynamic>>.from(data['data']);
+      final data = jsonDecode(res.body)['data'];
 
       setState(() {
-        _busData = buses;
+        _busData = List<Map<String, dynamic>>.from(data);
       });
-
-      print("✅ TOTAL BUS: ${buses.length}");
-
-      // =========================
-      // PILIH BUS DEFAULT
-      // =========================
-      final validBus = buses.where((b) {
-        return b['route_id'] != null;
-      }).toList();
-
-      if (validBus.isNotEmpty) {
-        selectedBus = validBus.first;
-
-        await _drawRoute(selectedBus!);
-      }
 
       _generateRealtimeMarkers();
     } catch (e) {
-      print("❌ FETCH BUS ERROR: $e");
+      print("FETCH BUS ERROR: $e");
     }
   }
 
-  // =========================
-  // REALTIME POLLING
-  // =========================
   void _startRealtimePolling() {
     realtimeTimer?.cancel();
 
-    realtimeTimer = Timer.periodic(
-      const Duration(seconds: 3),
-      (timer) async {
-        try {
-          final res = await http.get(
-            Uri.parse(
-              "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-            ),
-          );
+    realtimeTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      try {
+        final res = await http.get(
+          Uri.parse(
+            "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+          ),
+        );
 
-          if (res.statusCode != 200) {
-            print("❌ GAGAL FETCH BUS");
-            return;
-          }
+        final data = jsonDecode(res.body)['data'];
 
-          final data = jsonDecode(res.body);
+        if (!mounted) return;
 
-          final buses =
-              List<Map<String, dynamic>>.from(data['data']);
+        setState(() {
+          _busData = List<Map<String, dynamic>>.from(data);
+        });
 
-          setState(() {
-            _busData = buses;
-          });
+        // ================= UPDATE MARKER =================
+        _generateRealtimeMarkers();
 
-          // =========================
-          // UPDATE BUS TERPILIH
-          // =========================
-          if (selectedBus != null) {
-            final updatedBus = buses.firstWhere(
-              (b) => b['id'] == selectedBus!['id'],
-              orElse: () => selectedBus!,
-            );
+        // ================= CHECKPOINT =================
+        for (var bus in _busData) {
+          final lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
 
-            selectedBus = updatedBus;
-          }
+          final lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
 
-          _generateRealtimeMarkers();
+          if (lat == 0 || lng == 0) continue;
 
-          // =========================
-          // LOOP BUS
-          // =========================
-          for (var bus in buses) {
-            final int busId = bus['id'];
+          checkCheckpoint(lat, lng);
 
-            final lat =
-                double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+          calculateSpeed(lat, lng);
 
-            final lng =
-                double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
-
-            print("GPS BUS $busId => $lat , $lng");
-
-            if (lat == 0 || lng == 0) {
-              print("GPS KOSONG");
-              continue;
-            }
-
-            checkCheckpoint(lat, lng);
-
-            calculateSpeed(busId, lat, lng);
-
-            // =========================
-            // ETA KHUSUS BUS TERPILIH
-            // =========================
-            if (selectedBus != null &&
-                selectedBus!['id'] == busId) {
-              if (geofenceData.isNotEmpty) {
-                await calculateETA(
-                  startLat: lat,
-                  startLng: lng,
-                  endLat: double.parse(
-                    geofenceData.last['lat'].toString(),
-                  ),
-                  endLng: double.parse(
-                    geofenceData.last['lng'].toString(),
-                  ),
-                );
-              }
+          // ================= ETA =================
+          if (selectedBusId != null && selectedBusId == bus['id']) {
+            if (geofenceData.isNotEmpty) {
+              await calculateETA(
+                startLat: lat,
+                startLng: lng,
+                endLat: double.parse(geofenceData.last['lat'].toString()),
+                endLng: double.parse(geofenceData.last['lng'].toString()),
+              );
             }
           }
-
-          print("✅ REALTIME UPDATED");
-        } catch (e) {
-          print("❌ POLLING ERROR: $e");
         }
-      },
-    );
-  }
 
-  // =========================
-  // SPEED
-  // =========================
-  void calculateSpeed(
-    int busId,
-    double lat,
-    double lng,
-  ) {
-    final now = DateTime.now();
-
-    if (!previousPositions.containsKey(busId)) {
-      previousPositions[busId] = LatLng(lat, lng);
-
-      previousTimes[busId] = now;
-
-      return;
-    }
-
-    final oldPos = previousPositions[busId]!;
-
-    final oldTime = previousTimes[busId]!;
-
-    final movedDistance = Geolocator.distanceBetween(
-      oldPos.latitude,
-      oldPos.longitude,
-      lat,
-      lng,
-    );
-
-    final seconds =
-        now.difference(oldTime).inSeconds.toDouble();
-
-    if (seconds <= 0) return;
-
-    final speed = (movedDistance / seconds) * 3.6;
-
-    // FILTER SPEED TIDAK MASUK AKAL
-    if (speed < 300) {
-      busSpeeds[busId] = speed;
-
-      print(
-        "🚌 BUS $busId SPEED: ${speed.toStringAsFixed(1)} km/h",
-      );
-
-      // STATUS KHUSUS BUS TERPILIH
-      if (selectedBus != null &&
-          selectedBus!['id'] == busId) {
-        determineTrafficStatus(speed);
+        print("✅ REALTIME UPDATED");
+      } catch (e) {
+        print("❌ POLLING ERROR: $e");
       }
-    }
-
-    previousPositions[busId] = LatLng(lat, lng);
-
-    previousTimes[busId] = now;
-  }
-
-  // =========================
-  // STATUS LALU LINTAS
-  // =========================
-  void determineTrafficStatus(double speed) {
-    if (speed > 30) {
-      setState(() {
-        perjalananStatus = "Hijau - Lancar";
-        statusColor = Colors.green;
-      });
-    } else if (speed > 10) {
-      setState(() {
-        perjalananStatus = "Kuning - Padat";
-        statusColor = Colors.orange;
-      });
-    } else {
-      setState(() {
-        perjalananStatus = "Merah - Macet";
-        statusColor = Colors.red;
-      });
-    }
-  }
-
-  // =========================
-  // MARKER REALTIME
-  // =========================
-  void _generateRealtimeMarkers() {
-    final markers = _busData
-        .map((bus) {
-          final busId = bus['id'];
-
-          double lat =
-              double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
-
-          double lng =
-              double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
-
-          if (lat == 0 || lng == 0) return null;
-
-          final oldPos = smoothPositions[busId];
-
-          LatLng smoothPos = LatLng(lat, lng);
-
-          if (oldPos != null) {
-            smoothPos = LatLng(
-              oldPos.latitude +
-                  ((lat - oldPos.latitude) * 0.3),
-              oldPos.longitude +
-                  ((lng - oldPos.longitude) * 0.3),
-            );
-          }
-
-          smoothPositions[busId] = smoothPos;
-
-          return Marker(
-            point: smoothPos,
-            width: 90,
-            height: 90,
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.directions_bus,
-                  color: Colors.green,
-                  size: 40,
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        bus['plat_nomor'] ?? '',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                      ),
-                      Text(
-                        "${busSpeeds[busId]?.toStringAsFixed(1) ?? '0'} km/h",
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        })
-        .whereType<Marker>()
-        .toList();
-
-    setState(() {
-      _busMarkers = markers;
-
-      _markers = [
-        ..._checkpointMarkers,
-        ..._busMarkers,
-      ];
     });
   }
 
-  // =========================
-  // DRAW ROUTE
-  // =========================
-  Future<void> _drawRoute(
-    Map<String, dynamic> bus,
-  ) async {
-    try {
-      if (bus['route_id'] == null) {
-        print("❌ ROUTE ID NULL");
-        return;
-      }
+  @override
+  void dispose() {
+    etaTimer?.cancel();
 
-      final points =
-          await fetchRoutePath(bus['route_id']);
+    realtimeTimer?.cancel();
 
-      if (points.isEmpty) {
-        print("❌ ROUTE KOSONG");
-        return;
-      }
-
-      await fetchGeofence(bus['route_id']);
-
-      setState(() {
-        _polylines = [
-          Polyline(
-            points: points,
-            strokeWidth: 5,
-            color: Colors.blue,
-          ),
-        ];
-      });
-
-      final checkpointMarkers = <Marker>[];
-      final geofenceCircles = <CircleMarker>[];
-
-      for (var checkpoint in geofenceData) {
-        final point = LatLng(
-          checkpoint['lat'],
-          checkpoint['lng'],
-        );
-
-        Color zoneColor = Colors.orange;
-
-        if (checkpoint['type'] == 'terminal_awal') {
-          zoneColor = Colors.green;
-        }
-
-        if (checkpoint['type'] == 'terminal_tujuan') {
-          zoneColor = Colors.red;
-        }
-
-        checkpointMarkers.add(
-          Marker(
-            point: point,
-            width: 140,
-            height: 60,
-            child: Column(
-              children: [
-                Icon(
-                  Icons.location_on,
-                  color: zoneColor,
-                  size: 35,
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    checkpoint['name'],
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-
-        geofenceCircles.add(
-          CircleMarker(
-            point: point,
-            radius: checkpoint['radius'],
-            useRadiusInMeter: true,
-            color: zoneColor.withOpacity(0.3),
-            borderColor: zoneColor,
-            borderStrokeWidth: 2,
-          ),
-        );
-      }
-
-      setState(() {
-        _checkpointMarkers = checkpointMarkers;
-
-        _geofenceCircles = geofenceCircles;
-
-        _markers = [
-          ..._checkpointMarkers,
-          ..._busMarkers,
-        ];
-      });
-
-      _mapController.move(points.first, 7);
-
-      print("✅ ROUTE DIGAMBAR");
-    } catch (e) {
-      print("❌ DRAW ROUTE ERROR: $e");
-    }
+    super.dispose();
   }
 
   // =========================
-  // FETCH ROUTE
+  // FETCH AWAL
   // =========================
-  Future<List<LatLng>> fetchRoutePath(
-    int routeId,
-  ) async {
+  Future<void> fetchGeofence(int routeId) async {
     try {
       final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/routes/$routeId",
-        ),
-      );
-
-      final data = jsonDecode(res.body);
-
-      if (data['success'] != true) {
-        return [];
-      }
-
-      final path = data['data']['path'];
-
-      return List.from(path).map((p) {
-        return LatLng(
-          double.parse(p['lat'].toString()),
-          double.parse(p['lng'].toString()),
-        );
-      }).toList();
-    } catch (e) {
-      print("FETCH ROUTE ERROR: $e");
-
-      return [];
-    }
-  }
-
-  // =========================
-  // FETCH GEOFENCE
-  // =========================
-  Future<void> fetchGeofence(
-    int routeId,
-  ) async {
-    try {
-      final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/routes/$routeId/geofence",
-        ),
+        Uri.parse("${ApiService.baseUrl}/api/routes/$routeId/geofence"),
       );
 
       final data = jsonDecode(res.body);
@@ -577,10 +184,10 @@ class _MonitoringBusMapAdminState
       if (data['success']) {
         List<dynamic> temp = [];
 
+        // TERMINAL AWAL
         if (data['terminal_awal'] != null) {
           temp.add({
-            "name":
-                data['terminal_awal']['nama_terminal'],
+            "name": data['terminal_awal']['nama_terminal'],
             "lat": data['terminal_awal']['lat'],
             "lng": data['terminal_awal']['lng'],
             "radius": 1000.0,
@@ -588,6 +195,7 @@ class _MonitoringBusMapAdminState
           });
         }
 
+        // CHECKPOINT
         for (var cp in data['checkpoints']) {
           temp.add({
             "name": cp['nama'],
@@ -598,10 +206,10 @@ class _MonitoringBusMapAdminState
           });
         }
 
+        // TERMINAL TUJUAN
         if (data['terminal_tujuan'] != null) {
           temp.add({
-            "name":
-                data['terminal_tujuan']['nama_terminal'],
+            "name": data['terminal_tujuan']['nama_terminal'],
             "lat": data['terminal_tujuan']['lat'],
             "lng": data['terminal_tujuan']['lng'],
             "radius": 1000.0,
@@ -618,9 +226,29 @@ class _MonitoringBusMapAdminState
     }
   }
 
-  // =========================
-  // ETA
-  // =========================
+  // =======================
+  // rute
+  // =======================
+  Future<List<LatLng>> getRealRoute(List<LatLng> points) async {
+    final coordinates = points
+        .map((p) => "${p.longitude},${p.latitude}")
+        .join(";");
+
+    final url =
+        "https://router.project-osrm.org/route/v1/driving/$coordinates?overview=full&geometries=geojson";
+
+    final res = await http.get(Uri.parse(url));
+
+    final data = jsonDecode(res.body);
+
+    final coords = data['routes'][0]['geometry']['coordinates'];
+
+    return coords.map<LatLng>((c) => LatLng(c[1], c[0])).toList();
+  }
+
+  // =======================
+  //calculate
+  // =======================
   Future<void> calculateETA({
     required double startLat,
     required double startLng,
@@ -630,30 +258,353 @@ class _MonitoringBusMapAdminState
     try {
       final url =
           "https://router.project-osrm.org/route/v1/driving/"
-          "$startLng,$startLat;$endLng,$endLat?overview=false";
+          "$startLng,$startLat;$endLng,$endLat"
+          "?overview=false";
 
-      final response =
-          await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url));
 
       final data = jsonDecode(response.body);
 
-      if (data['routes'] != null &&
-          data['routes'].isNotEmpty) {
+      if (data['routes'] != null && data['routes'].isNotEmpty) {
         final route = data['routes'][0];
 
         setState(() {
+          // meter
           distance = route['distance'];
+
+          // detik
           duration = route['duration'];
         });
+
+        determineStatus();
       }
     } catch (e) {
-      print("ETA ERROR: $e");
+      print("CALCULATE ETA ERROR: $e");
+    }
+  }
+
+  void determineStatus() {
+    double durationHours = duration / 3600;
+
+    // ================= HIJAU =================
+    if (durationHours <= 1) {
+      setState(() {
+        perjalananStatus = "Hijau - Perjalanan Lancar";
+
+        statusColor = Colors.green;
+      });
+    }
+    // ================= KUNING =================
+    else if (durationHours > 1 && durationHours <= 4) {
+      setState(() {
+        perjalananStatus = "Kuning - Kendala Ringan";
+
+        statusColor = Colors.orange;
+      });
+    }
+    // ================= MERAH =================
+    else {
+      setState(() {
+        perjalananStatus = "Merah - Kendala Berat";
+
+        statusColor = Colors.red;
+      });
+    }
+  }
+
+  void calculateSpeed(double lat, double lng) {
+    final now = DateTime.now();
+
+    // ================= POSISI PERTAMA =================
+    if (previousPosition == null || previousTime == null) {
+      previousPosition = LatLng(lat, lng);
+
+      previousTime = now;
+
+      return;
+    }
+
+    // ================= HITUNG JARAK =================
+    double movedDistance = Geolocator.distanceBetween(
+      previousPosition!.latitude,
+      previousPosition!.longitude,
+
+      lat,
+      lng,
+    );
+
+    // ================= HITUNG WAKTU =================
+    double seconds = now.difference(previousTime!).inSeconds.toDouble();
+
+    if (seconds > 0) {
+      // m/s -> km/h
+      currentSpeed = (movedDistance / seconds) * 3.6;
+
+      print(
+        "KECEPATAN BUS: "
+        "${currentSpeed.toStringAsFixed(1)} km/h",
+      );
+
+      determineTrafficStatus();
+    }
+
+    previousPosition = LatLng(lat, lng);
+
+    previousTime = now;
+  }
+
+  void determineTrafficStatus() {
+    // ================= LANCAR =================
+    if (currentSpeed > 30) {
+      setState(() {
+        perjalananStatus = "Hijau - Perjalanan Lancar";
+
+        statusColor = Colors.green;
+      });
+    }
+    // ================= PADAT =================
+    else if (currentSpeed > 10 && currentSpeed <= 30) {
+      setState(() {
+        perjalananStatus = "Kuning - Lalu Lintas Padat";
+
+        statusColor = Colors.orange;
+      });
+    }
+    // ================= MACET =================
+    else {
+      setState(() {
+        perjalananStatus = "Merah - Kemacetan Tinggi";
+
+        statusColor = Colors.red;
+      });
     }
   }
 
   // =========================
-  // CHECKPOINT
+  // MARKER REALTIME
   // =========================
+  void _generateRealtimeMarkers() {
+    final busMarkers = _busData
+        .map((bus) {
+          double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+
+          double lng =
+              double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
+
+          if (lat == 0 || lng == 0) return null;
+
+          // FILTER BUS TERPILIH
+          if (selectedBusId != null && bus['id'] != selectedBusId) {
+            return null;
+          }
+
+          final oldPos = smoothPositions[bus['id']];
+
+          LatLng smoothPos = LatLng(lat, lng);
+
+          if (oldPos != null) {
+            smoothPos = LatLng(
+              oldPos.latitude + ((lat - oldPos.latitude) * 0.3),
+              oldPos.longitude + ((lng - oldPos.longitude) * 0.3),
+            );
+          }
+
+          smoothPositions[bus['id']] = smoothPos;
+
+          return Marker(
+            point: smoothPos,
+            width: 70,
+            height: 70,
+            child: Column(
+              children: [
+                const Icon(Icons.directions_bus, color: Colors.green, size: 32),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    bus['plat_nomor'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        })
+        .whereType<Marker>()
+        .toList();
+
+    setState(() {
+      _markers = [...busMarkers, ..._checkpointMarkers];
+    });
+  }
+
+  // =========================
+  // drawRoute
+  // =========================
+  Future<void> _drawRoute(Map<String, dynamic> bus) async {
+    try {
+      if (bus['route_id'] == null) {
+        print("❌ ROUTE ID NULL");
+        return;
+      }
+
+      final points = await fetchRoutePath(bus['route_id']);
+
+      if (points.isEmpty) {
+        print("❌ ROUTE KOSONG");
+        return;
+      }
+
+      await fetchGeofence(bus['route_id']);
+
+      final checkpointMarkers = <Marker>[];
+      final geofenceCircles = <CircleMarker>[];
+
+      for (var checkpoint in geofenceData) {
+        final point = LatLng(
+          double.parse(checkpoint['lat'].toString()),
+          double.parse(checkpoint['lng'].toString()),
+        );
+
+        Color zoneColor = Colors.orange;
+
+        if (checkpoint['type'] == 'terminal_awal') {
+          zoneColor = Colors.green;
+        }
+
+        if (checkpoint['type'] == 'terminal_tujuan') {
+          zoneColor = Colors.red;
+        }
+
+        checkpointMarkers.add(
+          Marker(
+            point: point,
+            width: 100,
+            height: 50,
+            child: Column(
+              children: [
+                Icon(Icons.location_on, color: zoneColor, size: 28),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    checkpoint['name'],
+                    style: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        geofenceCircles.add(
+          CircleMarker(
+            point: point,
+            radius: checkpoint['radius'],
+            useRadiusInMeter: true,
+            color: zoneColor.withOpacity(0.2),
+            borderColor: zoneColor,
+            borderStrokeWidth: 2,
+          ),
+        );
+      }
+
+      setState(() {
+        _checkpointMarkers = checkpointMarkers;
+
+        _geofenceCircles = geofenceCircles;
+
+        _polylines = [
+          Polyline(points: points, strokeWidth: 5, color: Colors.blue),
+        ];
+      });
+
+      _generateRealtimeMarkers();
+
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(points),
+          padding: const EdgeInsets.all(50),
+        ),
+      );
+
+      print("✅ ROUTE BERHASIL");
+    } catch (e) {
+      print("❌ DRAW ROUTE ERROR: $e");
+    }
+  }
+
+  Future<List<LatLng>> fetchRoutePath(int routeId) async {
+    try {
+      final res = await http.get(
+        Uri.parse("${ApiService.baseUrl}/api/routes/$routeId"),
+      );
+
+      final data = jsonDecode(res.body);
+
+      if (data['success'] != true) {
+        return [];
+      }
+
+      final path = data['data']['path'];
+
+      if (path == null) {
+        return [];
+      }
+
+      return List.from(path).map<LatLng>((p) {
+        return LatLng(
+          double.parse(p['lat'].toString()),
+          double.parse(p['lng'].toString()),
+        );
+      }).toList();
+    } catch (e) {
+      print("FETCH ROUTE ERROR: $e");
+      return [];
+    }
+  }
+
+  // =========================
+  // HITUNG ARAH
+  // =========================
+  // ignore: unused_element
+  double _bearing(LatLng start, LatLng end) {
+    final lat1 = start.latitude * Math.pi / 180;
+    final lon1 = start.longitude * Math.pi / 180;
+    final lat2 = end.latitude * Math.pi / 180;
+    final lon2 = end.longitude * Math.pi / 180;
+
+    final dLon = lon2 - lon1;
+
+    final y = Math.sin(dLon) * Math.cos(lat2);
+    final x =
+        Math.cos(lat1) * Math.sin(lat2) -
+        Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+    return Math.atan2(y, x);
+  }
+
   bool isInsideGeofence({
     required double busLat,
     required double busLng,
@@ -671,35 +622,23 @@ class _MonitoringBusMapAdminState
     return distance <= radius;
   }
 
-  Future<void> showNotification(
-    String title,
-    String body,
-  ) async {
-    const AndroidNotificationDetails
-    androidDetails = AndroidNotificationDetails(
-      'checkpoint_channel',
-      'Checkpoint Notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
+  Future<void> showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'checkpoint_channel',
+          'Checkpoint Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+        );
 
-    const NotificationDetails details =
-        NotificationDetails(
+    const NotificationDetails details = NotificationDetails(
       android: androidDetails,
     );
 
-    await notificationsPlugin.show(
-      0,
-      title,
-      body,
-      details,
-    );
+    await notificationsPlugin.show(0, title, body, details);
   }
 
-  void checkCheckpoint(
-    double lat,
-    double lng,
-  ) {
+  void checkCheckpoint(double lat, double lng) {
     for (var checkpoint in geofenceData) {
       final inside = isInsideGeofence(
         busLat: lat,
@@ -711,25 +650,14 @@ class _MonitoringBusMapAdminState
 
       final checkpointName = checkpoint['name'];
 
-      if (inside &&
-          !notifiedCheckpoints.contains(
-            checkpointName,
-          )) {
+      if (inside && !notifiedCheckpoints.contains(checkpointName)) {
         notifiedCheckpoints.add(checkpointName);
 
-        showNotification(
-          "Checkpoint",
-          "Bus mendekati $checkpointName",
-        );
+        print("✅ MASUK CHECKPOINT: $checkpointName");
+
+        showNotification("Checkpoint", "Bus mendekati $checkpointName");
       }
     }
-  }
-
-  @override
-  void dispose() {
-    realtimeTimer?.cancel();
-
-    super.dispose();
   }
 
   // =========================
@@ -738,152 +666,169 @@ class _MonitoringBusMapAdminState
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Monitoring Armada"),
         backgroundColor: const Color(0xFF001F3F),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // =========================
-          // DROPDOWN
-          // =========================
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: Colors.white,
-            child: DropdownButtonFormField<int>(
-              value: selectedBus?['id'],
-              decoration: const InputDecoration(
-                labelText: "Pilih Bus",
-                border: OutlineInputBorder(),
-              ),
-              items: _busData
-                  .where((bus) => bus['route_id'] != null)
-                  .map((bus) {
-                return DropdownMenuItem<int>(
-                  value: bus['id'],
-                  child: Text(
-                    "${bus['plat_nomor']} - ${bus['nama_rute'] ?? 'Tanpa Rute'}",
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) async {
-                if (value == null) return;
-
-                final bus = _busData.firstWhere(
-                  (b) => b['id'] == value,
-                );
-
-                setState(() {
-                  selectedBus = bus;
-                });
-
-                await _drawRoute(bus);
-              },
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: const LatLng(-7.9839, 112.6214),
+              initialZoom: 6,
             ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                subdomains: const ['a', 'b', 'c'],
+              ),
+
+              // ================= POLYLINE =================
+              PolylineLayer(polylines: _polylines),
+
+              // ================= GEOFENCE =================
+              CircleLayer(circles: _geofenceCircles),
+
+              // ================= MARKER =================
+              MarkerLayer(markers: _markers),
+            ],
           ),
 
-          // =========================
-          // INFO ETA
-          // =========================
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(
-              horizontal: 12,
-            ),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  blurRadius: 4,
-                  color: Colors.black12,
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Bus: ${selectedBus?['plat_nomor'] ?? '-'}",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+          Positioned(
+            top: 10,
+            left: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 5,
                   ),
-                ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 40,
+                    child: DropdownButton<int?>(
+                      value: selectedBusId,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      hint: const Text(
+                        "Pilih Bus",
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text(
+                            "Semua Bus",
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
 
-                const SizedBox(height: 8),
+                        ..._busData.map(
+                          (b) => DropdownMenuItem<int?>(
+                            value: b['id'],
+                            child: Text(
+                              b['plat_nomor'],
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (val) async {
+                        setState(() {
+                          selectedBusId = val;
+                        });
 
-                Text(
-                  "Jarak: ${(distance / 1000).toStringAsFixed(1)} KM",
-                ),
+                        // SEMUA BUS
+                        if (val == null) {
+                          setState(() {
+                            _polylines = [];
+                            _checkpointMarkers = [];
+                            _geofenceCircles = [];
+                          });
 
-                Text(
-                  "Estimasi: ${(duration / 60).toStringAsFixed(0)} Menit",
-                ),
+                          _generateRealtimeMarkers();
+                          return;
+                        }
 
-                Text(
-                  "Kecepatan: ${busSpeeds[selectedBus?['id']]?.toStringAsFixed(1) ?? '0'} km/h",
-                ),
+                        final bus = _busData.firstWhere((b) => b['id'] == val);
 
-                const SizedBox(height: 8),
+                        await _drawRoute(bus);
 
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    borderRadius:
-                        BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    perjalananStatus,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                        final lat =
+                            double.tryParse(bus['latitude'].toString()) ?? 0;
+
+                        final lng =
+                            double.tryParse(bus['longitude'].toString()) ?? 0;
+
+                        if (geofenceData.isNotEmpty) {
+                          await calculateETA(
+                            startLat: lat,
+                            startLng: lng,
+                            endLat: double.parse(
+                              geofenceData.last['lat'].toString(),
+                            ),
+                            endLng: double.parse(
+                              geofenceData.last['lng'].toString(),
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
 
-          const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
-          // =========================
-          // MAP
-          // =========================
-          Expanded(
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter:
-                    const LatLng(-7.9839, 112.6214),
-                initialZoom: 6,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Text(
+                        "Jarak ${(distance / 1000).toStringAsFixed(1)} km",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      Text(
+                        "ETA ${(duration / 60).toStringAsFixed(0)} mnt",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      Row(
+                        children: [
+                          Icon(Icons.circle, color: statusColor, size: 10),
+
+                          const SizedBox(width: 4),
+
+                          Text(
+                            perjalananStatus,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                ),
-
-                PolylineLayer(
-                  polylines: _polylines,
-                ),
-
-                CircleLayer(
-                  circles: _geofenceCircles,
-                ),
-
-                MarkerLayer(
-                  markers: _markers,
-                ),
-              ],
             ),
           ),
         ],
