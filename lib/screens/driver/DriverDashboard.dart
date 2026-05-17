@@ -265,13 +265,10 @@ class _DriverDashboardState extends State<DriverDashboard>
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
-      if (!mounted) return;
-
       setState(() {
         gpsConnected = false;
         gpsStatus = "GPS OFF";
       });
-
       return;
     }
 
@@ -283,65 +280,59 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      if (!mounted) return;
-
       setState(() {
         gpsConnected = false;
         gpsStatus = "Permission Ditolak";
       });
-
       return;
     }
 
+    // CANCEL STREAM LAMA
     await _gpsStream?.cancel();
 
-    _gpsStream =
-        Geolocator.getPositionStream(
-          locationSettings: AndroidSettings(
-            accuracy: LocationAccuracy.bestForNavigation,
-            distanceFilter: 3,
-            intervalDuration: const Duration(seconds: 2),
-            foregroundNotificationConfig: const ForegroundNotificationConfig(
-              notificationTitle: "E-Bus Tracking Aktif",
-              notificationText: "Lokasi bus sedang berjalan di background",
-              enableWakeLock: true,
-            ),
+    print("🚀 GPS STREAM STARTED");
+
+    _gpsStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 1,
+      ),
+    ).listen((Position position) async {
+      print("========== GPS DRIVER ==========");
+      print(position.latitude);
+      print(position.longitude);
+
+      try {
+        final response = await http.put(
+          Uri.parse(
+            "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
           ),
-        ).listen((Position position) async {
-          print("========== GPS DRIVER ==========");
-          print(position.latitude);
-          print(position.longitude);
-          print(position.accuracy);
-          try {
-            final res = await http.put(
-              Uri.parse(
-                "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
-              ),
-              headers: {"Content-Type": "application/json"},
-              body: jsonEncode({
-                "latitude": position.latitude,
-                "longitude": position.longitude,
-              }),
-            );
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode({
+            "latitude": position.latitude,
+            "longitude": position.longitude,
+            "is_tracking": 1,
+            "updated_at": DateTime.now().toIso8601String(),
+          }),
+        );
 
-            print("GPS RESPONSE: ${res.statusCode} - ${res.body}");
-          } catch (e) {
-            print("❌ SEND GPS ERROR: $e");
-          }
+        print("✅ GPS UPDATED ${response.statusCode}");
+      } catch (e) {
+        print("❌ SEND GPS ERROR: $e");
+      }
 
-          if (!mounted) return;
+      if (!mounted) return;
 
-          setState(() {
-            gpsConnected = true;
-
-            gpsStatus =
-                "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
-
-            gpsAccuracy = position.accuracy;
-
-            lastGpsUpdate = DateTime.now();
-          });
-        });
+      setState(() {
+        gpsConnected = true;
+        gpsStatus =
+            "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
+        gpsAccuracy = position.accuracy;
+        lastGpsUpdate = DateTime.now();
+      });
+    });
   }
 
   // ================= LOGOUT =================
@@ -783,8 +774,14 @@ class _DriverDashboardState extends State<DriverDashboard>
 
                 await http.put(
                   Uri.parse(
-                    "${ApiService.baseUrl}/api/buses/stop-tracking/${widget.busId}",
+                    "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
                   ),
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: jsonEncode({
+                    "is_tracking": 0,
+                  }),
                 );
 
                 service.invoke("stopService");

@@ -354,11 +354,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     }
 
     // ================= FILTER DIAM =================
-    if (movedDistance < 8) {
+    if (movedDistance < 1) {
       speed = 0;
-
-      // JANGAN UPDATE POSITION
-      return;
     }
 
     currentSpeeds[busId] = speed;
@@ -401,7 +398,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   void _generateRealtimeMarkers() {
     final markers = _busData
         .where((bus) {
-          // FILTER BUS
+          // hanya bus tracking aktif
+          if (bus['is_tracking'] != 1) {
+            return false;
+          }
+
           if (selectedBusId == null) {
             return true;
           }
@@ -445,33 +446,17 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
               children: [
                 const Icon(Icons.directions_bus, color: Colors.green, size: 32),
 
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
+                Text(
+                  bus['plat_nomor'] ?? '',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
 
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-
-                  child: Column(
-                    children: [
-                      Text(
-                        bus['plat_nomor'] ?? '',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      Text(
-                        "${currentSpeeds[bus['id']]?.toStringAsFixed(1) ?? '0'} km/h",
-                        style: const TextStyle(fontSize: 8),
-                      ),
-                    ],
-                  ),
+                Text(
+                  "${currentSpeeds[bus['id']]?.toStringAsFixed(1) ?? '0'} km/h",
+                  style: const TextStyle(fontSize: 9),
                 ),
               ],
             ),
