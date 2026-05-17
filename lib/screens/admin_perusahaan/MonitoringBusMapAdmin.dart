@@ -439,24 +439,38 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           smoothPositions[bus['id']] = finalPosition;
 
           return Marker(
-            point: finalPosition,
-            width: 90,
-            height: 70,
+            point: LatLng(lat, lng),
+            width: 80,
+            height: 80,
             child: Column(
               children: [
-                const Icon(Icons.directions_bus, color: Colors.green, size: 32),
+                const Icon(Icons.directions_bus, color: Colors.green, size: 36),
 
-                Text(
-                  bus['plat_nomor'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
                   ),
-                ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        bus['plat_nomor'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
 
-                Text(
-                  "${currentSpeeds[bus['id']]?.toStringAsFixed(1) ?? '0'} km/h",
-                  style: const TextStyle(fontSize: 9),
+                      Text(
+                        "${currentSpeeds[bus['id']]?.toStringAsFixed(1) ?? '0'} km/h",
+                        style: const TextStyle(fontSize: 9),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

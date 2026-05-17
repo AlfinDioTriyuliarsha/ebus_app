@@ -68,10 +68,11 @@ void onStart(ServiceInstance service) async {
   final prefs = await SharedPreferences.getInstance();
 
   final busId = prefs.getInt("bus_id");
+  final trackingActive = prefs.getBool("tracking_active") ?? false;
 
-  if (busId == null) {
-    print("❌ BUS ID TIDAK DITEMUKAN");
-
+  if (busId == null || !trackingActive) {
+    print("❌ TRACKING BELUM AKTIF");
+    service.stopSelf();
     return;
   }
 

@@ -8,6 +8,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 class DriverDashboard extends StatefulWidget {
   final String email;
@@ -75,18 +76,14 @@ class _DriverDashboardState extends State<DriverDashboard>
       trackingStarted = true;
       restoredTracking = true;
 
-      _startGpsChecker();
-
-      await startForegroundTracking();
-
       if (!mounted) return;
 
       setState(() {
-        gpsConnected = true;
-        gpsStatus = "Tracking aktif";
+        gpsConnected = false;
+        gpsStatus = "Tracking siap dilanjutkan";
       });
 
-      print("✅ TRACKING RESTORED");
+      print("✅ TRACKING RESTORED TANPA START GPS");
     }
   }
 
@@ -292,47 +289,46 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     print("🚀 GPS STREAM STARTED");
 
-    _gpsStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 1,
-      ),
-    ).listen((Position position) async {
-      print("========== GPS DRIVER ==========");
-      print(position.latitude);
-      print(position.longitude);
-
-      try {
-        final response = await http.put(
-          Uri.parse(
-            "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+    _gpsStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            distanceFilter: 1,
           ),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: jsonEncode({
-            "latitude": position.latitude,
-            "longitude": position.longitude,
-            "is_tracking": 1,
-            "updated_at": DateTime.now().toIso8601String(),
-          }),
-        );
+        ).listen((Position position) async {
+          print("========== GPS DRIVER ==========");
+          print(position.latitude);
+          print(position.longitude);
 
-        print("✅ GPS UPDATED ${response.statusCode}");
-      } catch (e) {
-        print("❌ SEND GPS ERROR: $e");
-      }
+          try {
+            final response = await http.put(
+              Uri.parse(
+                "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+              ),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "latitude": position.latitude,
+                "longitude": position.longitude,
+                "is_tracking": 1,
+                "updated_at": DateTime.now().toIso8601String(),
+              }),
+            );
 
-      if (!mounted) return;
+            print("✅ GPS UPDATED ${response.statusCode}");
+          } catch (e) {
+            print("❌ SEND GPS ERROR: $e");
+          }
 
-      setState(() {
-        gpsConnected = true;
-        gpsStatus =
-            "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
-        gpsAccuracy = position.accuracy;
-        lastGpsUpdate = DateTime.now();
-      });
-    });
+          if (!mounted) return;
+
+          setState(() {
+            gpsConnected = true;
+            gpsStatus =
+                "GPS Connected (${position.accuracy.toStringAsFixed(1)}m)";
+            gpsAccuracy = position.accuracy;
+            lastGpsUpdate = DateTime.now();
+          });
+        });
   }
 
   // ================= LOGOUT =================
@@ -345,6 +341,7 @@ class _DriverDashboardState extends State<DriverDashboard>
 
       // ================= STOP TRACKING =================
       final service = FlutterBackgroundService();
+      await prefs.setBool("tracking_started", false);
 
       service.invoke("stopService");
 
@@ -353,6 +350,12 @@ class _DriverDashboardState extends State<DriverDashboard>
       _gpsChecker?.cancel();
 
       trackingStarted = false;
+
+      if (!kIsWeb) {
+        final service = FlutterBackgroundService();
+
+        service.invoke("stopService");
+      }
 
       if (!mounted) return;
 
@@ -662,6 +665,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                   final prefs = await SharedPreferences.getInstance();
 
                   await prefs.setInt("bus_id", widget.busId);
+                  await prefs.setBool("tracking_active", true);
 
                   // ================= START SERVICE =================
                   final service = FlutterBackgroundService();
@@ -769,6 +773,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                 final prefs = await SharedPreferences.getInstance();
 
                 await prefs.remove("bus_id");
+                await prefs.remove("tracking_active");
 
                 final service = FlutterBackgroundService();
 
@@ -776,12 +781,8 @@ class _DriverDashboardState extends State<DriverDashboard>
                   Uri.parse(
                     "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
                   ),
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: jsonEncode({
-                    "is_tracking": 0,
-                  }),
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({"is_tracking": 0}),
                 );
 
                 service.invoke("stopService");
