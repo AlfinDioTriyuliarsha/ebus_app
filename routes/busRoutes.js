@@ -67,6 +67,45 @@ router.get("/", async (req, res) => {
 });
 
 // =======================
+// GET BUS BY ID (FIX)
+// =======================
+router.get("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query(
+            `SELECT 
+                b.*,
+                r.nama_rute,
+                r.path
+             FROM buses b
+             LEFT JOIN routes r ON b.route_id = r.id
+             WHERE b.id = $1`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Bus tidak ditemukan"
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error("GET BUS BY ID ERROR:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+// =======================
 // POST BUS
 // =======================
 router.post("/", async (req, res) => {
@@ -171,28 +210,42 @@ router.put("/update-location/:id", async (req, res) => {
     }
 
     try {
-        const result = await pool.query(
-            `UPDATE buses 
-             SET latitude=$1, longitude=$2, updated_at=NOW()
-             WHERE id=$3 RETURNING *`,
-            [latitude, longitude, id]
+        // 🔥 CEK STATUS TRACKING
+        const busCheck = await pool.query(
+            "SELECT is_tracking FROM buses WHERE id=$1",
+            [id]
         );
 
-        if (result.rows.length === 0) {
+        if (busCheck.rows.length === 0) {
             return res.status(404).json({
                 success: false,
                 error: "Bus tidak ditemukan"
             });
         }
 
-        // 🔥 REALTIME DI SINI
+        // ❌ JIKA BELUM START TRACKING
+        if (!busCheck.rows[0].is_tracking) {
+            return res.status(403).json({
+                success: false,
+                message: "Tracking belum dimulai"
+            });
+        }
+
+        // ✅ UPDATE GPS
+        const result = await pool.query(
+            `UPDATE buses 
+             SET latitude=$1, longitude=$2, updated_at=NOW()
+             WHERE id=$3
+             RETURNING *`,
+            [latitude, longitude, id]
+        );
+
+        // realtime websocket
         broadcastLocation({
             bus_id: id,
             latitude,
             longitude
         });
-
-        console.log("📡 BROADCAST:", id, latitude, longitude);
 
         res.json({
             success: true,
@@ -259,6 +312,59 @@ router.get("/driver/:user_id", async (req, res) => {
       error: err.message,
     });
   }
+});
+
+router.put("/start-tracking/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query(
+            `UPDATE buses 
+             SET is_tracking = true 
+             WHERE id = $1
+             RETURNING *`,
+            [id]
+        );
+
+        res.json({
+            success: true,
+            message: "Tracking dimulai",
+            data: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+router.put("/stop-tracking/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query(
+            `UPDATE buses 
+             SET is_tracking = false 
+             WHERE id = $1
+             RETURNING *`,
+            [id]
+        );
+
+        res.json({
+            success: true,
+            message: "Tracking dihentikan",
+            data: result.rows[0]
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
 });
 
 // =======================
