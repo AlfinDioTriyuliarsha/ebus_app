@@ -113,8 +113,13 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       print("✅ TOTAL BUS: ${buses.length}");
 
-      if (buses.isNotEmpty) {
-        await _drawRoute(buses.first);
+      final currentBus = buses.firstWhere(
+        (b) => b['id'] == widget.busId,
+        orElse: () => {},
+      );
+
+      if (currentBus.isNotEmpty) {
+        await _drawRoute(currentBus);
       }
 
       _generateRealtimeMarkers();
