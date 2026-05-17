@@ -385,7 +385,20 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   // MARKER REALTIME
   // =========================
   void _generateRealtimeMarkers() {
-    final busMarkers = _busData
+    final markers = _busData
+        .where((bus) {
+          // =========================
+          // JIKA PILIH SEMUA
+          // =========================
+          if (selectedBusId == null) {
+            return true;
+          }
+
+          // =========================
+          // HANYA BUS TERPILIH
+          // =========================
+          return bus['id'] == selectedBusId;
+        })
         .map((bus) {
           double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
 
@@ -394,15 +407,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
           if (lat == 0 || lng == 0) return null;
 
-          // FILTER BUS TERPILIH
-          if (selectedBusId != null && bus['id'] != selectedBusId) {
-            return null;
-          }
-
           final oldPos = smoothPositions[bus['id']];
 
           LatLng smoothPos = LatLng(lat, lng);
 
+          // ================= SMOOTH =================
           if (oldPos != null) {
             smoothPos = LatLng(
               oldPos.latitude + ((lat - oldPos.latitude) * 0.3),
@@ -414,8 +423,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
           return Marker(
             point: smoothPos,
-            width: 70,
-            height: 70,
+            width: 55,
+            height: 55,
             child: Column(
               children: [
                 const Icon(Icons.directions_bus, color: Colors.green, size: 32),
@@ -432,7 +441,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                   child: Text(
                     bus['plat_nomor'] ?? '',
                     style: const TextStyle(
-                      fontSize: 9,
+                      fontSize: 8,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -445,7 +454,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         .toList();
 
     setState(() {
-      _markers = [...busMarkers, ..._checkpointMarkers];
+      _markers = [...markers, ..._checkpointMarkers];
     });
   }
 
@@ -570,7 +579,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           Polyline(points: points, strokeWidth: 5, color: Colors.blue),
         ];
 
-        _markers = [...busMarkers, ...checkpointMarkers];
+        _checkpointMarkers = checkpointMarkers;
+
+        _markers = [...busMarkers, ..._checkpointMarkers];
 
         _geofenceCircles = geofenceCircles;
       });
