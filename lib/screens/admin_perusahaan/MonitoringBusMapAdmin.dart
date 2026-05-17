@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-// ignore: library_prefixes
 import 'dart:math' as Math;
 
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:http/http.dart' as http;
 import 'package:ebus_app/services/api_service.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 class MonitoringBusMapAdmin extends StatefulWidget {
   final int companyId;
@@ -24,62 +23,61 @@ class MonitoringBusMapAdmin extends StatefulWidget {
   });
 
   @override
-  State<MonitoringBusMapAdmin> createState() => _MonitoringBusMapAdminState();
+  State<MonitoringBusMapAdmin> createState() =>
+      _MonitoringBusMapAdminState();
 }
 
-class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
+class _MonitoringBusMapAdminState
+    extends State<MonitoringBusMapAdmin>
     with AutomaticKeepAliveClientMixin {
-  List<Map<String, dynamic>> _busData = [];
-  Map<String, dynamic>? selectedBus;
-  List<Marker> _markers = [];
-  List<Marker> _busMarkers = [];
-  List<Marker> _checkpointMarkers = [];
-  List<Polyline> _polylines = [];
-  List<CircleMarker> _geofenceCircles = [];
-  final MapController _mapController = MapController();
+  @override
+  bool get wantKeepAlive => true;
 
-  int? selectedBusId;
+  final MapController _mapController = MapController();
 
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  final Set<String> notifiedCheckpoints = {};
+  List<Map<String, dynamic>> _busData = [];
+
+  Map<String, dynamic>? selectedBus;
+
+  List<Marker> _markers = [];
+  List<Marker> _busMarkers = [];
+  List<Marker> _checkpointMarkers = [];
+
+  List<Polyline> _polylines = [];
+
+  List<CircleMarker> _geofenceCircles = [];
 
   List<dynamic> geofenceData = [];
+
+  Timer? realtimeTimer;
+
+  final Set<String> notifiedCheckpoints = {};
+
+  // =========================
+  // PER BUS
+  // =========================
+  final Map<int, LatLng> previousPositions = {};
+  final Map<int, DateTime> previousTimes = {};
+  final Map<int, double> busSpeeds = {};
+  final Map<int, LatLng> smoothPositions = {};
+
+  double distance = 0;
+  double duration = 0;
+
+  String perjalananStatus = "Memuat...";
+  Color statusColor = Colors.green;
 
   @override
   void initState() {
     super.initState();
 
     initNotifications();
+
     _initializeMap();
   }
-
-  Future<void> _initializeMap() async {
-    await _fetchBuses();
-
-    _startRealtimePolling();
-  }
-
-  double distance = 0;
-  double duration = 0;
-
-  String perjalananStatus = "Memuat data...";
-  Color statusColor = Colors.green;
-
-  Timer? etaTimer;
-  Timer? realtimeTimer;
-
-  LatLng? previousPosition;
-
-  DateTime? previousTime;
-
-  Map<int, LatLng> smoothPositions = {};
-
-  double currentSpeed = 0;
-
-  // ignore: annotate_overrides
-  bool get wantKeepAlive => true;
 
   Future<void> initNotifications() async {
     const AndroidInitializationSettings androidSettings =
@@ -92,6 +90,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     await notificationsPlugin.initialize(settings);
   }
 
+  Future<void> _initializeMap() async {
+    await _fetchBuses();
+
+    _startRealtimePolling();
+  }
+
+  // =========================
+  // FETCH BUS
+  // =========================
   Future<void> _fetchBuses() async {
     try {
       final res = await http.get(
@@ -117,8 +124,14 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       print("✅ TOTAL BUS: ${buses.length}");
 
+      // =========================
+      // PILIH BUS BERDASARKAN busId
+      // =========================
       if (buses.isNotEmpty) {
-        selectedBus = buses.first;
+        selectedBus = buses.firstWhere(
+          (b) => b['id'] == widget.busId,
+          orElse: () => buses.first,
+        );
 
         await _drawRoute(selectedBus!);
       }
@@ -129,321 +142,217 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     }
   }
 
+  // =========================
+  // REALTIME
+  // =========================
   void _startRealtimePolling() {
     realtimeTimer?.cancel();
 
-    realtimeTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      try {
-        final res = await http.get(
-          Uri.parse(
-            "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
-          ),
-        );
+    realtimeTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (timer) async {
+        try {
+          final res = await http.get(
+            Uri.parse(
+              "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+            ),
+          );
 
-        if (res.statusCode != 200) {
-          print("BUS TIDAK ADA");
-          return;
-        }
+          if (res.statusCode != 200) {
+            print("❌ BUS TIDAK ADA");
+            return;
+          }
 
-        final data = jsonDecode(res.body);
+          final data = jsonDecode(res.body);
 
-        setState(() {
-          _busData = List<Map<String, dynamic>>.from(data['data']);
-        });
+          final buses =
+              List<Map<String, dynamic>>.from(data['data']);
 
-        // ================= UPDATE MARKER =================
-        _generateRealtimeMarkers();
+          setState(() {
+            _busData = buses;
+          });
 
-        // ================= CHECKPOINT =================
-        for (var bus in _busData) {
-          final lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+          // =========================
+          // UPDATE BUS TERPILIH
+          // =========================
+          if (selectedBus != null) {
+            final updatedBus = buses.firstWhere(
+              (b) => b['id'] == selectedBus!['id'],
+              orElse: () => selectedBus!,
+            );
 
-          final lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
+            selectedBus = updatedBus;
+          }
 
-          if (lat == 0 || lng == 0) continue;
+          // =========================
+          // UPDATE MARKER
+          // =========================
+          _generateRealtimeMarkers();
 
-          checkCheckpoint(lat, lng);
+          // =========================
+          // LOOP BUS
+          // =========================
+          for (var bus in buses) {
+            final busId = bus['id'];
 
-          calculateSpeed(lat, lng);
+            final lat =
+                double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
 
-          // ================= ETA =================
-          if (selectedBus != null && selectedBus!['id'] == bus['id']) {
-            if (geofenceData.isNotEmpty) {
-              await calculateETA(
-                startLat: lat,
-                startLng: lng,
-                endLat: double.parse(geofenceData.last['lat'].toString()),
-                endLng: double.parse(geofenceData.last['lng'].toString()),
-              );
+            final lng =
+                double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
+
+            print("GPS BUS $busId => $lat , $lng");
+
+            if (lat == 0 || lng == 0) {
+              print("GPS KOSONG");
+              continue;
+            }
+
+            checkCheckpoint(lat, lng);
+
+            calculateSpeed(busId, lat, lng);
+
+            // ================= ETA
+            if (selectedBus != null &&
+                selectedBus!['id'] == busId) {
+              if (geofenceData.isNotEmpty) {
+                await calculateETA(
+                  startLat: lat,
+                  startLng: lng,
+                  endLat: double.parse(
+                    geofenceData.last['lat'].toString(),
+                  ),
+                  endLng: double.parse(
+                    geofenceData.last['lng'].toString(),
+                  ),
+                );
+              }
             }
           }
+
+          print("✅ REALTIME UPDATED");
+        } catch (e) {
+          print("❌ POLLING ERROR: $e");
         }
-
-        print("✅ REALTIME UPDATED");
-        print("BUS RESPONSE: ${res.body}");
-      } catch (e) {
-        print("❌ POLLING ERROR: $e");
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    etaTimer?.cancel();
-
-    realtimeTimer?.cancel();
-
-    super.dispose();
+      },
+    );
   }
 
   // =========================
-  // FETCH AWAL
+  // SPEED PER BUS
   // =========================
-  Future<void> fetchGeofence(int routeId) async {
-    try {
-      final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/routes/$routeId/geofence"),
-      );
-
-      final data = jsonDecode(res.body);
-
-      if (data['success']) {
-        List<dynamic> temp = [];
-
-        // TERMINAL AWAL
-        if (data['terminal_awal'] != null) {
-          temp.add({
-            "name": data['terminal_awal']['nama_terminal'],
-            "lat": data['terminal_awal']['lat'],
-            "lng": data['terminal_awal']['lng'],
-            "radius": 1000.0,
-            "type": "terminal_awal",
-          });
-        }
-
-        // CHECKPOINT
-        for (var cp in data['checkpoints']) {
-          temp.add({
-            "name": cp['nama'],
-            "lat": cp['lat'],
-            "lng": cp['lng'],
-            "radius": 1000.0,
-            "type": "checkpoint",
-          });
-        }
-
-        // TERMINAL TUJUAN
-        if (data['terminal_tujuan'] != null) {
-          temp.add({
-            "name": data['terminal_tujuan']['nama_terminal'],
-            "lat": data['terminal_tujuan']['lat'],
-            "lng": data['terminal_tujuan']['lng'],
-            "radius": 1000.0,
-            "type": "terminal_tujuan",
-          });
-        }
-
-        setState(() {
-          geofenceData = temp;
-        });
-      }
-    } catch (e) {
-      print("FETCH GEOFENCE ERROR: $e");
-    }
-  }
-
-  // =======================
-  // rute
-  // =======================
-  Future<List<LatLng>> getRealRoute(List<LatLng> points) async {
-    final coordinates = points
-        .map((p) => "${p.longitude},${p.latitude}")
-        .join(";");
-
-    final url =
-        "https://router.project-osrm.org/route/v1/driving/$coordinates?overview=full&geometries=geojson";
-
-    final res = await http.get(Uri.parse(url));
-
-    final data = jsonDecode(res.body);
-
-    final coords = data['routes'][0]['geometry']['coordinates'];
-
-    return coords.map<LatLng>((c) => LatLng(c[1], c[0])).toList();
-  }
-
-  // =======================
-  //calculate
-  // =======================
-  Future<void> calculateETA({
-    required double startLat,
-    required double startLng,
-    required double endLat,
-    required double endLng,
-  }) async {
-    try {
-      final url =
-          "https://router.project-osrm.org/route/v1/driving/"
-          "$startLng,$startLat;$endLng,$endLat"
-          "?overview=false";
-
-      final response = await http.get(Uri.parse(url));
-
-      final data = jsonDecode(response.body);
-
-      if (data['routes'] != null && data['routes'].isNotEmpty) {
-        final route = data['routes'][0];
-
-        setState(() {
-          // meter
-          distance = route['distance'];
-
-          // detik
-          duration = route['duration'];
-        });
-
-        determineStatus();
-      }
-    } catch (e) {
-      print("CALCULATE ETA ERROR: $e");
-    }
-  }
-
-  void determineStatus() {
-    double durationHours = duration / 3600;
-
-    // ================= HIJAU =================
-    if (durationHours <= 1) {
-      setState(() {
-        perjalananStatus = "Hijau - Perjalanan Lancar";
-
-        statusColor = Colors.green;
-      });
-    }
-    // ================= KUNING =================
-    else if (durationHours > 1 && durationHours <= 4) {
-      setState(() {
-        perjalananStatus = "Kuning - Kendala Ringan";
-
-        statusColor = Colors.orange;
-      });
-    }
-    // ================= MERAH =================
-    else {
-      setState(() {
-        perjalananStatus = "Merah - Kendala Berat";
-
-        statusColor = Colors.red;
-      });
-    }
-  }
-
-  void calculateSpeed(double lat, double lng) {
+  void calculateSpeed(
+    int busId,
+    double lat,
+    double lng,
+  ) {
     final now = DateTime.now();
 
-    // ================= POSISI PERTAMA =================
-    if (previousPosition == null || previousTime == null) {
-      previousPosition = LatLng(lat, lng);
+    if (!previousPositions.containsKey(busId)) {
+      previousPositions[busId] = LatLng(lat, lng);
 
-      previousTime = now;
+      previousTimes[busId] = now;
 
       return;
     }
 
-    // ================= HITUNG JARAK =================
-    double movedDistance = Geolocator.distanceBetween(
-      previousPosition!.latitude,
-      previousPosition!.longitude,
+    final oldPos = previousPositions[busId]!;
 
+    final oldTime = previousTimes[busId]!;
+
+    final movedDistance = Geolocator.distanceBetween(
+      oldPos.latitude,
+      oldPos.longitude,
       lat,
       lng,
     );
 
-    // ================= HITUNG WAKTU =================
-    double seconds = now.difference(previousTime!).inSeconds.toDouble();
+    final seconds =
+        now.difference(oldTime).inSeconds.toDouble();
 
-    if (seconds > 0) {
-      // m/s -> km/h
-      currentSpeed = (movedDistance / seconds) * 3.6;
+    if (seconds <= 0) return;
+
+    final speed = (movedDistance / seconds) * 3.6;
+
+    // =========================
+    // FILTER SPEED TIDAK MASUK AKAL
+    // =========================
+    if (speed < 300) {
+      busSpeeds[busId] = speed;
 
       print(
-        "KECEPATAN BUS: "
-        "${currentSpeed.toStringAsFixed(1)} km/h",
+        "🚌 BUS $busId SPEED: ${speed.toStringAsFixed(1)} km/h",
       );
 
-      determineTrafficStatus();
+      determineTrafficStatus(speed);
     }
 
-    previousPosition = LatLng(lat, lng);
+    previousPositions[busId] = LatLng(lat, lng);
 
-    previousTime = now;
+    previousTimes[busId] = now;
   }
 
-  void determineTrafficStatus() {
-    // ================= LANCAR =================
-    if (currentSpeed > 30) {
+  void determineTrafficStatus(double speed) {
+    if (speed > 30) {
       setState(() {
-        perjalananStatus = "Hijau - Perjalanan Lancar";
-
+        perjalananStatus = "Hijau - Lancar";
         statusColor = Colors.green;
       });
-    }
-    // ================= PADAT =================
-    else if (currentSpeed > 10 && currentSpeed <= 30) {
+    } else if (speed > 10) {
       setState(() {
-        perjalananStatus = "Kuning - Lalu Lintas Padat";
-
+        perjalananStatus = "Kuning - Padat";
         statusColor = Colors.orange;
       });
-    }
-    // ================= MACET =================
-    else {
+    } else {
       setState(() {
-        perjalananStatus = "Merah - Kemacetan Tinggi";
-
+        perjalananStatus = "Merah - Macet";
         statusColor = Colors.red;
       });
     }
   }
 
   // =========================
-  // MARKER REALTIME
+  // MARKER
   // =========================
   void _generateRealtimeMarkers() {
     final markers = _busData
         .map((bus) {
-          double lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
+          final busId = bus['id'];
+
+          double lat =
+              double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
 
           double lng =
               double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
 
-          print("GPS BUS => $lat , $lng");
+          if (lat == 0 || lng == 0) return null;
 
-          if (lat == 0 || lng == 0) {
-            print("GPS KOSONG");
-            return null;
-          }
-
-          final oldPos = smoothPositions[bus['id']];
+          final oldPos = smoothPositions[busId];
 
           LatLng smoothPos = LatLng(lat, lng);
 
           if (oldPos != null) {
             smoothPos = LatLng(
-              oldPos.latitude + ((lat - oldPos.latitude) * 0.3),
-              oldPos.longitude + ((lng - oldPos.longitude) * 0.3),
+              oldPos.latitude +
+                  ((lat - oldPos.latitude) * 0.3),
+              oldPos.longitude +
+                  ((lng - oldPos.longitude) * 0.3),
             );
           }
 
-          smoothPositions[bus['id']] = smoothPos;
+          smoothPositions[busId] = smoothPos;
 
           return Marker(
             point: smoothPos,
-            width: 80,
-            height: 80,
+            width: 90,
+            height: 90,
             child: Column(
               children: [
-                const Icon(Icons.directions_bus, color: Colors.green, size: 40),
+                const Icon(
+                  Icons.directions_bus,
+                  color: Colors.green,
+                  size: 40,
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -453,12 +362,20 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    bus['plat_nomor'] ?? '',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
+                  child: Column(
+                    children: [
+                      Text(
+                        bus['plat_nomor'] ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        "${busSpeeds[busId]?.toStringAsFixed(1) ?? '0'} km/h",
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -468,23 +385,30 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         .whereType<Marker>()
         .toList();
 
-    if (markers.isNotEmpty) {
-      _mapController.move(markers.first.point, 15);
-    }
-
     setState(() {
       _busMarkers = markers;
 
-      _markers = [..._checkpointMarkers, ..._busMarkers];
+      _markers = [
+        ..._checkpointMarkers,
+        ..._busMarkers,
+      ];
     });
   }
 
   // =========================
-  // drawRoute
+  // DRAW ROUTE
   // =========================
-  Future<void> _drawRoute(Map<String, dynamic> bus) async {
+  Future<void> _drawRoute(
+    Map<String, dynamic> bus,
+  ) async {
     try {
-      final points = await fetchRoutePath(bus['route_id']);
+      if (bus['route_id'] == null) {
+        print("❌ ROUTE ID NULL");
+        return;
+      }
+
+      final points =
+          await fetchRoutePath(bus['route_id']);
 
       if (points.isEmpty) {
         print("❌ ROUTE KOSONG");
@@ -493,25 +417,24 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       await fetchGeofence(bus['route_id']);
 
-      if (geofenceData.isEmpty) {
-        print("❌ GEOFENCE KOSONG");
-        return;
-      }
-
-      // ================= POLYLINE =================
       setState(() {
         _polylines = [
-          Polyline(points: points, strokeWidth: 6, color: Colors.blue),
+          Polyline(
+            points: points,
+            strokeWidth: 5,
+            color: Colors.blue,
+          ),
         ];
       });
 
-      // ================= MARKER CHECKPOINT =================
       final checkpointMarkers = <Marker>[];
-
       final geofenceCircles = <CircleMarker>[];
 
       for (var checkpoint in geofenceData) {
-        final point = LatLng(checkpoint['lat'], checkpoint['lng']);
+        final point = LatLng(
+          checkpoint['lat'],
+          checkpoint['lng'],
+        );
 
         Color zoneColor = Colors.orange;
 
@@ -523,7 +446,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           zoneColor = Colors.red;
         }
 
-        // ================= MARKER =================
         checkpointMarkers.add(
           Marker(
             point: point,
@@ -531,8 +453,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             height: 60,
             child: Column(
               children: [
-                Icon(Icons.location_on, color: zoneColor, size: 35),
-
+                Icon(
+                  Icons.location_on,
+                  color: zoneColor,
+                  size: 35,
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -555,39 +480,29 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           ),
         );
 
-        // ================= GEOFENCE =================
         geofenceCircles.add(
           CircleMarker(
             point: point,
-
             radius: checkpoint['radius'],
-
             useRadiusInMeter: true,
-
             color: zoneColor.withOpacity(0.3),
-
             borderColor: zoneColor,
-
-            borderStrokeWidth: 3,
+            borderStrokeWidth: 2,
           ),
         );
       }
 
-      // ================= UPDATE UI =================
       setState(() {
         _checkpointMarkers = checkpointMarkers;
-
         _geofenceCircles = geofenceCircles;
 
-        _markers = [..._checkpointMarkers, ..._busMarkers];
+        _markers = [
+          ..._checkpointMarkers,
+          ..._busMarkers,
+        ];
       });
 
-      _generateRealtimeMarkers();
-
-      // ================= AUTO MOVE =================
-      if (points.isNotEmpty) {
-        _mapController.move(points.first, 7);
-      }
+      _mapController.move(points.first, 7);
 
       print("✅ ROUTE DIGAMBAR");
     } catch (e) {
@@ -595,32 +510,26 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     }
   }
 
-  Future<List<LatLng>> fetchRoutePath(int routeId) async {
+  // =========================
+  // FETCH ROUTE
+  // =========================
+  Future<List<LatLng>> fetchRoutePath(
+    int routeId,
+  ) async {
     try {
       final res = await http.get(
-        Uri.parse("${ApiService.baseUrl}/api/routes/$routeId"),
+        Uri.parse(
+          "${ApiService.baseUrl}/api/routes/$routeId",
+        ),
       );
 
       final data = jsonDecode(res.body);
 
       if (data['success'] != true) {
-        print("❌ API ROUTE GAGAL");
         return [];
       }
 
-      final route = data['data'];
-
-      if (route == null) {
-        print("❌ ROUTE NULL");
-        return [];
-      }
-
-      final path = route['path'];
-
-      if (path == null || path.isEmpty) {
-        print("❌ PATH KOSONG");
-        return [];
-      }
+      final path = data['data']['path'];
 
       return List.from(path).map((p) {
         return LatLng(
@@ -629,29 +538,99 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         );
       }).toList();
     } catch (e) {
-      print("FETCH ROUTE PATH ERROR: $e");
+      print("FETCH ROUTE ERROR: $e");
+
       return [];
     }
   }
 
   // =========================
-  // HITUNG ARAH
+  // FETCH GEOFENCE
   // =========================
-  // ignore: unused_element
-  double _bearing(LatLng start, LatLng end) {
-    final lat1 = start.latitude * Math.pi / 180;
-    final lon1 = start.longitude * Math.pi / 180;
-    final lat2 = end.latitude * Math.pi / 180;
-    final lon2 = end.longitude * Math.pi / 180;
+  Future<void> fetchGeofence(
+    int routeId,
+  ) async {
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/routes/$routeId/geofence",
+        ),
+      );
 
-    final dLon = lon2 - lon1;
+      final data = jsonDecode(res.body);
 
-    final y = Math.sin(dLon) * Math.cos(lat2);
-    final x =
-        Math.cos(lat1) * Math.sin(lat2) -
-        Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+      if (data['success']) {
+        List<dynamic> temp = [];
 
-    return Math.atan2(y, x);
+        if (data['terminal_awal'] != null) {
+          temp.add({
+            "name":
+                data['terminal_awal']['nama_terminal'],
+            "lat": data['terminal_awal']['lat'],
+            "lng": data['terminal_awal']['lng'],
+            "radius": 1000.0,
+            "type": "terminal_awal",
+          });
+        }
+
+        for (var cp in data['checkpoints']) {
+          temp.add({
+            "name": cp['nama'],
+            "lat": cp['lat'],
+            "lng": cp['lng'],
+            "radius": 1000.0,
+            "type": "checkpoint",
+          });
+        }
+
+        if (data['terminal_tujuan'] != null) {
+          temp.add({
+            "name":
+                data['terminal_tujuan']['nama_terminal'],
+            "lat": data['terminal_tujuan']['lat'],
+            "lng": data['terminal_tujuan']['lng'],
+            "radius": 1000.0,
+            "type": "terminal_tujuan",
+          });
+        }
+
+        setState(() {
+          geofenceData = temp;
+        });
+      }
+    } catch (e) {
+      print("FETCH GEOFENCE ERROR: $e");
+    }
+  }
+
+  Future<void> calculateETA({
+    required double startLat,
+    required double startLng,
+    required double endLat,
+    required double endLng,
+  }) async {
+    try {
+      final url =
+          "https://router.project-osrm.org/route/v1/driving/"
+          "$startLng,$startLat;$endLng,$endLat?overview=false";
+
+      final response =
+          await http.get(Uri.parse(url));
+
+      final data = jsonDecode(response.body);
+
+      if (data['routes'] != null &&
+          data['routes'].isNotEmpty) {
+        final route = data['routes'][0];
+
+        setState(() {
+          distance = route['distance'];
+          duration = route['duration'];
+        });
+      }
+    } catch (e) {
+      print("ETA ERROR: $e");
+    }
   }
 
   bool isInsideGeofence({
@@ -671,23 +650,35 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     return distance <= radius;
   }
 
-  Future<void> showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'checkpoint_channel',
-          'Checkpoint Notifications',
-          importance: Importance.max,
-          priority: Priority.high,
-        );
+  Future<void> showNotification(
+    String title,
+    String body,
+  ) async {
+    const AndroidNotificationDetails
+    androidDetails = AndroidNotificationDetails(
+      'checkpoint_channel',
+      'Checkpoint Notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
 
-    const NotificationDetails details = NotificationDetails(
+    const NotificationDetails details =
+        NotificationDetails(
       android: androidDetails,
     );
 
-    await notificationsPlugin.show(0, title, body, details);
+    await notificationsPlugin.show(
+      0,
+      title,
+      body,
+      details,
+    );
   }
 
-  void checkCheckpoint(double lat, double lng) {
+  void checkCheckpoint(
+    double lat,
+    double lng,
+  ) {
     for (var checkpoint in geofenceData) {
       final inside = isInsideGeofence(
         busLat: lat,
@@ -699,14 +690,29 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       final checkpointName = checkpoint['name'];
 
-      if (inside && !notifiedCheckpoints.contains(checkpointName)) {
+      if (inside &&
+          !notifiedCheckpoints.contains(
+            checkpointName,
+          )) {
         notifiedCheckpoints.add(checkpointName);
 
-        print("✅ MASUK CHECKPOINT: $checkpointName");
+        print(
+          "✅ MASUK CHECKPOINT: $checkpointName",
+        );
 
-        showNotification("Checkpoint", "Bus mendekati $checkpointName");
+        showNotification(
+          "Checkpoint",
+          "Bus mendekati $checkpointName",
+        );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    realtimeTimer?.cancel();
+
+    super.dispose();
   }
 
   // =========================
@@ -715,77 +721,30 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Monitoring Armada"),
         backgroundColor: const Color(0xFF001F3F),
       ),
-      body: Column(
+      body: FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          initialCenter:
+              const LatLng(-7.9839, 112.6214),
+          initialZoom: 6,
+        ),
         children: [
-          Expanded(
-            child: Stack(
-              children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: const LatLng(-7.9839, 112.6214),
-                    initialZoom: 6,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                      subdomains: const ['a', 'b', 'c'],
-                    ),
-
-                    // ================= POLYLINE =================
-                    PolylineLayer(polylines: _polylines),
-
-                    // ================= GEOFENCE =================
-                    CircleLayer(circles: _geofenceCircles),
-
-                    // ================= MARKER =================
-                    MarkerLayer(markers: _markers),
-                  ],
-                ),
-
-                Positioned(
-                  bottom: 20,
-                  left: 20,
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    color: Colors.white,
-                    child: DropdownButtonFormField<int>(
-                      value: selectedBus?['id'],
-                      decoration: const InputDecoration(
-                        labelText: "Pilih Bus",
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _busData.map((bus) {
-                        return DropdownMenuItem<int>(
-                          value: bus['id'],
-                          child: Text(
-                            "${bus['plat_nomor']} - ${bus['nama_bus'] ?? 'Bus'}",
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) async {
-                        final bus = _busData.firstWhere(
-                          (b) => b['id'] == value,
-                        );
-
-                        setState(() {
-                          selectedBus = bus;
-                        });
-
-                        await _drawRoute(bus);
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          TileLayer(
+            urlTemplate:
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
           ),
+
+          PolylineLayer(polylines: _polylines),
+
+          CircleLayer(circles: _geofenceCircles),
+
+          MarkerLayer(markers: _markers),
         ],
       ),
     );
