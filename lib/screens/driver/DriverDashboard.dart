@@ -58,14 +58,8 @@ class _DriverDashboardState extends State<DriverDashboard>
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(
-      begin: 0.95,
-      end: 1.05,
-    ).animate(
-      CurvedAnimation(
-        parent: _pulseController,
-        curve: Curves.easeInOut,
-      ),
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
     initializeData();
@@ -127,17 +121,12 @@ class _DriverDashboardState extends State<DriverDashboard>
         return;
       }
 
-      final res = await http.get(
-        Uri.parse(
-          "${ApiService.baseUrl}/api/buses",
-        ),
-      );
+      final res = await http.get(Uri.parse("${ApiService.baseUrl}/api/buses"));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
-        final buses =
-            List<Map<String, dynamic>>.from(data['data']);
+        final buses = List<Map<String, dynamic>>.from(data['data']);
 
         // ================= CARI BUS BERDASARKAN DRIVER_ID =================
         final bus = buses.firstWhere(
@@ -195,6 +184,7 @@ class _DriverDashboardState extends State<DriverDashboard>
 
     await restoreTracking();
   }
+
   // ================= REGISTER DRIVER =================
   Future<void> registerDriver() async {
     try {
@@ -318,17 +308,21 @@ class _DriverDashboardState extends State<DriverDashboard>
             ),
           ),
         ).listen((Position position) async {
+          print("========== GPS DRIVER ==========");
+          print(position.latitude);
+          print(position.longitude);
+          print(position.accuracy);
           try {
             final res = await http.put(
-                Uri.parse(
-                  "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
-                ),
-                headers: {"Content-Type": "application/json"},
-                body: jsonEncode({
-                  "latitude": position.latitude,
-                  "longitude": position.longitude,
-                }),
-              );
+              Uri.parse(
+                "${ApiService.baseUrl}/api/buses/update-location/${widget.busId}",
+              ),
+              headers: {"Content-Type": "application/json"},
+              body: jsonEncode({
+                "latitude": position.latitude,
+                "longitude": position.longitude,
+              }),
+            );
 
             print("GPS RESPONSE: ${res.statusCode} - ${res.body}");
           } catch (e) {
@@ -689,6 +683,10 @@ class _DriverDashboardState extends State<DriverDashboard>
                     ),
                   );
 
+                  if (startRes.statusCode != 200) {
+                    throw Exception("API START TRACKING GAGAL");
+                  }
+
                   print("START TRACKING: ${startRes.statusCode}");
                   print(startRes.body);
 
@@ -718,7 +716,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                     );
 
                     return;
-                  } 
+                  }
                 } catch (e) {
                   print("❌ START TRACKING ERROR: $e");
 
@@ -856,9 +854,7 @@ class _DriverDashboardState extends State<DriverDashboard>
               onTap: () {
                 if (companyId == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Company belum ditemukan"),
-                    ),
+                    const SnackBar(content: Text("Company belum ditemukan")),
                   );
 
                   return;
@@ -884,10 +880,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                   borderRadius: BorderRadius.circular(24),
 
                   gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF2563EB),
-                      Color(0xFF1D4ED8),
-                    ],
+                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                   ),
 
                   boxShadow: [
@@ -902,11 +895,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.map,
-                      color: Colors.white,
-                      size: 30,
-                    ),
+                    Icon(Icons.map, color: Colors.white, size: 30),
 
                     SizedBox(width: 10),
 

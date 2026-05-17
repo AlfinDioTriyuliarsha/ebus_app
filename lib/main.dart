@@ -88,8 +88,7 @@ void onStart(ServiceInstance service) async {
 
           intervalDuration: const Duration(seconds: 2),
 
-          foregroundNotificationConfig:
-              const ForegroundNotificationConfig(
+          foregroundNotificationConfig: const ForegroundNotificationConfig(
             notificationTitle: "E-Bus Tracking",
             notificationText: "Tracking bus sedang berjalan",
             enableWakeLock: true,

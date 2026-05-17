@@ -31,9 +31,10 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _busData = [];
   List<Marker> _markers = [];
+  List<Marker> _busMarkers = [];
+  List<Marker> _checkpointMarkers = [];
   List<Polyline> _polylines = [];
   List<CircleMarker> _geofenceCircles = [];
-
   final MapController _mapController = MapController();
 
   int? selectedBusId;
@@ -52,9 +53,14 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     initNotifications();
 
     if (widget.busId != 0) {
-      _startRealtimePolling();
-      _fetchBuses();
+      _initializeMap();
     }
+  }
+
+  Future<void> _initializeMap() async {
+    await _fetchBuses();
+
+    _startRealtimePolling();
   }
 
   double distance = 0;
@@ -414,13 +420,17 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           double lng =
               double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
 
-          if (lat == 0 || lng == 0) return null;
+          print("GPS BUS => $lat , $lng");
+
+          if (lat == 0 || lng == 0) {
+            print("GPS KOSONG");
+            return null;
+          }
 
           final oldPos = smoothPositions[bus['id']];
 
           LatLng smoothPos = LatLng(lat, lng);
 
-          // ================= SMOOTH MOVEMENT =================
           if (oldPos != null) {
             smoothPos = LatLng(
               oldPos.latitude + ((lat - oldPos.latitude) * 0.3),
@@ -428,64 +438,47 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             );
           }
 
-          // simpan posisi terbaru
           smoothPositions[bus['id']] = smoothPos;
 
           return Marker(
             point: smoothPos,
-            width: 60,
-            height: 60,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 800),
-
-              builder: (context, value, child) {
-                return Transform.scale(
-                  scale: 0.9 + (value * 0.1),
-                  child: child,
-                );
-              },
-
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.directions_bus,
-                    color: Colors.green,
-                    size: 35,
+            width: 80,
+            height: 80,
+            child: Column(
+              children: [
+                const Icon(Icons.directions_bus, color: Colors.green, size: 40),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
                   ),
-
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 2,
-                    ),
-
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-
-                    child: Text(
-                      bus['plat_nomor'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    bus['plat_nomor'] ?? '',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         })
         .whereType<Marker>()
         .toList();
+
     if (markers.isNotEmpty) {
       _mapController.move(markers.first.point, 15);
     }
 
     setState(() {
-      _markers = markers;
+      _busMarkers = markers;
+
+      _markers = [..._checkpointMarkers, ..._busMarkers];
     });
   }
 
@@ -585,28 +578,14 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       // ================= UPDATE UI =================
       setState(() {
-        _markers = [...checkpointMarkers];
-        _generateRealtimeMarkers();
+        _checkpointMarkers = checkpointMarkers;
 
         _geofenceCircles = geofenceCircles;
-        print("TOTAL GEOFENCE: ${_geofenceCircles.length}");
 
-        final allPoints = geofenceData
-            .map(
-              (e) => LatLng(
-                double.parse(e['lat'].toString()),
-                double.parse(e['lng'].toString()),
-              ),
-            )
-            .toList();
-
-        _mapController.fitCamera(
-          CameraFit.bounds(
-            bounds: LatLngBounds.fromPoints(allPoints),
-            padding: const EdgeInsets.all(50),
-          ),
-        );
+        _markers = [..._checkpointMarkers, ..._busMarkers];
       });
+
+      _generateRealtimeMarkers();
 
       // ================= AUTO MOVE =================
       if (points.isNotEmpty) {
