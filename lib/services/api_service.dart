@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Ganti dengan domain Railway Anda
-  static const String baseUrl = "https://ebusapp-production-4fdd.up.railway.app";
+  static const String baseUrl =
+      "https://ebusapp-production-4fdd.up.railway.app";
 
   /// Header default
   static Map<String, String> get _headers => {
@@ -43,12 +44,15 @@ class ApiService {
         return jsonDecode(response.body);
       } else {
         return {
-          "success": false, 
-          "message": "Server error (${response.statusCode})"
+          "success": false,
+          "message": "Server error (${response.statusCode})",
         };
       }
     } catch (e) {
-      return {"success": false, "message": "Tidak bisa terhubung ke server: $e"};
+      return {
+        "success": false,
+        "message": "Tidak bisa terhubung ke server: $e",
+      };
     }
   }
 

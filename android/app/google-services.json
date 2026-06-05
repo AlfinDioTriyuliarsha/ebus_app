@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "159002868313",
+    "project_id": "ebus-ea5b7",
+    "storage_bucket": "ebus-ea5b7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:159002868313:android:acf26b6eeb338e590a8f48",
+        "android_client_info": {
+          "package_name": "com.example.ebus_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtvNNF72CM0AA8e89DCQVuGc8bKavMtag"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

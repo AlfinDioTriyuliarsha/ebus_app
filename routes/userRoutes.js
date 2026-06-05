@@ -251,4 +251,37 @@ router.put("/:id", upload.single("profile_image"), async (req, res) => {
   }
 });
 
+router.put("/save-fcm-token/:id", async (req, res) => {
+
+  const { id } = req.params;
+
+  const { token } = req.body;
+
+  try {
+
+    await pool.query(
+      `
+      UPDATE users
+      SET fcm_token = $1
+      WHERE id = $2
+      `,
+      [token, id]
+    );
+
+    res.json({
+      success: true,
+      message: "FCM TOKEN SAVED"
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
 module.exports = router;

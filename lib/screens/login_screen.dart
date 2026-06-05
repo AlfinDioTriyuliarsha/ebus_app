@@ -1,4 +1,6 @@
+import 'package:ebus_app/main.dart';
 import 'package:ebus_app/services/api_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
@@ -6,6 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dashboard_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:ebus_app/services/fcm_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,6 +46,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (kIsWeb) {
       _googleSignIn.signInSilently();
     }
+
+    requestNotificationPermission();
   }
 
   // ================= RESPONSIVE BUILD =================
@@ -373,6 +378,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     print("✅ LOGIN: $userId | $role");
 
+    // ================= SAVE FCM TOKEN =================
+    await saveFCMToken(userId);
+
     int busId = 0;
 
     // =========================
@@ -584,6 +592,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } finally {
       setState(() => _loading = false);
     }
+  }
+
+  Future<void> requestNotificationPermission() async {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+    NotificationSettings settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    print('Permission: ${settings.authorizationStatus}');
   }
 
   @override

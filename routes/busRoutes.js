@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 const { broadcastLocation } = require("../websocket");
+const admin = require("../firebase");
+const geolib = require("geolib");
 
 // =======================
 // GET BUS
@@ -246,6 +248,64 @@ router.put("/update-location/:id", async (req, res) => {
             latitude,
             longitude
         });
+
+        // ================= GEOFENCE =================
+        const geofenceResult = await pool.query(`
+        SELECT
+          c.nama,
+          c.lat,
+          c.lng
+        FROM route_checkpoints rc
+        JOIN checkpoints c
+        ON rc.checkpoint_id = c.id
+        JOIN buses b
+        ON b.route_id = rc.route_id
+        WHERE b.id = $1
+        `, [id]);
+
+        for (const geo of geofenceResult.rows) {
+
+          const inside = geolib.isPointWithinRadius(
+            {
+              latitude: Number(latitude),
+              longitude: Number(longitude),
+            },
+            {
+              latitude: Number(geo.lat),
+              longitude: Number(geo.lng),
+            },
+            1000
+          );
+
+          if (inside) {
+
+            // ================= USER TICKET =================
+            const users = await pool.query(`
+              SELECT u.fcm_token
+              FROM tickets t
+              JOIN users u
+              ON u.id = t.user_id
+              WHERE t.bus_id = $1
+            `, [id]);
+
+            for (const usr of users.rows) {
+
+              if (!usr.fcm_token) continue;
+
+              await admin.messaging().send({
+
+                token: usr.fcm_token,
+
+                notification: {
+                  title: "MASUK CHECKPOINT",
+                  body: geo.nama
+                }
+              });
+
+              console.log("NOTIF TERKIRIM");
+            }
+          }
+        }
 
         res.json({
             success: true,
