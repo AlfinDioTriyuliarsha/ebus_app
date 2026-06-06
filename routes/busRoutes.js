@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 const { broadcastLocation } = require("../websocket");
-const admin = require("../firebase");
+const admin = require('./firebase');
 const geolib = require("geolib");
 
 // =======================
