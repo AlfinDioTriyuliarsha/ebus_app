@@ -119,9 +119,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   }
 
   void _startRealtimePolling() {
+    print("🔥 START MODE SEMUA BUS");
+
     realtimeTimer?.cancel();
 
     realtimeTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      print("🔥 POLLING SEMUA BUS");
       try {
         final res = await http.get(
           Uri.parse(
@@ -148,11 +151,17 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   }
 
   void _startSelectedBusTracking() {
+    print("🚍 START TRACKING BUS TERPILIH");
+
     realtimeTimer?.cancel();
 
-    realtimeTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      await _fetchSelectedBusRealtime();
-    });
+    realtimeTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (timer) async {
+        print("🚍 TRACKING BUS TERPILIH");
+        await _fetchSelectedBusRealtime();
+      },
+    );
   }
 
   Future<void> _fetchSelectedBusRealtime() async {
