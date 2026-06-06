@@ -35,8 +35,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   List<CircleMarker> _geofenceCircles = [];
   List<Marker> _checkpointMarkers = [];
 
-  final Map<int, double> busSpeeds = {};
-
   final MapController _mapController = MapController();
 
   int? selectedBusId;
@@ -44,9 +42,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  final Set<String> notifiedCheckpoints = {};
+  final Set<String> activeCheckpoints = <String>{};
 
   List<dynamic> geofenceData = [];
+  List<LatLng> activeRoutePoints = [];
+  bool offRouteNotificationSent = false;
 
   @override
   void initState() {
@@ -55,8 +55,11 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     initNotifications();
 
     _fetchBuses();
+
+    _startRealtimePolling();
   }
 
+  bool offRoute = false;
   double distance = 0;
   double duration = 0;
 
@@ -71,6 +74,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   final Map<int, LatLng> previousPositions = {};
   final Map<int, DateTime> previousTimes = {};
   final Map<int, double> currentSpeeds = {};
+  final Map<int, List<double>> speedHistory = {};
 
   // ignore: annotate_overrides
   bool get wantKeepAlive => true;
@@ -82,6 +86,12 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     const InitializationSettings settings = InitializationSettings(
       android: androidSettings,
     );
+
+    await notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
 
     await notificationsPlugin.initialize(settings);
   }
@@ -95,6 +105,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       );
 
       final data = jsonDecode(res.body)['data'];
+
+      if (!mounted) return;
 
       setState(() {
         _busData = List<Map<String, dynamic>>.from(data);
@@ -136,7 +148,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
           if (lat == 0 || lng == 0) continue;
 
-          checkCheckpoint(lat, lng);
+          checkCheckpoint(bus['id'], bus['plat_nomor'], lat, lng);
 
           calculateSpeed(bus['id'], lat, lng);
 
@@ -180,24 +192,53 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       final data = jsonDecode(res.body)['data'];
 
-      final bus = data.firstWhere(
-        (b) => b['id'] == selectedBusId,
+      final busList = List<Map<String, dynamic>>.from(data);
+
+      final bus = busList.cast<Map<String, dynamic>?>().firstWhere(
+        (b) => b?['id'] == selectedBusId,
         orElse: () => null,
       );
 
       if (bus == null) return;
 
-      setState(() {
-        _busData = [Map<String, dynamic>.from(bus)];
-      });
+      final index = _busData.indexWhere((b) => b['id'] == selectedBusId);
+
+      if (index != -1) {
+        setState(() {
+          _busData[index] = Map<String, dynamic>.from(bus);
+        });
+      } else {
+        setState(() {
+          _busData.add(Map<String, dynamic>.from(bus));
+        });
+      }
 
       final lat = double.tryParse(bus['latitude'].toString()) ?? 0;
 
       final lng = double.tryParse(bus['longitude'].toString()) ?? 0;
 
+      if (!mounted) return;
+
+      setState(() {
+        offRoute = isBusOffRoute(lat, lng);
+      });
+
+      if (offRoute && !offRouteNotificationSent) {
+        offRouteNotificationSent = true;
+
+        showNotification(
+          "Peringatan Rute",
+          "${bus['plat_nomor']} keluar dari jalur",
+        );
+      }
+
+      if (!offRoute) {
+        offRouteNotificationSent = false;
+      }
+
       calculateSpeed(bus['id'], lat, lng);
 
-      checkCheckpoint(lat, lng);
+      checkCheckpoint(bus['id'], bus['plat_nomor'], lat, lng);
 
       if (geofenceData.isNotEmpty) {
         await calculateETA(
@@ -256,7 +297,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             "name": cp['nama'],
             "lat": cp['lat'],
             "lng": cp['lng'],
-            "radius": 1000.0,
+            "radius": 300.0,
             "type": "checkpoint",
           });
         }
@@ -296,9 +337,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
     final data = jsonDecode(res.body);
 
+    if (data['routes'] == null || data['routes'].isEmpty) {
+      return [];
+    }
+
     final coords = data['routes'][0]['geometry']['coordinates'];
 
-    return coords.map<LatLng>((c) => LatLng(c[1], c[0])).toList();
+    return coords.map<LatLng>((c) {
+      return LatLng(c[1], c[0]);
+    }).toList();
   }
 
   // =======================
@@ -323,47 +370,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       if (data['routes'] != null && data['routes'].isNotEmpty) {
         final route = data['routes'][0];
 
-        setState(() {
-          // meter
-          distance = route['distance'];
+        if (!mounted) return;
 
-          // detik
+        setState(() {
+          distance = route['distance'];
           duration = route['duration'];
         });
-
-        determineStatus();
       }
     } catch (e) {
       print("CALCULATE ETA ERROR: $e");
-    }
-  }
-
-  void determineStatus() {
-    double durationHours = duration / 3600;
-
-    // ================= HIJAU =================
-    if (durationHours <= 1) {
-      setState(() {
-        perjalananStatus = "Hijau - Perjalanan Lancar";
-
-        statusColor = Colors.green;
-      });
-    }
-    // ================= KUNING =================
-    else if (durationHours > 1 && durationHours <= 4) {
-      setState(() {
-        perjalananStatus = "Kuning - Kendala Ringan";
-
-        statusColor = Colors.orange;
-      });
-    }
-    // ================= MERAH =================
-    else {
-      setState(() {
-        perjalananStatus = "Merah - Kendala Berat";
-
-        statusColor = Colors.red;
-      });
     }
   }
 
@@ -373,11 +388,8 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     // ================= PERTAMA =================
     if (!previousPositions.containsKey(busId)) {
       previousPositions[busId] = LatLng(lat, lng);
-
       previousTimes[busId] = now;
-
       currentSpeeds[busId] = 0;
-
       return;
     }
 
@@ -403,46 +415,63 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
     // ================= FILTER GPS LONCAT =================
     if (speed > 150) {
-      print("⚠️ GPS LONCAT BUS $busId");
+      print("GPS LONCAT");
+
+      previousPositions[busId] = LatLng(lat, lng);
+      previousTimes[busId] = now;
 
       return;
     }
 
     // ================= FILTER DIAM =================
-    if (movedDistance < 1) {
+    if (movedDistance < 5) {
       speed = 0;
     }
 
     currentSpeeds[busId] = speed;
 
+    speedHistory.putIfAbsent(busId, () => []);
+
+    speedHistory[busId]!.add(speed);
+
+    if (speedHistory[busId]!.length > 5) {
+      speedHistory[busId]!.removeAt(0);
+    }
+
     print("🚌 BUS $busId SPEED: ${speed.toStringAsFixed(1)} km/h");
 
-    // update posisi
-    previousPositions[busId] = LatLng(lat, lng);
+    // update status hanya untuk bus terpilih
+    final speeds = speedHistory[busId]!;
 
+    final avgSpeed = speeds.reduce((a, b) => a + b) / speeds.length;
+
+    previousPositions[busId] = LatLng(lat, lng);
     previousTimes[busId] = now;
 
-    // update status hanya untuk bus terpilih
     if (selectedBusId == busId) {
-      determineTrafficStatus(speed);
+      determineTrafficStatus(avgSpeed);
     }
   }
 
   void determineTrafficStatus(double speed) {
-    if (speed > 30) {
-      setState(() {
-        perjalananStatus = "Hijau - Lancar";
-        statusColor = Colors.green;
-      });
-    } else if (speed > 10) {
-      setState(() {
-        perjalananStatus = "Kuning - Padat";
-        statusColor = Colors.orange;
-      });
+    String newStatus;
+    Color newColor;
+
+    if (speed >= 40) {
+      newStatus = "Hijau - Lancar";
+      newColor = Colors.green;
+    } else if (speed >= 20) {
+      newStatus = "Kuning - Padat";
+      newColor = Colors.orange;
     } else {
+      newStatus = "Merah - Macet";
+      newColor = Colors.red;
+    }
+
+    if (newStatus != perjalananStatus) {
       setState(() {
-        perjalananStatus = "Merah - Macet";
-        statusColor = Colors.red;
+        perjalananStatus = newStatus;
+        statusColor = newColor;
       });
     }
   }
@@ -453,8 +482,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
   void _generateRealtimeMarkers() {
     final markers = _busData
         .where((bus) {
-          // hanya tampil jika tracking aktif
-          if (bus['is_tracking'] != true && bus['is_tracking'] != 1) {
+          final tracking = bus['is_tracking'];
+
+          final isTracking =
+              tracking == true ||
+              tracking == 1 ||
+              tracking == "1" ||
+              tracking.toString().toLowerCase() == "true";
+
+          if (!isTracking) {
             return false;
           }
 
@@ -481,10 +517,9 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
           if (oldPosition != null) {
             finalPosition = LatLng(
               oldPosition.latitude +
-                  ((newPosition.latitude - oldPosition.latitude) * 0.15),
-
+                  ((newPosition.latitude - oldPosition.latitude) * 0.7),
               oldPosition.longitude +
-                  ((newPosition.longitude - oldPosition.longitude) * 0.15),
+                  ((newPosition.longitude - oldPosition.longitude) * 0.7),
             );
           }
 
@@ -551,6 +586,19 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       final points = await fetchRoutePath(bus['route_id']);
 
       if (points.isEmpty) {
+        return;
+      }
+
+      final realRoute = await getRealRoute(points);
+
+      if (realRoute.isEmpty) {
+        print("ROUTE OSRM GAGAL");
+        return;
+      }
+
+      activeRoutePoints = realRoute;
+
+      if (points.isEmpty) {
         print("❌ ROUTE KOSONG");
         return;
       }
@@ -614,7 +662,7 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
             point: point,
             radius: checkpoint['radius'],
             useRadiusInMeter: true,
-            color: zoneColor.withOpacity(0.2),
+            color: zoneColor.withValues(alpha: 0.2),
             borderColor: zoneColor,
             borderStrokeWidth: 2,
           ),
@@ -623,22 +671,23 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       setState(() {
         _polylines = [
-          Polyline(points: points, strokeWidth: 5, color: Colors.blue),
+          Polyline(points: realRoute, strokeWidth: 5, color: Colors.blue),
         ];
 
         _checkpointMarkers = checkpointMarkers;
-
         _geofenceCircles = geofenceCircles;
       });
 
       _generateRealtimeMarkers();
 
-      _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(points),
-          padding: const EdgeInsets.all(50),
-        ),
-      );
+      if (points.length > 1) {
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: LatLngBounds.fromPoints(points),
+            padding: const EdgeInsets.all(50),
+          ),
+        );
+      }
 
       print("✅ ROUTE DIGAMBAR");
     } catch (e) {
@@ -665,15 +714,16 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
       final routes = data['data'];
 
-      final route = routes.firstWhere(
+      final result = routes.where(
         (r) => r['id'].toString() == routeId.toString(),
-        orElse: () => null,
       );
 
-      if (route == null) {
+      if (result.isEmpty) {
         print("❌ ROUTE TIDAK DITEMUKAN");
         return [];
       }
+
+      final route = result.first;
 
       final path = route['path'];
 
@@ -733,6 +783,29 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
     return distance <= radius;
   }
 
+  bool isBusOffRoute(double busLat, double busLng) {
+    if (activeRoutePoints.isEmpty) return false;
+
+    double minDistance = double.infinity;
+
+    for (int i = 0; i < activeRoutePoints.length; i += 5) {
+      final point = activeRoutePoints[i];
+
+      final d = Geolocator.distanceBetween(
+        busLat,
+        busLng,
+        point.latitude,
+        point.longitude,
+      );
+
+      if (d < minDistance) {
+        minDistance = d;
+      }
+    }
+
+    return minDistance > 300;
+  }
+
   Future<void> showNotification(String title, String body) async {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
@@ -746,27 +819,39 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
       android: androidDetails,
     );
 
-    await notificationsPlugin.show(0, title, body, details);
+    await notificationsPlugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      details,
+    );
   }
 
-  void checkCheckpoint(double lat, double lng) {
+  void checkCheckpoint(int busId, String busPlate, double lat, double lng) {
     for (var checkpoint in geofenceData) {
       final inside = isInsideGeofence(
         busLat: lat,
         busLng: lng,
-        checkpointLat: checkpoint['lat'],
-        checkpointLng: checkpoint['lng'],
-        radius: checkpoint['radius'],
+        checkpointLat: double.tryParse(checkpoint['lat'].toString()) ?? 0,
+        checkpointLng: double.tryParse(checkpoint['lng'].toString()) ?? 0,
+        radius: double.tryParse(checkpoint['radius'].toString()) ?? 1000,
       );
 
       final checkpointName = checkpoint['name'];
 
-      if (inside && !notifiedCheckpoints.contains(checkpointName)) {
-        notifiedCheckpoints.add(checkpointName);
+      final uniqueKey = "${busId}_$checkpointName";
 
-        print("✅ MASUK CHECKPOINT: $checkpointName");
+      if (inside) {
+        if (!activeCheckpoints.contains(uniqueKey)) {
+          activeCheckpoints.add(uniqueKey);
 
-        showNotification("Checkpoint", "Bus mendekati $checkpointName");
+          showNotification(
+            "Checkpoint",
+            "$busPlate memasuki area $checkpointName",
+          );
+        }
+      } else {
+        activeCheckpoints.remove(uniqueKey);
       }
     }
   }
@@ -859,28 +944,48 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                       onChanged: (val) async {
                         setState(() {
                           selectedBusId = val;
+
+                          _polylines = [];
+                          _checkpointMarkers = [];
+                          _geofenceCircles = [];
+
+                          activeRoutePoints.clear();
+                          geofenceData.clear();
+
+                          offRoute = false;
+
+                          distance = 0;
+                          duration = 0;
+
+                          perjalananStatus = "Hijau";
+                          statusColor = Colors.green;
                         });
 
-                        // SEMUA BUS
+                        // ===============================
+                        // KEMBALI KE MODE SEMUA BUS
+                        // ===============================
                         if (val == null) {
                           realtimeTimer?.cancel();
 
-                          setState(() {
-                            _polylines = [];
-                            _checkpointMarkers = [];
-                            _geofenceCircles = [];
-                          });
-
                           await _fetchBuses();
 
-                          _generateRealtimeMarkers();
+                          _startRealtimePolling();
 
                           return;
                         }
 
-                        final bus = _busData.firstWhere((b) => b['id'] == val);
+                        final bus = _busData
+                            .cast<Map<String, dynamic>?>()
+                            .firstWhere(
+                              (b) => b?['id'] == val,
+                              orElse: () => null,
+                            );
+
+                        if (bus == null) return;
 
                         await _drawRoute(bus);
+
+                        await _fetchSelectedBusRealtime();
 
                         _startSelectedBusTracking();
 
@@ -930,6 +1035,15 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
                       Row(
                         children: [
                           Icon(Icons.circle, color: statusColor, size: 10),
+
+                          Text(
+                            offRoute ? "Keluar Jalur" : "Dalam Jalur",
+                            style: TextStyle(
+                              color: offRoute ? Colors.red : Colors.green,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
 
                           const SizedBox(width: 4),
 
