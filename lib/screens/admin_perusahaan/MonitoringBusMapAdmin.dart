@@ -140,31 +140,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         // ================= UPDATE MARKER =================
         _generateRealtimeMarkers();
 
-        // ================= CHECKPOINT =================
-        for (var bus in _busData) {
-          final lat = double.tryParse(bus['latitude']?.toString() ?? "0") ?? 0;
-
-          final lng = double.tryParse(bus['longitude']?.toString() ?? "0") ?? 0;
-
-          if (lat == 0 || lng == 0) continue;
-
-          checkCheckpoint(bus['id'], bus['plat_nomor'], lat, lng);
-
-          calculateSpeed(bus['id'], lat, lng);
-
-          // ================= ETA =================
-          if (selectedBusId != null && selectedBusId == bus['id']) {
-            if (geofenceData.isNotEmpty) {
-              await calculateETA(
-                startLat: lat,
-                startLng: lng,
-                endLat: double.parse(geofenceData.last['lat'].toString()),
-                endLng: double.parse(geofenceData.last['lng'].toString()),
-              );
-            }
-          }
-        }
-
         print("✅ REALTIME UPDATED");
       } catch (e) {
         print("❌ POLLING ERROR: $e");
