@@ -107,7 +107,7 @@ void onStart(ServiceInstance service) async {
         try {
           final response = await http.put(
             Uri.parse(
-              "https://ebusapp-production-4fdd.up.railway.app/api/buses/update-location/$busId",
+              "https://ebusapp-production-d0d6.up.railway.app/api/buses/update-location/$busId",
             ),
 
             headers: {"Content-Type": "application/json"},

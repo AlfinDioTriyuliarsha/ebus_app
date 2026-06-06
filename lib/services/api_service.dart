@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // Ganti dengan domain Railway Anda
   static const String baseUrl =
-      "https://ebusapp-production-4fdd.up.railway.app";
+      "https://ebusapp-production-d0d6.up.railway.app";
 
   /// Header default
   static Map<String, String> get _headers => {
