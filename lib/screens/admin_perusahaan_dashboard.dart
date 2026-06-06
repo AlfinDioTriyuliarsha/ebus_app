@@ -29,17 +29,16 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
   int _selectedIndex = 0;
 
   final List<String> _menuTitles = [
-    "Manajemen Agent",
-    "Manajemen Armada Bus",
-    "Manajemen Rute dan Zona",
-    "Manajemen Jadwal", // Index 3
-    "Manajemen Driver",
-    "Monitoring Bus",
-    "Laporan Operasional",
-    "Pengaturan Akun",
+    "Agent Management",
+    "Fleet Management",
+    "Route Management",
+    "Schedules",
+    "Drivers",
+    "Bus Monitoring",
+    "Reports",
+    "Account Settings",
   ];
 
-  // Fungsi untuk mendapatkan halaman secara langsung berdasarkan index
   Widget _getSelectedPage() {
     switch (_selectedIndex) {
       case 0:
@@ -49,7 +48,7 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
       case 2:
         return ManajemenRutePage(companyId: widget.companyId);
       case 3:
-        return ManajemenJadwalPage(companyId: widget.companyId); // Case baru
+        return ManajemenJadwalPage(companyId: widget.companyId);
       case 4:
         return ManajemenDriverPage(companyId: widget.companyId);
       case 5:
@@ -76,85 +75,207 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF001F3F),
+      backgroundColor: const Color(
+        0xFFF4F6F9,
+      ), // Latar belakang canvas abu-abu terang bawaan web
       body: Row(
         children: [
-          // SIDEBAR
+          // ==================== SIDEBAR UTAMA ====================
           Container(
-            width: 250,
-            padding: const EdgeInsets.symmetric(vertical: 20),
+            width: 260,
+            color: const Color(
+              0xFF3F4D67,
+            ), // Warna Sidebar sesuai Gambar (Slate Blue-Grey)
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                  child: Text(
-                    "E - BUS",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                // Logo & Sub-header Aplikasi
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 30, 24, 20),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.directions_bus,
+                        color: Colors.blueAccent,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "E-Bus",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            "MISSION CONTROL",
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                _buildSidebarItem(0, Icons.people, "Manajemen Agent"),
-                _buildSidebarItem(1, Icons.directions_bus, "Manajemen Armada"),
-                _buildSidebarItem(2, Icons.map, "Manajemen Rute"),
+                const SizedBox(height: 10),
+
+                // Daftar Menu Navigasi Sidebar
+                _buildSidebarItem(
+                  0,
+                  Icons.supervised_user_circle_outlined,
+                  "Agent Management",
+                ),
+                _buildSidebarItem(
+                  1,
+                  Icons.directions_bus_outlined,
+                  "Fleet Management",
+                ),
+                _buildSidebarItem(
+                  2,
+                  Icons.alt_route_outlined,
+                  "Route Management",
+                ),
                 _buildSidebarItem(
                   3,
-                  Icons.schedule,
-                  "Manajemen Jadwal",
-                ), // Tambah ini
-                _buildSidebarItem(4, Icons.person_pin, "Manajemen Driver"),
-                _buildSidebarItem(5, Icons.location_on, "Monitoring Bus"),
-                _buildSidebarItem(6, Icons.bar_chart, "Laporan"),
-                _buildSidebarItem(7, Icons.settings, "Pengaturan Akun"),
+                  Icons.calendar_today_outlined,
+                  "Schedules",
+                ),
+                _buildSidebarItem(4, Icons.badge_outlined, "Drivers"),
+                _buildSidebarItem(
+                  5,
+                  Icons.analytics_outlined,
+                  "Bus Monitoring",
+                ),
+                _buildSidebarItem(6, Icons.assessment_outlined, "Reports"),
+
                 const Spacer(),
+
+                // Menu Pengaturan di Bagian Bawah
+                _buildSidebarItem(
+                  7,
+                  Icons.settings_outlined,
+                  "Account Settings",
+                ),
                 _buildSidebarItem(
                   -1,
-                  Icons.logout,
+                  Icons.logout_rounded,
                   "Keluar",
-                  color: Colors.redAccent,
+                  color: Colors.redAccent.withOpacity(0.9),
                 ),
+                const SizedBox(height: 15),
               ],
             ),
           ),
 
-          // MAIN CONTENT AREA
+          // ==================== MAIN CONTENT AREA ====================
           Expanded(
             child: Container(
-              margin: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E5EC),
-                borderRadius: BorderRadius.circular(30),
-              ),
+              color:
+                  Colors.white, // Background konten utama berwarna putih bersih
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header Dashboard
-                  Padding(
-                    padding: const EdgeInsets.all(30),
+                  // 1. TOP BAR / HEADER (Pencarian & Profil)
+                  Container(
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 30),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _menuTitles[_selectedIndex].toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1A237E),
+                        // Search Bar (Kolom Pencarian)
+                        Container(
+                          width: 350,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F6F8),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: "Search agents or locations...",
+                              hintStyle: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 14,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.grey.shade400,
+                                size: 20,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                              ),
+                            ),
                           ),
                         ),
+
+                        // Sisi Kanan: Notifikasi, Bantuan, & Informasi Akun
                         Row(
                           children: [
-                            Text(
-                              "Admin Perusahaan",
-                              style: TextStyle(color: Colors.grey[700]),
+                            IconButton(
+                              icon: Icon(
+                                Icons.notifications_none_outlined,
+                                color: Colors.grey.shade600,
+                              ),
+                              onPressed: () {},
                             ),
-                            const SizedBox(width: 10),
-                            const CircleAvatar(
-                              backgroundColor: Colors.grey,
-                              radius: 15,
+                            IconButton(
+                              icon: Icon(
+                                Icons.help_outline_rounded,
+                                color: Colors.grey.shade600,
+                              ),
+                              onPressed: () {},
+                            ),
+                            const SizedBox(width: 15),
+                            // Info Ringkas Akun
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Text(
+                                  "Dispatcher HQ",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                Text(
+                                  "Operation Lead",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            // Avatar Lingkaran Profil
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Colors.grey.shade300,
+                              backgroundImage: const NetworkImage(
+                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100', // Placeholder foto profil
+                              ),
                             ),
                           ],
                         ),
@@ -162,15 +283,17 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
                     ),
                   ),
 
-                  // AREA KONTEN LANGSUNG (Tanpa Tombol)
+                  // 2. KANVAS ISI HALAMAN UTAMA (Dinamis sesuai Menu)
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 30),
+                    child: Container(
+                      width: double.infinity,
+                      color: const Color(
+                        0xFFF8FAFC,
+                      ), // Warna abu-abu pudar di belakang kartu stats/tabel
                       child:
-                          _getSelectedPage(), // Memanggil halaman secara dinamis
+                          _getSelectedPage(), // Inject halaman asli Anda di sini secara aman
                     ),
                   ),
-                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -180,31 +303,63 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
     );
   }
 
+  // Widget Builder Item Navigasi dengan Efek Desain Custom
   Widget _buildSidebarItem(
     int index,
     IconData icon,
     String title, {
-    Color color = Colors.white,
+    Color color = const Color(
+      0xFF9AAEC4,
+    ), // Warna default font pasif (tidak aktif)
   }) {
     bool isSelected = _selectedIndex == index;
-    return ListTile(
-      selected: isSelected,
-      selectedTileColor: Colors.blue.withOpacity(0.1),
-      leading: Icon(icon, color: isSelected ? Colors.blue : color),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? Colors.blue : color,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          // Efek border putus-putus halus/aktif saat item dipilih layaknya gambar
+          border: isSelected
+              ? Border.all(
+                  color: Colors.blueAccent.withOpacity(0.5),
+                  style: BorderStyle.solid,
+                  width: 1.5,
+                )
+              : null,
+          color: isSelected
+              ? Colors.white.withOpacity(0.06)
+              : Colors.transparent,
+        ),
+        child: ListTile(
+          dense: true,
+          horizontalTitleGap: 10,
+          leading: Icon(
+            icon,
+            color: isSelected
+                ? const Color(0xFF3B82F6)
+                : (index == -1 ? color : const Color(0xFF9AAEC4)),
+            size: 20,
+          ),
+          title: Text(
+            title,
+            style: TextStyle(
+              color: isSelected
+                  ? Colors.white
+                  : (index == -1 ? color : const Color(0xFFBACBDC)),
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              fontSize: 13,
+            ),
+          ),
+          onTap: () {
+            if (index == -1) {
+              Navigator.pop(context);
+            } else {
+              _onItemTapped(index);
+            }
+          },
         ),
       ),
-      onTap: () {
-        if (index == -1) {
-          Navigator.pop(context);
-        } else {
-          _onItemTapped(index);
-        }
-      },
     );
   }
 }
