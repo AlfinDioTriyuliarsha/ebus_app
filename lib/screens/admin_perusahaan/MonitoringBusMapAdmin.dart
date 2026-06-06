@@ -54,7 +54,6 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
     initNotifications();
 
-    _startRealtimePolling();
     _fetchBuses();
   }
 
@@ -159,6 +158,62 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
         print("❌ POLLING ERROR: $e");
       }
     });
+  }
+
+  void _startSelectedBusTracking() {
+    realtimeTimer?.cancel();
+
+    realtimeTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      await _fetchSelectedBusRealtime();
+    });
+  }
+
+  Future<void> _fetchSelectedBusRealtime() async {
+    if (selectedBusId == null) return;
+
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${ApiService.baseUrl}/api/buses?company_id=${widget.companyId}",
+        ),
+      );
+
+      final data = jsonDecode(res.body)['data'];
+
+      final bus = data.firstWhere(
+        (b) => b['id'] == selectedBusId,
+        orElse: () => null,
+      );
+
+      if (bus == null) return;
+
+      setState(() {
+        _busData = [Map<String, dynamic>.from(bus)];
+      });
+
+      final lat = double.tryParse(bus['latitude'].toString()) ?? 0;
+
+      final lng = double.tryParse(bus['longitude'].toString()) ?? 0;
+
+      calculateSpeed(bus['id'], lat, lng);
+
+      checkCheckpoint(lat, lng);
+
+      if (geofenceData.isNotEmpty) {
+        await calculateETA(
+          startLat: lat,
+          startLng: lng,
+          endLat: double.parse(geofenceData.last['lat'].toString()),
+          endLng: double.parse(geofenceData.last['lng'].toString()),
+        );
+      }
+
+      _generateRealtimeMarkers();
+
+      print("✅ TRACKING BUS ${bus['plat_nomor']}");
+    } catch (e) {
+      print("REALTIME ERROR: $e");
+    }
   }
 
   @override
@@ -808,19 +863,26 @@ class _MonitoringBusMapAdminState extends State<MonitoringBusMapAdmin>
 
                         // SEMUA BUS
                         if (val == null) {
+                          realtimeTimer?.cancel();
+
                           setState(() {
                             _polylines = [];
                             _checkpointMarkers = [];
                             _geofenceCircles = [];
                           });
 
+                          await _fetchBuses();
+
                           _generateRealtimeMarkers();
+
                           return;
                         }
 
                         final bus = _busData.firstWhere((b) => b['id'] == val);
 
                         await _drawRoute(bus);
+
+                        _startSelectedBusTracking();
 
                         final lat =
                             double.tryParse(bus['latitude'].toString()) ?? 0;
