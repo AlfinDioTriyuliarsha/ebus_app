@@ -75,31 +75,60 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFF4F6F9,
-      ), // Latar belakang canvas abu-abu terang bawaan web
+      // Background utama menggunakan warna abu-abu pastel yang sangat lembut & teduh
+      backgroundColor: const Color(0xFFF3F5F9),
       body: Row(
         children: [
-          // ==================== SIDEBAR UTAMA ====================
+          // ==================== FLOATING SIDEBAR (KEKINIAN) ====================
           Container(
-            width: 260,
-            color: const Color(
-              0xFF3F4D67,
-            ), // Warna Sidebar sesuai Gambar (Slate Blue-Grey)
+            width: 270,
+            margin: const EdgeInsets.all(
+              20,
+            ), // Membuat sidebar melayang terpisah dari tepi layar
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1E293B), // Dark Slate Modern
+                  Color(0xFF0F172A),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(
+                24,
+              ), // Sudut melengkung halus khas UI modern
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F172A).withOpacity(0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Logo & Sub-header Aplikasi
+                // Brand Header Section
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 30, 24, 20),
+                  padding: const EdgeInsets.all(24),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.directions_bus,
-                        color: Colors.blueAccent,
-                        size: 28,
+                      // Ikon Logo Gradasi Bulat
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.directions_bus_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -108,17 +137,17 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               letterSpacing: 0.5,
                             ),
                           ),
                           Text(
                             "MISSION CONTROL",
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 1.0,
+                              color: Colors.blueAccent.shade100,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
                             ),
                           ),
                         ],
@@ -126,156 +155,215 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
 
-                // Daftar Menu Navigasi Sidebar
-                _buildSidebarItem(
-                  0,
-                  Icons.supervised_user_circle_outlined,
-                  "Agent Management",
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: Text(
+                    "MAIN MENU",
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
                 ),
-                _buildSidebarItem(
-                  1,
-                  Icons.directions_bus_outlined,
-                  "Fleet Management",
-                ),
-                _buildSidebarItem(
-                  2,
-                  Icons.alt_route_outlined,
-                  "Route Management",
-                ),
-                _buildSidebarItem(
-                  3,
-                  Icons.calendar_today_outlined,
-                  "Schedules",
-                ),
-                _buildSidebarItem(4, Icons.badge_outlined, "Drivers"),
-                _buildSidebarItem(
-                  5,
-                  Icons.analytics_outlined,
-                  "Bus Monitoring",
-                ),
-                _buildSidebarItem(6, Icons.assessment_outlined, "Reports"),
 
-                const Spacer(),
+                // List Menu Navigasi
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      _buildModernSidebarItem(
+                        0,
+                        Icons.grid_view_rounded,
+                        "Agent Management",
+                      ),
+                      _buildModernSidebarItem(
+                        1,
+                        Icons.local_shipping_rounded,
+                        "Fleet Management",
+                      ),
+                      _buildModernSidebarItem(
+                        2,
+                        Icons.alt_route_rounded,
+                        "Route Management",
+                      ),
+                      _buildModernSidebarItem(
+                        3,
+                        Icons.edit_calendar_rounded,
+                        "Schedules",
+                      ),
+                      _buildModernSidebarItem(
+                        4,
+                        Icons.assignment_ind_rounded,
+                        "Drivers",
+                      ),
+                      _buildModernSidebarItem(
+                        5,
+                        Icons.map_rounded,
+                        "Bus Monitoring",
+                      ),
+                      _buildModernSidebarItem(
+                        6,
+                        Icons.analytics_rounded,
+                        "Reports",
+                      ),
+                    ],
+                  ),
+                ),
 
-                // Menu Pengaturan di Bagian Bawah
-                _buildSidebarItem(
-                  7,
-                  Icons.settings_outlined,
-                  "Account Settings",
+                // Bagian Bawah Sidebar (Settings & Logout)
+                const Divider(
+                  color: Color(0xFF334155),
+                  height: 1,
+                  indent: 20,
+                  endIndent: 20,
                 ),
-                _buildSidebarItem(
-                  -1,
-                  Icons.logout_rounded,
-                  "Keluar",
-                  color: Colors.redAccent.withOpacity(0.9),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    children: [
+                      _buildModernSidebarItem(
+                        7,
+                        Icons.settings_suggest_rounded,
+                        "Account Settings",
+                      ),
+                      _buildModernSidebarItem(
+                        -1,
+                        Icons.power_settings_new_rounded,
+                        "Keluar",
+                        isLogout: true,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 15),
               ],
             ),
           ),
 
           // ==================== MAIN CONTENT AREA ====================
           Expanded(
-            child: Container(
-              color:
-                  Colors.white, // Background konten utama berwarna putih bersih
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 20, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. TOP BAR / HEADER (Pencarian & Profil)
+                  // 1. TOP BAR / HEADER (Clean & Minimalis)
                   Container(
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey.shade200,
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    height: 75,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Search Bar (Kolom Pencarian)
+                        // Glassmorphic Search Bar
                         Container(
-                          width: 350,
-                          height: 40,
+                          width: 380,
+                          height: 46,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF5F6F8),
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF0F172A,
+                                ).withOpacity(0.04),
+                                blurRadius: 20,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: TextField(
                             decoration: InputDecoration(
-                              hintText: "Search agents or locations...",
-                              hintStyle: TextStyle(
-                                color: Colors.grey.shade400,
-                                fontSize: 14,
+                              hintText: "Quick search everything...",
+                              hintStyle: const TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 13,
                               ),
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color: Colors.grey.shade400,
+                              prefixIcon: const Icon(
+                                Icons.search_rounded,
+                                color: Color(0xFF94A3B8),
                                 size: 20,
                               ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
-                                vertical: 10,
+                                vertical: 13,
                               ),
                             ),
                           ),
                         ),
 
-                        // Sisi Kanan: Notifikasi, Bantuan, & Informasi Akun
+                        // Sisi Kanan: Action Buttons & Profil
                         Row(
                           children: [
-                            IconButton(
-                              icon: Icon(
-                                Icons.notifications_none_outlined,
-                                color: Colors.grey.shade600,
-                              ),
-                              onPressed: () {},
+                            // Tombol Notifikasi Bergaya Bubble
+                            _buildHeaderIconButton(
+                              Icons.notifications_none_rounded,
+                              hasBadge: true,
                             ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.help_outline_rounded,
-                                color: Colors.grey.shade600,
-                              ),
-                              onPressed: () {},
+                            const SizedBox(width: 12),
+                            _buildHeaderIconButton(Icons.help_outline_rounded),
+                            const SizedBox(width: 20),
+
+                            // Pembatas Vertikal Halus
+                            Container(
+                              width: 1,
+                              height: 30,
+                              color: const Color(0xFFCBD5E1),
                             ),
-                            const SizedBox(width: 15),
-                            // Info Ringkas Akun
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            const SizedBox(width: 20),
+
+                            // Profil Pengguna Kompak
+                            Row(
                               children: [
-                                const Text(
-                                  "Dispatcher HQ",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Colors.black87,
-                                  ),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    const Text(
+                                      "Dispatcher HQ",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: Color(0xFF1E293B),
+                                      ),
+                                    ),
+                                    Text(
+                                      "Operation Lead",
+                                      style: TextStyle(
+                                        color: const Color(0xFF64748B),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  "Operation Lead",
-                                  style: TextStyle(
-                                    color: Colors.grey.shade500,
-                                    fontSize: 11,
+                                const SizedBox(width: 14),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const CircleAvatar(
+                                    radius: 20,
+                                    backgroundImage: NetworkImage(
+                                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100',
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                            const SizedBox(width: 12),
-                            // Avatar Lingkaran Profil
-                            CircleAvatar(
-                              radius: 18,
-                              backgroundColor: Colors.grey.shade300,
-                              backgroundImage: const NetworkImage(
-                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100', // Placeholder foto profil
-                              ),
                             ),
                           ],
                         ),
@@ -283,15 +371,17 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
                     ),
                   ),
 
-                  // 2. KANVAS ISI HALAMAN UTAMA (Dinamis sesuai Menu)
+                  const SizedBox(height: 10),
+
+                  // 2. MAIN CONTAINER AREA FOR PAGES
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      color: const Color(
-                        0xFFF8FAFC,
-                      ), // Warna abu-abu pudar di belakang kartu stats/tabel
-                      child:
-                          _getSelectedPage(), // Inject halaman asli Anda di sini secara aman
+                      decoration: BoxDecoration(
+                        color: Colors
+                            .transparent, // Dibiarkan transparan agar halaman anak bisa berkreasi penuh
+                      ),
+                      child: _getSelectedPage(), // Isi konten asli Anda
                     ),
                   ),
                 ],
@@ -303,61 +393,117 @@ class _AdminPerusahaanDashboardState extends State<AdminPerusahaanDashboard> {
     );
   }
 
-  // Widget Builder Item Navigasi dengan Efek Desain Custom
-  Widget _buildSidebarItem(
+  // Helper Builder untuk Ikon Topbar yang Estetik
+  Widget _buildHeaderIconButton(IconData icon, {bool hasBadge = false}) {
+    return Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: IconButton(
+            icon: Icon(icon, color: const Color(0xFF64748B), size: 22),
+            onPressed: () {},
+          ),
+        ),
+        if (hasBadge)
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // Helper Builder Menu Sidebar yang Interaktif & Modern
+  Widget _buildModernSidebarItem(
     int index,
     IconData icon,
     String title, {
-    Color color = const Color(
-      0xFF9AAEC4,
-    ), // Warna default font pasif (tidak aktif)
+    bool isLogout = false,
   }) {
     bool isSelected = _selectedIndex == index;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          // Efek border putus-putus halus/aktif saat item dipilih layaknya gambar
-          border: isSelected
-              ? Border.all(
-                  color: Colors.blueAccent.withOpacity(0.5),
-                  style: BorderStyle.solid,
-                  width: 1.5,
-                )
-              : null,
-          color: isSelected
-              ? Colors.white.withOpacity(0.06)
-              : Colors.transparent,
-        ),
-        child: ListTile(
-          dense: true,
-          horizontalTitleGap: 10,
-          leading: Icon(
-            icon,
-            color: isSelected
-                ? const Color(0xFF3B82F6)
-                : (index == -1 ? color : const Color(0xFF9AAEC4)),
-            size: 20,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        onTap: () {
+          if (index == -1) {
+            Navigator.pop(context);
+          } else {
+            _onItemTapped(index);
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            // Jika aktif, berikan gradasi biru mewah, jika tidak, biarkan transparan
+            gradient: isSelected
+                ? const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                  )
+                : null,
+            color: !isSelected && isLogout
+                ? Colors.redAccent.withOpacity(0.06)
+                : Colors.transparent,
           ),
-          title: Text(
-            title,
-            style: TextStyle(
-              color: isSelected
-                  ? Colors.white
-                  : (index == -1 ? color : const Color(0xFFBACBDC)),
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              fontSize: 13,
-            ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isSelected
+                    ? Colors.white
+                    : (isLogout
+                          ? Colors.redAccent.shade200
+                          : const Color(0xFF94A3B8)),
+                size: 20,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: isSelected
+                        ? Colors.white
+                        : (isLogout
+                              ? Colors.redAccent.shade200
+                              : const Color(0xFFCBD5E1)),
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+              // Indikator Kapsul Aktif di sebelah kanan menu
+              if (isSelected)
+                Container(
+                  width: 4,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+            ],
           ),
-          onTap: () {
-            if (index == -1) {
-              Navigator.pop(context);
-            } else {
-              _onItemTapped(index);
-            }
-          },
         ),
       ),
     );
