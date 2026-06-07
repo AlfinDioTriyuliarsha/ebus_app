@@ -256,7 +256,7 @@ class _ManajemenAgentPageState extends State<ManajemenAgentPage> {
         const Padding(
           padding: EdgeInsets.only(left: 10, bottom: 20),
           child: Text(
-            "MANAJEMEN",
+            "MANAJEMEN TAEK",
             style: TextStyle(
               color: Color(0xFF004D74),
               fontWeight: FontWeight.bold,
