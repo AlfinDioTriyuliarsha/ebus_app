@@ -31,6 +31,7 @@ app.use(helmet({
 app.use(cors({
     origin: [
         "https://ebusapp.vercel.app",
+        "https://ebusapp.vercel.app/",
         "http://localhost:3000",
         "http://localhost:5173"
     ],
