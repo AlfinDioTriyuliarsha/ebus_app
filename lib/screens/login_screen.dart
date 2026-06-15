@@ -47,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _googleSignIn.signInSilently();
     }
 
-    // requestNotificationPermission();
+    requestNotificationPermission();
   }
 
   // ================= RESPONSIVE BUILD =================
@@ -407,7 +407,6 @@ class _LoginScreenState extends State<LoginScreen> {
         if (result['success'] == true) {
           busId = result['data']['bus_id'] ?? 0;
         }
-
       } catch (e) {
         print("ERROR DRIVER FLOW: $e");
       }

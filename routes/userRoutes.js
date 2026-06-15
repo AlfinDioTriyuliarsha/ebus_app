@@ -171,16 +171,25 @@ router.delete("/:id", async (req, res) => {
 // GET USER BY ID
 // =====================================================
 router.get("/:id", async (req, res) => {
+  
+  console.log("USER ID PARAM:", req.params.id);
+
+  const userId = Number(req.params.id);
+
+   if (isNaN(userId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid user ID"
+    });
+  }
+
   try {
+
     const result = await pool.query(
       "SELECT id, email, role, profile_image FROM public.users WHERE id = $1",
-      [Number(req.params.id)]
+      [userId]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "User tidak ditemukan" });
-    }
-
+    
     const user = result.rows[0];
     // Pastikan mengembalikan success: true agar Flutter tidak masuk ke blok Catch/Error
     res.json({ 
