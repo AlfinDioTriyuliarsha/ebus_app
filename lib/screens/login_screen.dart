@@ -47,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _googleSignIn.signInSilently();
     }
 
-    requestNotificationPermission();
+    // requestNotificationPermission();
   }
 
   // ================= RESPONSIVE BUILD =================

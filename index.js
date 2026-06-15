@@ -32,6 +32,7 @@ app.use(cors({
     origin: [
         "https://ebusapp.vercel.app",
         "http://localhost:3000",
+        "http://localhost:53050",
         "http://localhost:5173"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
