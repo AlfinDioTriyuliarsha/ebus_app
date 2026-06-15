@@ -20,7 +20,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 // ================= GLOBAL STREAM =================
@@ -153,7 +153,13 @@ void main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
-  // await Firebase.initializeApp();
+  try {
+    print("STEP 1");
+    await Firebase.initializeApp();
+    print("STEP 2");
+  } catch (e) {
+    print("FIREBASE ERROR = $e");
+  }
 
   runApp(const EBusApp());
 }

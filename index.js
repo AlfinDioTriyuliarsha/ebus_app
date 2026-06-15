@@ -30,13 +30,34 @@ app.use(helmet({
 
 app.use(cors({
     origin: [
-        "https://ebusapp.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:53050",
-        "http://localhost:5173"
+        "https://ebus-app-new1.vercel.app/",
     ],
+    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+    allowedHeaders: ["Content-Type","Authorization"]
+}));
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Jika request tidak punya origin (seperti Postman atau server-to-server), izinkan
+        if (!origin) return callback(null, true);
+        
+        // Cek apakah origin cocok dengan string biasa atau Regex di dalam allowedOrigins
+        const isAllowed = allowedOrigins.some((allowed) => {
+            if (allowed instanceof RegExp) {
+                return allowed.test(origin);
+            }
+            return allowed === origin;
+        });
+
+        if (isAllowed) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true // Tambahkan ini jika di kemudian hari Anda butuh cookie / session
 }));
 
 // Cukup panggil express.json satu kali saja dengan limit yang wajar
