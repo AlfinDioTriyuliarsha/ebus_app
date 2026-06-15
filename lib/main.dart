@@ -153,14 +153,10 @@ void main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    print("STEP 1");
+  if (!kIsWeb) {
     await Firebase.initializeApp();
-    print("STEP 2");
-  } catch (e) {
-    print("FIREBASE ERROR = $e");
   }
-
+  
   runApp(const EBusApp());
 }
 
