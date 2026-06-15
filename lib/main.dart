@@ -153,9 +153,7 @@ void main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp();
-  }
+  // await Firebase.initializeApp();
 
   runApp(const EBusApp());
 }
